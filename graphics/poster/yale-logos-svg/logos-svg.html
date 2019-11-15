@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>Yale logos using SVG images</title>
+<style type="text/css" title="text/css">
+
+/* these styles for demo only */
+body {
+font-family: verdana;
+background-color: #fff;
+margin: 50px;
+}
+
+p { margin-top: 2em; }
+.default,
+.reversed { display: inline-block; outline: 1px dotted #000; }
+.default { background-color: #f9f9f9; }
+.reversed { background-color: #00356b; }
+.message {
+line-height: 1.7em;
+background-color: #ffc;
+max-width: 50%;
+padding: 2em;
+outline: 1px solid green;
+}
+/* for demo only */
+
+/* These classnames are suggestions only, 
+   you can change these to suite your project. 
+   The class .no-svg is applied by Modernizr for IE, 
+   you can use this on the body tag to demonstrate.
+----------------------------------------------------- */
+
+/* Yale Signature, use at the top-left on web pages */
+.yale-signature {
+display: block;
+width: 150px;
+height: 60px;
+background: url(images/yale-signature-sprite.svg) no-repeat 0 0;
+background-size: 100%;
+}
+
+.no-svg .yale-signature {
+background-image: url(images/yale-signature-sprite.png);
+}
+
+.yale-signature-reversed,
+.no-svg .yale-signature-reversed {
+background-position: 0 100%;
+}
+
+/* Yale Lobo, use at the bottom-left on web pages */
+.yale-logo {
+display: block;
+width: 65px;
+height: 36px;
+background: url(images/yale-logo-sprite.svg) no-repeat 0 0;
+background-size: 100%;
+}
+
+.yale-logo-reversed,
+.no-svg .yale-logo-reversed {
+background-position: 0 100%;
+}
+
+.no-svg .yale-logo {
+background-image: url(images/yale-logo-sprite.png);
+}
+
+/* Hide Text, Kellum IR */
+.yale-signature,
+.yale-logo {
+text-indent: 100%;
+white-space: nowrap;
+overflow: hidden;
+}
+
+</style>
+</head>
+<body class="">
+
+<h2>SVG Images with PNG fallback for IE 8</h2>
+
+<div class="message">
+This demo has SVG logos with PNG fallbacks for older browsers. SVG is
+resolution independent so additional graphics for Retina displays aren't
+neccessary. The logos shown make use of sprites so that both Yale Blue
+and white reversed images are saved together. Additional PNG graphics
+are also included for completeness. See additional notes in the markup
+of this demo page. 
+</div>
+
+<p>Yale Signature, use at the top-left on web pages</p>
+<div class="default"><a href="http://www.yale.edu" class="yale-signature">Yale University</a></div>
+<div class="reversed"><a href="http://www.yale.edu" class="yale-signature yale-signature-reversed">Yale University</a></div>
+
+<p>Yale Logo, use at the bottom-left on web pages</p>
+<div class="default"><a href="http://www.yale.edu" class="yale-logo">Yale University</a></div>
+<div class="reversed"><a href="http://www.yale.edu" class="yale-logo yale-logo-reversed">Yale University</a></div>
+
+
+</body>
+</html>

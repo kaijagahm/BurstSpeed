@@ -1,0 +1,15 @@
+# Libraries to load
+library(matrixStats)
+library(tidyverse)
+library(bootstrap)
+library(pracma)
+library(stringr)
+library(trajr)
+library(data.table)
+library(lubridate)
+library(smooth)
+library(zoo)
+library(magrittr)
+library(DAAG)
+library(viridis)
+

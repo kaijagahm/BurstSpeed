@@ -1,0 +1,90 @@
+---
+title: "Step 1: Process Coordinates"
+author: "Kaija Gahm"
+date: "10/4/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Setup
+## Load libraries
+```{r, echo = FALSE}
+source("libraries.R")
+source("tally_by_group.R")
+source("process_coordinates_funs.R")
+```
+
+# Coordinate data processing
+## Load data
+```{r}
+files <- list.files(path = "coordinates", full.names = T) # list files
+files <- files[!grepl('error', files, ignore.case = T)] # ignore error files
+files <- files[!grepl('test', files, ignore.case = T)] #ignore the "test" file
+coords <- lapply(files, read.table, sep = ",") # read in files
+```
+
+## Name, number, sort
+```{r}
+# Get tadpole names
+tadids <- str_extract(files, "(?<=coordinates_).*(?=\\.txt)")
+tadids <- gsub("_edit", "", tadids)
+names(coords) <- tadids # name by tadpole id
+
+# Name and number coordinates; change NaN's to NA's.
+coords <- lapply(coords, name_and_number)
+coords <- lapply(coords, nantona)
+
+# Sort in alphabetical order, for consistency
+coords <- coords[sort(names(coords))]
+```
+
+## Video info
+```{r}
+# Make a data frame of video info
+vidinfo <- data.frame(
+  fullname = tadids,
+  pond = str_extract(tadids, "^[[:alnum:]]{2,3}"),
+  clutch = str_extract(tadids, "(?<=^[[:alnum:]]{2,3}_)[0-9]{2}(?=_)"),
+  indiv = NA,
+  treatment = str_extract(tadids, "Low|High|W"),
+  date = str_extract(tadids, "2019[0-9]{4}"),
+  year = 2019,
+  month = str_extract(tadids, "(?<=2019)[0-9]{2}"),
+  day = str_extract(tadids, "(?<=2019[0-9]{2})[0-9]{2}"),
+  camera = str_extract(tadids, "[0-9]$"),
+  trynum = str_extract(tadids, "(?<=[0-9]{2}_)[0-9](?=_2019)"),
+  stringsAsFactors = FALSE
+)
+
+vidinfo$treatment[vidinfo$treatment == "W"] <- "Wild" # change "W" to "Wild"
+
+# Change column types
+tofactors <- c("pond", "clutch", "treatment", "camera")
+tonumerics <- c("date", "month", "day", "trynum")
+
+vidinfo <- vidinfo %>% mutate_at(.vars = tofactors, funs(factor)) %>%
+  mutate_at(.vars = tonumerics, funs(as.numeric))
+
+# Fill in the individuals
+for(i in 1:nrow(vidinfo)){
+  if(vidinfo$treatment[i] == "Wild"){
+    vidinfo$indiv[i] <- str_extract(vidinfo$fullname[i], "(?<=W_)[0-9]{2}") # if wild, find the number
+  }
+  else{
+    vidinfo$indiv[i] <- str_extract(vidinfo$fullname[i], "[[:upper:]](?=_Low|_High)") # if not wild, find the letter
+  }
+}
+
+# Sanity check
+sample_n(vidinfo, 15)
+```
+
+# Output
+```{r}
+save(coords, file = "coords.Rda")
+save(vidinfo, file = "vidinfo.Rda")
+```
+

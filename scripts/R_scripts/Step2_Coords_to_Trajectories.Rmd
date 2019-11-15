@@ -1,0 +1,94 @@
+---
+title: "Step 2: Coords to Trajectories"
+author: "Kaija Gahm"
+date: "10/4/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Setup
+## Load libraries
+```{r, echo = FALSE}
+source("libraries.R")
+source("tally_by_group.R")
+source("process_coordinates_funs.R")
+```
+
+## Load data
+```{r}
+load("coords.Rda")
+load("vidinfo.Rda")
+```
+
+# Spatial scaling
+## Load scale factor data
+```{r}
+scaling <- read.csv("burst_speed_scaling.csv", as.is = T)
+```
+
+## Define ratios for the non-adjusted videos
+```{r}
+mains <- scaling %>% filter(preset == "BurstSpeed_adjustments")
+if(length(unique(mains$ratio)) == 1){
+  main_width_px <- unique(mains$width)[1] # width in pixels
+  main_height_px <- unique(mains$height)[1] # height in pixels
+  main_width_m <- unique(mains$tray_width)[1]/100 # width in meters
+  main_height_m <- unique(mains$tray_height)[1]/100 # height in meters
+  x_main <- main_width_m/main_width_px
+  y_main <- main_height_m/main_height_px
+  print("Got dimensions for mains")
+}else{
+  print("MORE THAN ONE RATIO IN THE MAINS")
+}
+```
+
+## Define ratios for the adjusted videos
+```{r}
+alts <- scaling %>% filter(preset != "BurstSpeed_adjustments")
+if(length(unique(alts$ratio)) == 1){
+  alt_width_px <- unique(alts$width)[1] # width in pixels
+  alt_height_px <- unique(alts$height)[1] # height in pixels
+  alt_width_m <- unique(alts$tray_width)[1]/100 # width in meters
+  alt_height_m <- unique(alts$tray_height)[1]/100 # height in meters
+  x_alt <- alt_width_m/alt_width_px
+  y_alt <- alt_height_m/alt_height_px
+  print("Got dimensions for alts")
+}else{
+  print("MORE THAN ONE RATIO IN THE ALTS")
+}
+```
+
+## Prepare to scale coordinates
+```{r}
+# Separate coordinates by whether their scaling is main or alternate
+alts_dates <- substr(alts$preset, 1, 8) # get dates for alternate scaling videos
+alternates <- vidinfo$fullname[vidinfo$date %in% alts_dates]
+regulars <- vidinfo$fullname[!vidinfo$date %in% alts_dates] 
+
+# Split `coords` by whether each video needs alternate scaling or not.
+alternates_coords <- coords[names(coords) %in% alternates]
+regular_coords <- coords[names(coords) %in% regulars]
+```
+
+## Scale coordinates
+```{r}
+alternates_trajs <- lapply(alternates_coords, trajMakeScale, x_alt, y_alt) # make and scale trajectories
+regular_trajs <- lapply(regular_coords, trajMakeScale, x_main, y_main) # make and scale trajectories
+```
+
+## Concatenate scaled trajectories
+```{r}
+# Merge the regulars and the alternates back together
+alltrajs <- c(alternates_trajs, regular_trajs) # this just binds them in the order specified
+  # Restore alphabetical order
+  alltrajs <- alltrajs[sort(names(alltrajs))] # all trajectories
+```
+
+## Output
+```{r}
+save(alltrajs, file = "alltrajs.Rda")
+```
+

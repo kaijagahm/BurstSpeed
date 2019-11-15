@@ -1,0 +1,302 @@
+---
+title: 'Step 4: Find Burst Beginnings'
+author: "Kaija Gahm"
+date: "10/4/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Setup
+## Load libraries
+```{r, echo = FALSE}
+source("libraries.R")
+source("tally_by_group.R")
+source("process_coordinates_funs.R")
+```
+
+## Load data
+```{r}
+load("speedsDF.Rda")
+```
+
+# Pixels and angles
+## Standardize angles
+```{r}
+speedsDF <- speedsDF %>% group_by(fullname, trial) %>%
+  mutate(anglet = angleTransform(angle))
+```
+
+## Angle moving averages
+```{r}
+speedsDF <- speedsDF %>% group_by(fullname, trial) %>%
+  mutate(atma5 = rollapplyr(anglet, 5, mean, fill = NA))
+```
+
+## Pixel moving averages
+```{r}
+speedsDF <- speedsDF %>% group_by(fullname, trial) %>%
+  mutate(pxma5 = rollapplyr(px, 5, mean, fill = NA))
+```
+
+# Training
+## Load training data
+```{r}
+trueframes <- read.csv("getframenums.csv")
+trueframes <- trueframes[,c(1, 5)]
+names(trueframes) <- c("fullname", "frame")
+trueframes$fullname <- gsub("_edit|.avi", "", trueframes$fullname)
+trueframes$trial <- 1 # all the testing data was using trial 1, because those were the easiest trials to do by hand, and because we have no expectation that different trials should behave differently.
+head(trueframes)
+```
+
+## Beginnings (three methods)
+```{r}
+trueframes <- trueframes[trueframes$fullname %in% speedsDF$fullname,]
+for(i in 1:nrow(trueframes)){
+    df <- speedsDF %>% filter(fullname == trueframes$fullname[i], trial == "1") # pick out the video and trial
+    trueframes$beg_sp[i] <- findBeginningSpeed(df, "speedma5") # find beginning using speed
+    trueframes$beg_ag[i] <- findBeginningAngle(df, "atma5") # find beginning using angle
+    trueframes$beg_px[i] <- findBeginningPx(df, "pxma5") # find beginning using pixels
+}
+```
+
+## Residuals (three methods)
+```{r}
+trueframes$spdiff <- trueframes$beg_sp - trueframes$frame # speed residual
+trueframes$agdiff <- trueframes$beg_ag - trueframes$frame # angle residual
+trueframes$pxdiff <- trueframes$beg_px - trueframes$frame # pixel residual
+```
+
+## Z-scores (three methods)
+```{r}
+# Calculate z-scores for the differences. I still don't quite get this.
+trueframes$spz <- (trueframes$spdiff - mean(trueframes$spdiff))/std(trueframes$spdiff)
+trueframes$agz <- (trueframes$agdiff - mean(trueframes$agdiff))/std(trueframes$agdiff)
+trueframes$pxz <- (trueframes$pxdiff - mean(trueframes$pxdiff))/std(trueframes$pxdiff)
+
+# Visualize z-scores for each method
+ggplot(trueframes, aes(x = fullname))+
+  geom_point(aes(y = spz), col = "blue")+
+  geom_point(aes(y = agz), col = "red", alpha = 0.9)+
+  geom_point(aes(y = pxz), col = "green", alpha = 0.7) +
+  ylab("Z-score")
+```
+
+## Individual models (three methods)
+```{r}
+# Make individual models for each method
+spm <- lm(frame~beg_sp, data = trueframes)
+pxm <- lm(frame~beg_px, data = trueframes)
+agm <- lm(frame~beg_ag, data = trueframes)
+# View the model results
+summary(spm)
+summary(pxm)
+summary(agm)
+```
+
+## Combined models
+```{r}
+allm <- lm(frame~beg_sp+beg_ag+beg_px, data = trueframes)
+summary(allm)
+# notice that the sp predictor isn't significant; what if we remove it?
+```
+
+```{r}
+agpxm <- lm(frame~beg_ag+beg_px, data = trueframes)
+summary(agpxm)
+plot(fitted(agpxm)~trueframes$frame)
+trueframes$fitted <- fitted(agpxm)
+trueframes$resid <- trueframes$fitted-trueframes$frame
+# This model does a good job of predicting the frame, assuming we will have removed outliers first. 
+```
+
+# How will we separate "by hand" trials
+## Variance in estimates
+```{r}
+trueframes$estimates_var <- rowVars(as.matrix(trueframes[,c("beg_sp", "beg_ag", "beg_px")]), na.rm = T)
+```
+
+## Find true problems
+### Using combined model
+```{r}
+trueframes$problem <- ifelse(abs(trueframes$resid) > 3, T, F)
+table(trueframes$problem)
+# Yikes, that's bad.
+```
+
+### Using angles only
+```{r}
+trueframes$problem <- ifelse(abs(trueframes$agdiff) > 3, T, F) # For testing purposes, identify the ones in this dataset that are really wrong, based on angle
+table(trueframes$problem)
+# That's better: leave it like this.
+```
+
+## Test variance thresholds
+### Thresholds
+```{r}
+# Make a data frame of thresholds to test
+threshes <- data.frame(
+  thresh = seq(1, 30, by = 0.1),
+  fnr = NA,
+  fpr = NA,
+  prop_byhand = NA,
+  total_fn_prop = NA
+)
+```
+
+### Test thresholds
+```{r}
+# Calculate false negative and false positive rates for each threshold
+for(i in 1:nrow(threshes)){
+  namesflagged <- trueframes$fullname[trueframes$estimates_var > threshes$thresh[i]]
+  namesnotflagged <- trueframes$fullname[trueframes$estimates_var <= threshes$thresh[i]]
+  namespos <- trueframes$fullname[trueframes$problem == T]
+  namesneg <- trueframes$fullname[trueframes$problem == F]
+  npos = length(namespos)
+  nneg = length(namesneg)
+  nflagged <- length(namesflagged)
+  nnotflagged <- length(namesnotflagged)
+
+  names_fn <- namespos[namespos %in% namesnotflagged]
+  names_fp <- namesneg[namesneg %in% namesflagged]
+  nfn <- length(names_fn) # number of false negatives 
+  nfp <- length(names_fp) # number of false positives
+  
+  fnr <- nfn/npos # false negative rate
+  threshes$fnr[i] <- fnr
+  total_fn_prop <- nfn/99
+  
+  threshes$total_fn_prop[i] <- total_fn_prop # proportion of the total data that will be false negatives
+  
+  fpr <- nfp/nneg # false positive rate
+  threshes$fpr[i] <- fpr
+  
+  prop_byhand = nflagged/99 #what proportion of the data will we have to do by hand
+  threshes$prop_byhand[i] <- prop_byhand
+}
+```
+
+### See results
+```{r}
+# Convert threshes to a long data frame for plotting
+threshes_long <- melt(threshes, id.vars = "thresh", variable.name = "rate")
+
+# Plot thresholds vs. how many it flags
+ggplot(threshes_long, aes(x = thresh, y = value, col = rate))+
+  geom_line()+
+  xlab("Variance threshold")+
+  ylab("Proportion")
+```
+
+### Is there any way we can reduce the false negative rate?
+```{r}
+# find the false negatives in this test data set
+trueframes$byhand <- ifelse(trueframes$estimates_var > 5, T, F)
+fns <- trueframes[trueframes$byhand == F & trueframes$problem == T,]
+fns_names <- fns$fullname
+
+#nothing obvious is going on, which is too bad, bc that means we can't filter it out
+summary(fns$agdiff) # how different is the angle estimate from the true frame? Not too bad.
+summary(fns$resid) # If we use the residuals from the combined model, it won't be bad at all.
+```
+
+## Which would be by hand?
+```{r}
+trueframes$byhand <- ifelse(trueframes$estimates_var > 5, T, F) # which ones will we have to do by hand
+```
+
+# Apply protocol
+## Load full data
+```{r}
+length(unique(speedsDF[,c("fullname", "trial")])$fullname)
+```
+
+## Get unique trials
+```{r}
+# Find all the unique trials
+starts <- data.frame(
+  fullname = unique(speedsDF[,c("fullname", "trial")])$fullname,
+  trial = unique(speedsDF[,c("fullname", "trial")])$trial
+)
+```
+
+## [Compute beginnings]
+```{r, eval = F}
+for(i in 1:nrow(starts)){
+  tryCatch(
+    expr = {
+      df <- speedsDF %>% filter(fullname == starts$fullname[i], trial == starts$trial[i])
+      starts$beg_sp[i] <- findBeginningSpeed(df, "speedma5")
+      starts$beg_ag[i] <- findBeginningAngle(df, "atma5")
+      starts$beg_px[i] <- findBeginningPx(df, "pxma5") + 1
+      message("Iteration ", i, " successful.")
+    },
+    error = function(e){
+      message("* Caught an error on iteration", i)
+      print(e)
+    }
+  )
+}
+save(starts, file = "starts.Rda")
+```
+
+## Load pre-computed beginnings
+```{r}
+#save(starts, file = "starts.Rda")
+load("starts.Rda")
+```
+
+## Prepare data
+### Replace Inf with NA
+```{r}
+# Function
+inf2NA <- function(vec){
+  vec[is.infinite(vec)] <- NA
+  return(vec)
+}
+
+# Apply the function
+starts2 <- starts %>% mutate_each(funs(inf2NA))
+```
+
+### Compute estimates variance
+```{r}
+starts2$estimates_var <- rowVars(as.matrix(starts2[,c("beg_sp", "beg_ag", "beg_px")]), na.rm = T)
+```
+
+## Separate automatic/manual
+```{r}
+# Flag observations with var > 5
+starts2$byhand <- ifelse(starts2$estimates_var >= 5, T, F)
+# What percent of the observations were flagged as "by hand"?
+(pct_byhand <- sum(starts2$byhand, na.rm = T)/nrow(starts2))
+
+# Which ones do we need to do by hand
+todobyhand <- starts2 %>% filter(byhand == TRUE)
+
+# Which ones can we do automatically
+automatics <- starts2 %>% filter(byhand == FALSE)
+```
+
+# Get beginnings
+## Automatic
+### Compute using model
+```{r}
+automatics$fitted <- predict.lm(agpxm, newdata = automatics)
+```
+
+## Manual
+### Save data
+```{r}
+
+```
+
+# Output
+```{r}
+
+```
+
+

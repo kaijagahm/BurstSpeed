@@ -1,0 +1,84 @@
+---
+title: 'Step 3: Trajectories to Speeds'
+author: "Kaija Gahm"
+date: "10/4/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Setup
+## Load libraries
+```{r, echo = FALSE}
+source("libraries.R")
+source("tally_by_group.R")
+source("process_coordinates_funs.R")
+```
+
+## Load data
+```{r}
+load("alltrajs.Rda")
+load("coords.Rda")
+```
+
+## Verify data
+```{r}
+length(coords) == length(alltrajs) # check that it's the same length as the original coords list. Should be TRUE.
+sum(names(coords) != names(alltrajs)) # check that the names line up with the original coords list. Should be 0.
+```
+
+# Speeds
+## Get speeds (lapply)
+```{r}
+# Get speeds for each trial, keeping it as a nested list
+speeds <- lapply(alltrajs, getSpeedDFs)
+```
+
+## Get speeds (try catch loop)
+```{r, eval = FALSE}
+speeds <- vector("list", length(alltrajs)) # this would be the non-lapply version of this function, as above.
+names(speeds) <- names(alltrajs)
+for(i in 1:length(alltrajs)){
+  tryCatch(
+    expr = {
+      speedDFs <- getSpeedDFs(alltrajs[[i]])
+      speeds[[i]] <- speedDFs
+      message("Iteration ", i, " successful.")
+    },
+    error = function(e){ 
+      message("* Caught an error on iteration", i)
+      print(e)
+    }
+  )
+}
+
+```
+
+## Clean and append info
+```{r}
+# Assign trial numbers and bind individual data frames into one for each tadpole
+speeds <- lapply(speeds, rbindlist, idcol = "trial")
+
+# Bind all tadpoles together into one list
+speedsDF <- rbindlist(speeds, idcol = "fullname", use.names = T)
+
+# Join more info from vidinfo
+speedsDF <- left_join(speedsDF, vidinfo, by = "fullname") # the vidinfo data frame is useful!
+```
+
+## Smooth
+```{r}
+# Take moving averages of the speeds
+speedsDF <- speedsDF %>% group_by(fullname, trial) %>% 
+  mutate(speedma5 = rollapplyr(speed, 5, mean, fill = NA))
+```
+
+# Output
+```{r}
+save(speedsDF, file = "speedsDF.Rda")
+```
+
+
+
