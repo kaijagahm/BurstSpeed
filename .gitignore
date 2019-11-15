@@ -1,0 +1,22 @@
+# Ignore user data
+.Rproj.user
+.Rhistory
+.RData
+.Ruserdata
+
+# Ignore videos
+*.avi
+*.MP4
+
+# Ignore photos and graphics
+*.svg
+*.jpg
+*.png
+*.PNG
+
+# Ignore Adobe Premiere stuff
+*.prfpset
+*.prproj
+
+
+
