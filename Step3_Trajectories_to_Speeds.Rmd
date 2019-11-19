@@ -19,8 +19,8 @@ source("process_coordinates_funs.R")
 
 ## Load data
 ```{r}
-load("alltrajs.Rda")
-load("coords.Rda")
+load("data/outputs/alltrajs.Rda")
+load("data/outputs/coords.Rda")
 ```
 
 ## Verify data
@@ -77,7 +77,7 @@ speedsDF <- speedsDF %>% group_by(fullname, trial) %>%
 
 # Output
 ```{r}
-save(speedsDF, file = "speedsDF.Rda")
+save(speedsDF, file = "data/outputs/speedsDF.Rda")
 ```
 
 
