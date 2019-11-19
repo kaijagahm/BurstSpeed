@@ -20,7 +20,7 @@ source("process_coordinates_funs.R")
 # Coordinate data processing
 ## Load data
 ```{r}
-files <- list.files(path = "coordinates", full.names = T) # list files
+files <- list.files(path = "data/inputs/coordinates", full.names = T) # list files
 files <- files[!grepl('error', files, ignore.case = T)] # ignore error files
 files <- files[!grepl('test', files, ignore.case = T)] #ignore the "test" file
 coords <- lapply(files, read.table, sep = ",") # read in files
