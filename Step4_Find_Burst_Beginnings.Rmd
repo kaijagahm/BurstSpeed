@@ -226,7 +226,7 @@ starts <- data.frame(
 )
 ```
 
-## [Compute beginnings] VERY SLOW
+## [Compute beginnings] VERY SLOW--SKIP TO NEXT CODE CHUNK TO LOAD PRE-RUN DATA
 ```{r, eval = F}
 for(i in 1:nrow(starts)){
   tryCatch(
@@ -249,7 +249,7 @@ save(starts, file = "data/outputs/starts.Rda")
 ## Load pre-computed beginnings
 ```{r}
 #save(starts, file = "starts.Rda")
-load("starts.Rda")
+load("data/outputs/starts.Rda")
 ```
 
 ## Prepare data
