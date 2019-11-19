@@ -19,7 +19,7 @@ source("process_coordinates_funs.R")
 
 ## Load data
 ```{r}
-load("speedsDF.Rda")
+load("data/outputs/speedsDF.Rda")
 ```
 
 # Pixels and angles
@@ -42,9 +42,11 @@ speedsDF <- speedsDF %>% group_by(fullname, trial) %>%
 ```
 
 # Training
+For some trials, I went in manually and identified the starting frame. Now I'm going to try to find a way to automatically identify the starting frame, using this data as a means for testing any proposed models/methods.
+
 ## Load training data
 ```{r}
-trueframes <- read.csv("getframenums.csv")
+trueframes <- read.csv("data/inputs/getframenums.csv")
 trueframes <- trueframes[,c(1, 5)]
 names(trueframes) <- c("fullname", "frame")
 trueframes$fullname <- gsub("_edit|.avi", "", trueframes$fullname)
@@ -113,7 +115,7 @@ trueframes$resid <- trueframes$fitted-trueframes$frame
 # This model does a good job of predicting the frame, assuming we will have removed outliers first. 
 ```
 
-# How will we separate "by hand" trials
+# How will we separate "by hand" trials--outliers
 ## Variance in estimates
 ```{r}
 trueframes$estimates_var <- rowVars(as.matrix(trueframes[,c("beg_sp", "beg_ag", "beg_px")]), na.rm = T)
@@ -124,14 +126,14 @@ trueframes$estimates_var <- rowVars(as.matrix(trueframes[,c("beg_sp", "beg_ag", 
 ```{r}
 trueframes$problem <- ifelse(abs(trueframes$resid) > 3, T, F)
 table(trueframes$problem)
-# Yikes, that's bad.
+# Yikes, that's bad. If trueframes$problem == TRUE, that means that we failed to identify a trial whose predicted start frame was way off from the true (by hand) start frame.
 ```
 
 ### Using angles only
 ```{r}
 trueframes$problem <- ifelse(abs(trueframes$agdiff) > 3, T, F) # For testing purposes, identify the ones in this dataset that are really wrong, based on angle
 table(trueframes$problem)
-# That's better: leave it like this.
+# That's better: leave it like this. Fewer TRUE's is good because that means we failed in fewer cases.
 ```
 
 ## Test variance thresholds
@@ -209,8 +211,9 @@ trueframes$byhand <- ifelse(trueframes$estimates_var > 5, T, F) # which ones wil
 ```
 
 # Apply protocol
-## Load full data
 ```{r}
+head(speedsDF)
+#  how many unique trials?
 length(unique(speedsDF[,c("fullname", "trial")])$fullname)
 ```
 
@@ -223,7 +226,7 @@ starts <- data.frame(
 )
 ```
 
-## [Compute beginnings]
+## [Compute beginnings] VERY SLOW
 ```{r, eval = F}
 for(i in 1:nrow(starts)){
   tryCatch(
@@ -240,7 +243,7 @@ for(i in 1:nrow(starts)){
     }
   )
 }
-save(starts, file = "starts.Rda")
+save(starts, file = "data/outputs/starts.Rda")
 ```
 
 ## Load pre-computed beginnings
