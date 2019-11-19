@@ -19,14 +19,14 @@ source("process_coordinates_funs.R")
 
 ## Load data
 ```{r}
-load("coords.Rda")
-load("vidinfo.Rda")
+load("data/outputs/coords.Rda")
+load("data/outputs/vidinfo.Rda")
 ```
 
 # Spatial scaling
 ## Load scale factor data
 ```{r}
-scaling <- read.csv("burst_speed_scaling.csv", as.is = T)
+scaling <- read.csv("data/inputs/burst_speed_scaling.csv", as.is = T)
 ```
 
 ## Define ratios for the non-adjusted videos
@@ -89,6 +89,6 @@ alltrajs <- c(alternates_trajs, regular_trajs) # this just binds them in the ord
 
 ## Output
 ```{r}
-save(alltrajs, file = "alltrajs.Rda")
+save(alltrajs, file = "data/outputs/alltrajs.Rda")
 ```
 
