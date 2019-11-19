@@ -84,7 +84,7 @@ sample_n(vidinfo, 15)
 
 # Output
 ```{r}
-save(coords, file = "coords.Rda")
-save(vidinfo, file = "vidinfo.Rda")
+save(coords, file = "data/outputs/coords.Rda")
+save(vidinfo, file = "data/outputs/vidinfo.Rda")
 ```
 
