@@ -42,6 +42,7 @@ speedsDF <- left_join(speedsDF, trial_start_frames, by = c("fullname", "trial", 
 speedsDF <- speedsDF %>% mutate(frame_init = frame_start - 1)
 
 # Set speed to 0 for the initial frame
+speedsDF$speedma5[speedsDF$frame == speedsDF$frame_init] <- 0
 speedsDF$speed[speedsDF$frame == speedsDF$frame_init] <- 0
 ```
 
