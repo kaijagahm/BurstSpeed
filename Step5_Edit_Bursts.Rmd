@@ -1,0 +1,44 @@
+---
+title: "Step5_Edit_Bursts.Rmd"
+author: "Kaija Gahm"
+date: "11/21/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Setup
+## Load libraries
+```{r, echo = FALSE}
+source("libraries.R")
+source("tally_by_group.R")
+source("process_coordinates_funs.R")
+```
+
+## Load data
+```{r}
+load("data/outputs/speedsDF.Rda")
+load("data/outputs/trial_start_frames.Rda")
+```
+
+## Assign frame numbers to speedsDF
+```{r}
+speedsDF <- speedsDF %>% mutate(unique_trial = paste(fullname, trial)) %>% as.data.frame()
+speedsDF <- tally_by_group(speedsDF, group_col = "unique_trial")
+```
+
+## Trim trials
+### Join trials to start frames
+```{r}
+trial_start_frames <- trial_start_frames %>% mutate(unique_trial = paste(fullname, trial))
+speedsDF <- left_join(speedsDF, trial_start_frames, by = c("fullname", "trial", "unique_trial"))
+```
+
+### Remove frames < start frame
+```{r}
+speedsDF <- speedsDF %>% filter(frame >= frame_start)
+```
+
+
