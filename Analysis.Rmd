@@ -20,17 +20,77 @@ source("libraries.R")
 load("data/outputs/bursts_allcrops.Rda")
 ```
 
+## Summary stats
+```{r}
+burst_stats <- bursts_allcrops %>% 
+  group_by(fullname, trial, crop) %>%
+  summarize(avgspeed = mean(speed),
+            maxspeed = max(speed, na.rm = T),
+            maxspeedma5 = max(speedma5, na.rm = T)) %>%
+  as.data.frame()
+
+burst_info <- bursts_allcrops %>% select(fullname, trial, pond, clutch, indiv, treatment, year, month, day, camera, crop) %>% distinct()
+
+burst_stats <- left_join(burst_stats, burst_info, by = c("fullname", "trial", "crop"))
+```
+
+## Save stats
+```{r}
+save(burst_stats, file = "data/outputs/burst_stats.Rda")
+```
+
 ## Exploratory plotting
 ```{r}
 tadpoles <- unique(bursts_allcrops$fullname)
 crops <- unique(bursts_allcrops$crop)
 
 bursts_allcrops %>% filter(fullname == tadpoles[100], crop == crops[2]) %>% 
-  ggplot(aes(x = frame_burst, y = speedma5, col = factor(as.character(trial))))+
-  geom_line()
-
-str(bursts_allcrops %>% filter(fullname == tadpoles[100], crop == crops[2]))
-
-bursts_allcrops %>% filter(fullname == tadpoles[100], trial == 1)
+  ggplot(aes(x = frame_burst, y = speedma5, col = factor(trial)))+
+  geom_line()+
+  xlab("Frame")+
+  ylab("Speed (5-frame moving average)")
 ```
+
+```{r}
+head(burst_stats)
+
+# Max speed by pond
+burst_stats %>% filter(crop == crops[2]) %>% ggplot()+
+  geom_boxplot(aes(x = factor(pond), y = log(maxspeedma5)))+
+  ggtitle("Log max speedma5 by pond")+
+  xlab("Pond")+
+  ylab("Log-transformed max speed (moving average), first second")
+
+# Max speed by pond
+burst_stats %>% filter(crop == crops[2]) %>% ggplot()+
+  geom_boxplot(aes(x = factor(pond), y = log(avgspeed)))+
+  ggtitle("log average speed by pond")+
+  xlab("Pond")+
+  ylab("Log-transformed average speed, first second")
+```
+
+### Does speed decrease by trial number?
+```{r}
+burst_stats %>% filter(crop == crops[2], trial < 5) %>%
+  ggplot(aes(x = jitter(trial), y = log(maxspeedma5), col = treatment))+
+  geom_point()+
+  geom_smooth(method = 'lm', formula = y ~ x)+
+  ggtitle("Log max speed by trial number")+
+  ylab("Log-transformed max speed (moving average)")+
+  xlab("Trial number")
+```
+```{r}
+# Model the decrease in speed
+tiring_model <- lm(avgspeed ~ trial + treatment, data =  burst_stats)
+summary(tiring_model)
+
+# There is an effect, but the effect is definitely small.
+
+# Limit it to under 5 trials
+tiring_model_under5 <- lm(avgspeed ~ trial + treatment, data = burst_stats[burst_stats$trial < 5,])
+summary(tiring_model_under5)
+
+# Less of an effect with fewer trials.
+```
+
 
