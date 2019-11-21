@@ -26,9 +26,10 @@ tadpoles <- unique(bursts_allcrops$fullname)
 crops <- unique(bursts_allcrops$crop)
 
 bursts_allcrops %>% filter(fullname == tadpoles[100], crop == crops[2]) %>% 
-  ggplot(aes(x = frame_burst, y = speedma5, col = factor(trial)))+
-  geom_line() +
-  ylim(-0.01, 0.05)
+  ggplot(aes(x = frame_burst, y = speedma5, col = factor(as.character(trial))))+
+  geom_line()
+
+str(bursts_allcrops %>% filter(fullname == tadpoles[100], crop == crops[2]))
 
 bursts_allcrops %>% filter(fullname == tadpoles[100], trial == 1)
 ```
