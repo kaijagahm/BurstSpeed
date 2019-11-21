@@ -324,11 +324,9 @@ trial_start_frames <- trial_start_frames %>% arrange(fullname, trial)
 
 ```
 
-
-
 # Output
 ```{r}
-
+save(trial_start_frames, file = "data/outputs/trial_start_frames.Rda")
 ```
 
 
