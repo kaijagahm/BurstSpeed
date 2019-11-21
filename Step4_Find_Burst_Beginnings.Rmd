@@ -288,14 +288,43 @@ automatics <- starts2 %>% filter(byhand == FALSE)
 ## Automatic
 ### Compute using model
 ```{r}
-automatics$fitted <- predict.lm(agpxm, newdata = automatics)
+automatics <- automatics %>% mutate(fitted = predict.lm(agpxm, newdata = automatics)) %>% mutate_at(vars(fitted), funs(round))
 ```
+
+### Subset automatic data
+```{r}
+automatics_1 <- automatics %>% rename(frame_start = fitted) %>% select(fullname, trial, frame_start) %>% mutate(method = "automatic")
+```
+
 
 ## Manual
 ### Save data
 ```{r}
+#write.csv(todobyhand, file = paste("data/outputs/", Sys.time(), "todobyhand.csv"))
+```
+
+### Load manual data
+```{r}
+manuals <- read.csv("data/inputs/manual_kaija.csv", header = T, as.is = T, na.strings = c("NA", ""))
+```
+
+### Clean/subset manual data
+```{r}
+# Calculate starting frame with reference to the beginning of the _trial_
+manuals <- manuals %>% mutate_at(vars(verification), list(as.factor))
+manuals_1 <- manuals %>% rename(frame_start = difference) %>% select(fullname, trial, frame_start) %>% mutate(method = "manual")
+```
+
+## Merge automatic and manual data
+```{r}
+trial_start_frames <- rbind(automatics_1, manuals_1) %>% as.data.frame()
+
+# order by fullname and trial
+trial_start_frames <- trial_start_frames %>% arrange(fullname, trial)
 
 ```
+
+
 
 # Output
 ```{r}
