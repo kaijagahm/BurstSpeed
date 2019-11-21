@@ -24,6 +24,7 @@ tpslist <- lapply(tpsfiles, readland.tps, specID = "imageID") # geometric landma
 ```
 
 ## Clean data
+### Bind into one array and change dimnames
 ```{r}
 landmarks <- abind(tpslist) # bind all sets of landmarks into one array
 
@@ -32,3 +33,16 @@ tadpoles_full <- dimnames(landmarks)[[3]]
 tadpoles <- str_extract(tadpoles_full, pattern = "(?<=straightened\\_).*(?=\\_CH)")
 dimnames(landmarks)[[3]] <- tadpoles
 ```
+
+### Check for missing data
+```{r}
+any(is.na(landmarks)) # NICE
+```
+
+## Analysis
+### Generalized Procrustes Analysis
+```{r}
+gpa <- gpagen(A = landmarks)
+plot(gpa)
+```
+
