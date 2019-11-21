@@ -29,7 +29,7 @@ speedsDF <- speedsDF %>% mutate(unique_trial = paste(fullname, trial)) %>% as.da
 speedsDF <- tally_by_group(speedsDF, group_col = "unique_trial")
 ```
 
-## Trim trials
+## Trim trial beginnings
 ### Join trials to start frames
 ```{r}
 trial_start_frames <- trial_start_frames %>% mutate(unique_trial = paste(fullname, trial))
@@ -39,6 +39,27 @@ speedsDF <- left_join(speedsDF, trial_start_frames, by = c("fullname", "trial", 
 ### Remove frames < start frame
 ```{r}
 speedsDF <- speedsDF %>% filter(frame >= frame_start)
+```
+
+### Relative vs. absolute frames
+```{r}
+speedsDF <- speedsDF %>% rename(frame_trial = frame)
+speedsDF <- tally_by_group(speedsDF, group_col = "unique_trial") %>% rename(frame_burst = frame)
+```
+
+## Trim burst lengths
+```{r}
+todrop <- c("time", "angle", "px", "date", "frame_trial", "frame_start", "unique_trial")
+
+bursts <- speedsDF %>% select(-todrop) %>% mutate(crop = "Full burst")
+bursts_sec <- bursts %>% filter(frame_burst <= 60) %>% mutate(crop = "First second")
+bursts_halfsec <- bursts %>% filter(frame_burst <= 30) %>% mutate(crop = "First half second")
+bursts_allcrops <- rbind(bursts, bursts_sec, bursts_halfsec)
+```
+
+## Output
+```{r}
+save(bursts_allcrops, file = "data/outputs/bursts_allcrops.Rda")
 ```
 
 
