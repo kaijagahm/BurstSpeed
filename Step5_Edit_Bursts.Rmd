@@ -36,9 +36,18 @@ trial_start_frames <- trial_start_frames %>% mutate(unique_trial = paste(fullnam
 speedsDF <- left_join(speedsDF, trial_start_frames, by = c("fullname", "trial", "unique_trial"))
 ```
 
-### Remove frames < start frame
+### Add initial (stationary) frame
 ```{r}
-speedsDF <- speedsDF %>% filter(frame >= frame_start)
+# We want to allow one extra frame before the start of the trial for padding, so we can set the speed to 0 right before the trial starts.
+speedsDF <- speedsDF %>% mutate(frame_init = frame_start - 1)
+
+# Set speed to 0 for the initial frame
+speedsDF$speed[speedsDF$frame == speedsDF$frame_init] <- 0
+```
+
+### Remove frames before initial frame
+```{r}
+speedsDF <- speedsDF %>% filter(frame >= frame_init)
 ```
 
 ### Relative vs. absolute frames
