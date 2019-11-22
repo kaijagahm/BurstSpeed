@@ -35,6 +35,31 @@ tadpoles <- gsub("WIld", "Wild", tadpoles)
 dimnames(all_landmarks)[[3]] <- tadpoles
 ```
 
+### Fix flipped specimens
+```{r}
+str(all_landmarks)
+
+# Function to flip coordinates left/right
+flip_lr <- function(object){
+  object[,1] <- object[,1]*-1
+  return(object)
+}
+
+for(i in 1:dim(all_landmarks)[3]){
+  spec <- all_landmarks[,,i]
+  if(spec[1,1] > spec[11,1]){ # if the nose comes after the tail...
+    print("flipped one")
+    all_landmarks[,,i] <- fliplr(spec)
+  }else{
+    all_landmarks[,,i] <- spec
+  }
+}
+
+# that looks like a reasonable number of photos to have flipped!
+```
+
+
+
 ### Check for missing data
 ```{r}
 any(is.na(all_landmarks)) # NICE
@@ -82,11 +107,14 @@ str(pca, 1)
 scores <- pca$pc.scores %>% as.data.frame() %>% mutate(tadpole = tadpoles, treatment = treatments, pond = ponds)
 
 # separate out the importances data
-pca.importance <- pca$pc.summary$importance %>% t() %>% as.data.frame() %>% mutate(pcname = row.names(.)) %>% mutate(pcnum = 1:nrow(.)) %>% rename(stdev = "Standard deviation", propvar = "Proportion of Variance", cumprop = "Cumulative Proportion")
+pca.importance <- pca$pc.summary$importance %>% t() %>% as.data.frame() %>% 
+  mutate(pcname = row.names(.),
+         pcnum = 1:nrow(.)) %>% 
+  dplyr::rename(stdev = "Standard deviation", propvar = "Proportion of Variance", cumprop = "Cumulative Proportion")
 
 # PC scores plot
 scores %>% ggplot(aes(x = PC1, y = PC2, col = treatment))+
-  geom_point() + ggtitle("Tadpole morphometrics score plot")
+  geom_point() + ggtitle("Tadpole morphometrics score plot") + stat_ellipse()
 
 # PC importance
 pca.importance %>% ggplot(aes(x = pcnum, y = cumprop)) +
@@ -106,9 +134,7 @@ pca.importance %>% ggplot(aes(x = pcnum, y = propvar)) +
 ### Investigate PCA outliers
 ```{r}
 scores <- scores %>% 
-  mutate(investigate = case_when(PC1 > 0.4 ~ T,
-                                 PC1 < -0.1 & PC2 > 0.1 ~ T,
-                                 PC2 > 0.15 ~ T,
+  mutate(investigate = case_when(PC1 < -0.15 ~ T,
                                  TRUE ~ F))
 outliers <- scores %>% filter(investigate == T) %>% pull(tadpole)
 
@@ -116,12 +142,12 @@ outliers <- scores %>% filter(investigate == T) %>% pull(tadpole)
 
 outliers %in% dups
 
-photos <- vector(mode = "list", length = length(tpslist))
-names(photos) <- 1:length(photos) #number the list items
+# Search through manually to find them (ugh, there has to be a better way)
+outliers
 
-# Fill the list with names
-for(i in 1:length(tpslist)){
-  photos[[i]] <- dimnames(tpslist[[i]])[[3]]
-}
+# B0_02_B_Low had misaligned landmarks
+#BS_03_A_High is just a tiny little squirt--exclude?
+# LO_04_C_High looks normal... hmm.
+# It seems like the problem is mainly with the backwards ones. Why is that??
 ```
 
