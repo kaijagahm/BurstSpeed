@@ -1,0 +1,127 @@
+---
+title: "Morphometrics"
+author: "Kaija Gahm"
+date: "11/21/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Setup
+## Load libraries
+```{r, echo = FALSE}
+source("libraries.R")
+```
+
+## Load data
+```{r}
+load("data/outputs/burst_stats.Rda")
+read.csv("data/inputs/Combined_2019RespData_20190729.csv") # manual morphometrics
+tpsfiles <- list.files("2019_PostResp_photos/Exposure_Edit/for_landmarks/", pattern = "*[[:digit:]].tps", full.names = T)
+tpslist <- lapply(tpsfiles, readland.tps, specID = "imageID") # geometric landmarks
+```
+
+## Clean data
+### Bind into one array and change dimnames
+```{r}
+all_landmarks <- abind(tpslist) # bind all sets of landmarks into one array
+
+tadpoles_full <- dimnames(all_landmarks)[[3]]
+
+tadpoles <- str_extract(tadpoles_full, pattern = "(?<=straightened\\_).*(?=\\_CH)")
+tadpoles <- gsub("WIld", "Wild", tadpoles)
+dimnames(all_landmarks)[[3]] <- tadpoles
+```
+
+### Check for missing data
+```{r}
+any(is.na(all_landmarks)) # NICE
+```
+### Remove duplicates
+```{r}
+# Some of the duplicates are the three tadpoles that we deliberately duplicated to quantify inter-observer error. Others are tadpoles that we just had multiple photos of for whatever reason.
+dups <- dimnames(all_landmarks)[[3]][duplicated(dimnames(all_landmarks)[[3]])]  
+whichdups <- which(duplicated(dimnames(all_landmarks)[[3]]))
+landmarks <- all_landmarks[,,-whichdups] # remove duplicates
+```
+
+### Make data table
+```{r}
+tadpoles <- dimnames(landmarks)[[3]]
+ponds <- str_extract(tadpoles, pattern = "(?<=^).{2,3}(?=\\_)") %>% as.factor()
+treatments <- str_extract(tadpoles, pattern = "(?<=\\_)[[:alpha:]]*(?=$)") %>% as.factor()
+```
+
+### Generate sliders
+```{r}
+#slidermat <- define.sliders(landmarks = landmarks, nsliders = 15)
+slidermat <- data.frame(before = c(7, 12, 13, 14, 7, 20, 21, 22, 9, 24, 25, 8, 16, 17, 18),
+                        slide = c(12, 13, 14, 15, 20, 21, 22, 23, 24, 25, 26, 16, 17, 18, 19),
+                        after = c(13, 14, 15, 11, 21, 22, 23, 11, 25, 26, 11, 17, 18, 19, 11)) %>% as.matrix()
+```
+
+### Generalized Procrustes Analysis
+```{r}
+tadpole.gpa <- gpagen(A = landmarks, curves = slidermat)
+plot(tadpole.gpa)
+procrustes_coords <- two.d.array(tadpole.gpa$coords)
+sizes <- tadpole.gpa$Csize
+```
+
+### Plot PCA
+```{r}
+ref <- mshape(tadpole.gpa$coords) # mean shape of all the tadpoles.
+
+# conduct PCA
+pca <- plotTangentSpace(tadpole.gpa$coords, groups = treatments)
+str(pca, 1)
+
+# separate out the scores data
+scores <- pca$pc.scores %>% as.data.frame() %>% mutate(tadpole = tadpoles, treatment = treatments, pond = ponds)
+
+# separate out the importances data
+pca.importance <- pca$pc.summary$importance %>% t() %>% as.data.frame() %>% mutate(pcname = row.names(.)) %>% mutate(pcnum = 1:nrow(.)) %>% rename(stdev = "Standard deviation", propvar = "Proportion of Variance", cumprop = "Cumulative Proportion")
+
+# PC scores plot
+scores %>% ggplot(aes(x = PC1, y = PC2, col = treatment))+
+  geom_point() + ggtitle("Tadpole morphometrics score plot")
+
+# PC importance
+pca.importance %>% ggplot(aes(x = pcnum, y = cumprop)) +
+  geom_col() +
+  ggtitle("Cumulative variation explained by principal components")+
+  ylab("Cumulative proportion of variation")+
+  xlab("PC number")
+
+pca.importance %>% ggplot(aes(x = pcnum, y = propvar)) +
+  geom_col() +
+  ggtitle("Variation explained by each principal components")+
+  ylab("Proportion of variation explained")+
+  xlab("PC number")
+
+```
+
+### Investigate PCA outliers
+```{r}
+scores <- scores %>% 
+  mutate(investigate = case_when(PC1 > 0.4 ~ T,
+                                 PC1 < -0.1 & PC2 > 0.1 ~ T,
+                                 PC2 > 0.15 ~ T,
+                                 TRUE ~ F))
+outliers <- scores %>% filter(investigate == T) %>% pull(tadpole)
+
+# were any of these duplicates?
+
+outliers %in% dups
+
+photos <- vector(mode = "list", length = length(tpslist))
+names(photos) <- 1:length(photos) #number the list items
+
+# Fill the list with names
+for(i in 1:length(tpslist)){
+  photos[[i]] <- dimnames(tpslist[[i]])[[3]]
+}
+```
+

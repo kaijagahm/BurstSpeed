@@ -210,6 +210,65 @@ summary(fns$resid) # If we use the residuals from the combined model, it won't b
 trueframes$byhand <- ifelse(trueframes$estimates_var > 5, T, F) # which ones will we have to do by hand
 ```
 
+# Verify manual/automatic error rates
+## Manual inter-observer error
+### Join Kaija and Joaquin datasets
+```{r}
+manual_kaija <- read.csv("data/inputs/manual_kaija.csv")
+manual_joaquin <- read.csv("data/inputs/joaquin_check100.csv")
+mans <- left_join(manual_joaquin, manual_kaija[, c("fullname", "trial", "frame_indexed_0")], by = c("fullname", "trial")) %>% rename(kaija_frame = frame_indexed_0) %>% mutate(difference = joaquin_frame - kaija_frame)
+```
+
+### Examine discrepancies
+```{r}
+mans <- mans %>% mutate(mistake = abs(difference) > 10)
+mans %>% filter(mistake == T)
+# I checked these manually. In the three cases with huge differences, Joaquin accidentally recorded the wrong trial (my estimate was correct when double-checked). In the last case, the tadpole wiggled by itself before or after being poked, and there was a difference of about 20 frames. This is ok to just build into the error.
+```
+
+### Manual error
+```{r}
+mans %>% filter(mistake == F) %>%
+  ggplot()+
+  geom_boxplot(aes(y = difference)) +
+  ggtitle("Inter-observer error, manual method")
+```
+
+### Automatic error
+```{r}
+trueframes %>% filter(byhand == F) %>%
+  ggplot()+
+  geom_boxplot(aes(y = fitted-frame))+
+  ggtitle("Error from fitted model")
+
+trueframes %>% filter(byhand == F) %>%
+  ggplot()+
+  geom_boxplot(aes(y = agdiff))+
+  ggtitle("Error from angle estimate")
+
+# The error profile for the angle estimate looks much closer to the inter-observer error than does the error profile from the combined model estimate. Therefore, after using the variability between estimates to determine which trials to do by hand, we should use the angle-based beginning frame, not the modeled beginning frame, as the beginning frame for the remaining trials.
+```
+
+### Plot manual and automatic error
+```{r}
+mans1 <- mans %>% filter(mistake == F) %>% select(fullname, trial, difference) %>% mutate(method = "manual")
+autos <- trueframes %>% filter(byhand == F) %>% select(fullname, trial, agdiff) %>% rename(difference = agdiff) %>% mutate(method = "automatic")
+
+comparison <- rbind(mans1, autos) %>% as.data.frame()
+
+comparison %>% ggplot(aes(x = factor(method), y = difference))+
+  geom_boxplot() +
+  xlab("Method")+
+  ylab("Error")+
+  ggtitle("Error comparison: auto vs. manual")
+
+comparison %>% ggplot()+
+  geom_density(aes(x = difference, fill = factor(method), col = factor(method)), alpha = 0.5) +
+  xlab("Method")+
+  ylab("Error")+
+  ggtitle("Error comparison: auto vs. manual")
+```
+
 # Apply protocol
 ```{r}
 head(speedsDF)
@@ -288,18 +347,45 @@ automatics <- starts2 %>% filter(byhand == FALSE)
 ## Automatic
 ### Compute using model
 ```{r}
-automatics$fitted <- predict.lm(agpxm, newdata = automatics)
+automatics <- automatics %>% mutate(frame_start = beg_ag)
 ```
+
+### Subset automatic data
+```{r}
+automatics_1 <- automatics %>% select(fullname, trial, frame_start) %>% mutate(method = "automatic")
+```
+
 
 ## Manual
 ### Save data
 ```{r}
+#write.csv(todobyhand, file = paste("data/outputs/", Sys.time(), "todobyhand.csv"))
+```
+
+### Load manual data
+```{r}
+manuals <- read.csv("data/inputs/manual_kaija.csv", header = T, as.is = T, na.strings = c("NA", ""))
+```
+
+### Clean/subset manual data
+```{r}
+# Calculate starting frame with reference to the beginning of the _trial_
+manuals <- manuals %>% mutate_at(vars(verification), list(as.factor))
+manuals_1 <- manuals %>% rename(frame_start = difference) %>% select(fullname, trial, frame_start) %>% mutate(method = "manual")
+```
+
+## Merge automatic and manual data
+```{r}
+trial_start_frames <- rbind(automatics_1, manuals_1) %>% as.data.frame()
+
+# order by fullname and trial
+trial_start_frames <- trial_start_frames %>% arrange(fullname, trial)
 
 ```
 
 # Output
 ```{r}
-
+save(trial_start_frames, file = "data/outputs/trial_start_frames.Rda")
 ```
 
 

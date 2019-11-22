@@ -1,0 +1,75 @@
+---
+title: "Step5_Edit_Bursts.Rmd"
+author: "Kaija Gahm"
+date: "11/21/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Setup
+## Load libraries
+```{r, echo = FALSE}
+source("libraries.R")
+source("tally_by_group.R")
+source("process_coordinates_funs.R")
+```
+
+## Load data
+```{r}
+load("data/outputs/speedsDF.Rda")
+load("data/outputs/trial_start_frames.Rda")
+```
+
+## Assign frame numbers to speedsDF
+```{r}
+speedsDF <- speedsDF %>% mutate(unique_trial = paste(fullname, trial)) %>% as.data.frame()
+speedsDF <- tally_by_group(speedsDF, group_col = "unique_trial")
+```
+
+## Trim trial beginnings
+### Join trials to start frames
+```{r}
+trial_start_frames <- trial_start_frames %>% mutate(unique_trial = paste(fullname, trial))
+speedsDF <- left_join(speedsDF, trial_start_frames, by = c("fullname", "trial", "unique_trial"))
+```
+
+### Add initial (stationary) frame
+```{r}
+# We want to allow one extra frame before the start of the trial for padding, so we can set the speed to 0 right before the trial starts.
+speedsDF <- speedsDF %>% mutate(frame_init = frame_start - 1)
+
+# Set speed to 0 for the initial frame
+speedsDF$speedma5[speedsDF$frame == speedsDF$frame_init] <- 0
+speedsDF$speed[speedsDF$frame == speedsDF$frame_init] <- 0
+```
+
+### Remove frames before initial frame
+```{r}
+speedsDF <- speedsDF %>% filter(frame >= frame_init)
+```
+
+### Relative vs. absolute frames
+```{r}
+speedsDF <- speedsDF %>% rename(frame_trial = frame)
+speedsDF <- tally_by_group(speedsDF, group_col = "unique_trial") %>% rename(frame_burst = frame)
+```
+
+## Trim burst lengths
+```{r}
+todrop <- c("time", "angle", "px", "date", "frame_trial", "frame_start", "unique_trial")
+
+bursts <- speedsDF %>% select(-todrop) %>% mutate(crop = "Full burst")
+bursts_sec <- bursts %>% filter(frame_burst <= 60) %>% mutate(crop = "First second")
+bursts_halfsec <- bursts %>% filter(frame_burst <= 30) %>% mutate(crop = "First half second")
+bursts_allcrops <- rbind(bursts, bursts_sec, bursts_halfsec)
+```
+
+## Output
+```{r}
+save(bursts_allcrops, file = "data/outputs/bursts_allcrops.Rda")
+```
+
+
