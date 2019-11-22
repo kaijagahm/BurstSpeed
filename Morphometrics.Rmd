@@ -87,12 +87,11 @@ slidermat <- data.frame(before = c(7, 12, 13, 14, 7, 20, 21, 22, 9, 24, 25, 8, 1
                         after = c(13, 14, 15, 11, 21, 22, 23, 11, 25, 26, 11, 17, 18, 19, 11)) %>% as.matrix()
 ```
 
+## Analysis
 ### Generalized Procrustes Analysis
 ```{r}
 tadpole.gpa <- gpagen(A = landmarks, curves = slidermat)
 plot(tadpole.gpa)
-procrustes_coords <- two.d.array(tadpole.gpa$coords)
-sizes <- tadpole.gpa$Csize
 ```
 
 ### Plot PCA
@@ -131,7 +130,7 @@ pca.importance %>% ggplot(aes(x = pcnum, y = propvar)) +
 
 ```
 
-### Investigate PCA outliers
+#### Investigate PCA outliers
 ```{r}
 scores <- scores %>% 
   mutate(investigate = case_when(PC1 < -0.15 ~ T,
@@ -148,6 +147,49 @@ outliers
 # B0_02_B_Low had misaligned landmarks
 #BS_03_A_High is just a tiny little squirt--exclude?
 # LO_04_C_High looks normal... hmm.
-# It seems like the problem is mainly with the backwards ones. Why is that??
 ```
+
+## Investigate error
+### Prepare data
+```{r}
+# Back to the original dataset, before we removed the duplicates
+str(all_landmarks)
+
+repeats_1 <- which(duplicated(dimnames(all_landmarks)[[3]], fromLast = F))
+repeats_2 <- which(duplicated(dimnames(all_landmarks)[[3]], fromLast = T))
+allrepeats <- union(repeats_1, repeats_2)
+  
+repeats <- all_landmarks[,,allrepeats] # select the repeated specimens to use
+
+# Now, we only want the ones that were deliberate repeats of individual photographs, rather than different photos of the same specimen.
+freqrepeats <- table(dimnames(repeats)[[3]]) %>% as.data.frame()
+
+# subset out the deliberately repeated photos
+deliberate_repeats_names <- freqrepeats$Var1[freqrepeats$Freq == 20]
+
+deliberate_repeats_list <- vector(mode = "list", length = 3) #empty list
+
+for(i in 1:3){
+  name <- deliberate_repeats_names[i]
+  deliberate_repeats_list[[i]] <- all_landmarks[,,which(dimnames(all_landmarks)[[3]] == name)]
+}
+```
+
+### Get errors
+```{r}
+# Procrustes analysis on each group of landmarks
+gpa_1 <- gpagen(A = deliberate_repeats_list[[1]], curves = slidermat)
+plot(gpa_1)
+gpa_2 <- gpagen(A = deliberate_repeats_list[[2]], curves = slidermat)
+plot(gpa_2)
+gpa_3 <- gpagen(A = deliberate_repeats_list[[3]], curves = slidermat)
+plot(gpa_3)
+
+# Get variances
+var_1 <- gpa_1$points.var
+var_2 <- gpa_2$points.var
+var_3 <- gpa_3$points.var
+```
+
+
 
