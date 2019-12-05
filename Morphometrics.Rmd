@@ -170,6 +170,8 @@ plotRefToTarget(M1 = ref, M2 = res$pc.shapes$PC2max, gridPars = parameters_PC2, 
 ```
  
 So it seems that PC1 is basically a measurement of relative head/tail lengths, and PC2 is basically a measurement of length/depth ratio. Cool! Much more informative than linear measurements would have been.
+  PC1 can be thought of as the ratio of HEAD:TAIL length.
+  PC2 can be thought of as the ratio of DEPTH:LENGTH of body.
 
 
 ## Investigate error
@@ -245,5 +247,44 @@ between_within %>% ggplot(aes(x = landmark, y = variance, col = label))+
 # This doesn't seem good...
 
 ```
+
+## Size
+The procrustes analysis is used to obtain shape data, since it scales all specimens to unit-centroid size. Now let's look at the difference between the absolute sizes of the tadpoles.
+
+As a reminder, we found out essentially the following:
+  PC1 can be thought of as the ratio of HEAD:TAIL length.
+  PC2 can be thought of as the ratio of DEPTH:LENGTH of body.
+```{r}
+# Call up the PCA scores from before
+head(scores)
+
+# Pull out centroid sizes
+sizes <- tadpole.gpa$Csize
+
+# Check that these are the same length and in the same order
+nrow(scores) == length(sizes) # same length
+sum(scores$tadpole != names(sizes)) # same order
+
+# Investigate relationships between shape and size, excluding size outliers.
+scores <- scores %>% mutate(size = sizes)
+
+# Size vs. PC1
+scores %>% filter(size > 3.5) %>% ggplot(aes(x = size, y = PC1, col = treatment))+
+  geom_point() +
+  geom_smooth(method = "lm") +
+  ggtitle("Size vs. PC1")+
+  ylab("PC1 (~ ratio of head length to tail length)")+
+  xlab("Centroid size")
+
+# Size vs. PC2
+scores %>% filter(size > 3.5) %>% ggplot(aes(x = size, y = PC2, col = treatment))+
+  geom_point() +
+  geom_smooth(method = "lm") +
+  ggtitle("Size vs. PC2")+
+  ylab("PC1 (~ ratio of depth to length)")+
+  xlab("Centroid size")
+```
+
+## Size, shape, and Gosner stage
 
 
