@@ -96,10 +96,8 @@ plot(tadpole.gpa)
 
 ### Plot PCA
 ```{r}
-ref <- mshape(tadpole.gpa$coords) # mean shape of all the tadpoles.
-
 # conduct PCA
-pca <- plotTangentSpace(tadpole.gpa$coords, groups = treatments)
+pca <- plotTangentSpace(tadpole.gpa$coords, groups = treatments) # note that `treatments` is a separate vector, not a part of tadpole.gpa.
 str(pca, 1)
 
 # separate out the scores data
@@ -124,7 +122,7 @@ pca.importance %>% ggplot(aes(x = pcnum, y = cumprop)) +
 
 pca.importance %>% ggplot(aes(x = pcnum, y = propvar)) +
   geom_col() +
-  ggtitle("Variation explained by each principal components")+
+  ggtitle("Variation explained by each principal component")+
   ylab("Proportion of variation explained")+
   xlab("PC number")
 
@@ -148,6 +146,31 @@ outliers
 #BS_03_A_High is just a tiny little squirt--exclude?
 # LO_04_C_High looks normal... hmm.
 ```
+
+### Visualize individuals vs. mean
+```{r}
+ref <- mshape(tadpole.gpa$coords) # mean coordinate values
+
+res <- plotTangentSpace(tadpole.gpa$coords, groups = treatments, verbose=TRUE)
+
+# Plot extremes of PC1
+parameters_PC1 <- gridPar(tar.pt.bg = "red", pt.size = 1, n.col.cell=50)
+
+plotRefToTarget(M1 = ref, M2 = res$pc.shapes$PC1min, gridPars = parameters_PC1, method = "TPS") #shape change along PC1 in the negative direction
+
+plotRefToTarget(M1 = ref, M2 = res$pc.shapes$PC1max, gridPars = parameters_PC1, method = "TPS") #shape change along PC1 in the positive direction
+
+
+# Plot extremes of PC2
+parameters_PC2 <- gridPar(tar.pt.bg = "blue", pt.size = 1, n.col.cell=50)
+
+plotRefToTarget(M1 = ref, M2 = res$pc.shapes$PC2min, gridPars = parameters_PC2, method = "TPS") #shape change along PC1 in the negative direction
+
+plotRefToTarget(M1 = ref, M2 = res$pc.shapes$PC2max, gridPars = parameters_PC2, method = "TPS") #shape change along PC1 in the positive direction
+```
+ 
+So it seems that PC1 is basically a measurement of relative head/tail lengths, and PC2 is basically a measurement of length/depth ratio. Cool! Much more informative than linear measurements would have been.
+
 
 ## Investigate error
 ### Prepare data
@@ -186,10 +209,41 @@ gpa_3 <- gpagen(A = deliberate_repeats_list[[3]], curves = slidermat)
 plot(gpa_3)
 
 # Get variances
-var_1 <- gpa_1$points.var
-var_2 <- gpa_2$points.var
-var_3 <- gpa_3$points.var
+var_1 <- gpa_1$points.var %>% as.data.frame() %>% mutate(sample = "A", landmark = row.names(.))
+var_2 <- gpa_2$points.var %>% as.data.frame() %>% mutate(sample = "B", landmark = row.names(.))
+var_3 <- gpa_3$points.var %>% as.data.frame() %>% mutate(sample = "C", landmark = row.names(.))
+
+vars <- rbind(var_1, var_2, var_3)
+vars2 <- vars %>% group_by(as.numeric(landmark)) %>% 
+  summarize(x = mean(Var.X),
+            y = mean(Var.Y)) %>% 
+  rename(landmark = `as.numeric(landmark)`) %>% pivot_longer(cols = c(x, y), names_to = "dimension", values_to = "variance") %>% mutate(label = "within") %>% as.data.frame()
+
+# Plot variances
+vars2 %>% ggplot(aes(x = landmark, y = variance))+
+  geom_point(aes(col = dimension)) +
+  ggtitle("Measurement variance in test photos")+
+  ylab("Variance (cm)") +
+  xlab("Landmark")
 ```
 
+### Compare to variances across photos
+```{r}
+# Get between-specimen variances
+allvar <- tadpole.gpa$points.var %>% as.data.frame() %>% 
+  mutate(landmark = 1:nrow(.)) %>% rename(x = Var.X, y = Var.Y) %>%
+  pivot_longer(cols = c(x, y), names_to = "dimension", values_to = "variance") %>% mutate(label = "between")
+
+# Join with within-specimen errors
+between_within <- rbind(vars2, allvar)
+
+# Plot to see differences
+between_within %>% ggplot(aes(x = landmark, y = variance, col = label))+
+  geom_point() +
+  facet_wrap(~dimension)
+
+# This doesn't seem good...
+
+```
 
 
