@@ -13,6 +13,7 @@ knitr::opts_chunk$set(echo = TRUE)
 ## Load libraries
 ```{r, echo = FALSE}
 source("libraries.R")
+source("https://raw.githubusercontent.com/kaijagahm/general/master/locate.nas.txt")
 ```
 
 ## Load data
@@ -265,7 +266,7 @@ between_within %>% ggplot(aes(x = landmark, y = variance, col = label))+
 
 ```
 
-## Size
+## Size and shape
 The procrustes analysis is used to obtain shape data, since it scales all specimens to unit-centroid size. Now let's look at the difference between the absolute sizes of the tadpoles.
 
 As a reminder, we found out essentially the following:
@@ -310,8 +311,47 @@ morpho <- morpho %>% mutate(treatment = case_when(Treat == "HIGH" ~ "High",
                                                   Treat == "LOW" ~ "Low",
                                                   Treat == "WILD" ~ "Wild")) %>%
   mutate(ID = gsub("-", "_", ID),
+         ID = gsub("LOW_", "", ID),
          tadpole = paste0(ID, "_", treatment)) 
-head(scores2)
+
+# Join metadata to scores
+scores3 <- left_join(scores2, metadata, by = c("tadpole", "pond", "treatment"))
+
+# Join all morphological data
+names(morpho) <- tolower(names(morpho))
+allmorpho <- left_join(scores3, morpho, by = c("tadpole", "treatment", "pond"))
 ```
 
+### Clean data
+```{r}
+# Find NA's
+locate.nas(allmorpho)
+allmorpho %>% filter(is.na(treat))
+# I'm not sure why there are NA's: that would mean we have photos of these specimens, but not measurements/stages for them. Not sure why that would be. I searched manually for a few of the tadpole ID's, and it looks like it's not just a question of the join failing for some reason.
+```
 
+```{r}
+# Size vs. PC1, with GS
+allmorpho %>% filter(size > 3.5, !is.na(gs)) %>% ggplot(aes(x = size, y = PC1, col = gs))+
+  geom_smooth(size = 0.5, colour = "black", method = "lm")+
+  geom_point()+
+  scale_color_viridis()+
+  facet_wrap(~treatment) +
+  ggtitle("Size vs. PC1, by treatment and GS")+
+  ylab("PC2 (~ head length:tail length)")+
+  xlab("Centroid Size") +
+  labs(col = "Gosner Stage")
+
+# Size vs. PC2, with GS
+allmorpho %>% filter(size > 3.5, !is.na(gs)) %>% ggplot(aes(x = size, y = PC2, col = gs))+
+  geom_smooth(size = 0.5, colour = "black", method = "lm")+
+  geom_point()+
+  scale_color_viridis()+
+  facet_wrap(~treatment)+
+  ggtitle("Size vs. PC2, by treatment and GS")+
+  ylab("PC2 (~ depth:length)")+
+  xlab("Centroid Size") +
+  labs(col = "Gosner Stage")
+```
+
+## Export morphometric data
