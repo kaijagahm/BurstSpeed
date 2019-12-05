@@ -21,6 +21,13 @@ load("data/outputs/burst_stats.Rda")
 read.csv("data/inputs/Combined_2019RespData_20190729.csv") # manual morphometrics
 tpsfiles <- list.files("2019_PostResp_photos/Exposure_Edit/for_landmarks/", pattern = "*[[:digit:]].tps", full.names = T)
 tpslist <- lapply(tpsfiles, readland.tps, specID = "imageID") # geometric landmarks
+
+# Extract photo names
+all_photonames <- c()
+for(i in 1:length(tpslist)){
+  photonames_thislist <- dimnames(tpslist[[i]])[[3]]
+  all_photonames <- c(all_photonames, photonames_thislist)
+}
 ```
 
 ## Clean data
@@ -69,14 +76,24 @@ any(is.na(all_landmarks)) # NICE
 # Some of the duplicates are the three tadpoles that we deliberately duplicated to quantify inter-observer error. Others are tadpoles that we just had multiple photos of for whatever reason.
 dups <- dimnames(all_landmarks)[[3]][duplicated(dimnames(all_landmarks)[[3]])]  
 whichdups <- which(duplicated(dimnames(all_landmarks)[[3]]))
-landmarks <- all_landmarks[,,-whichdups] # remove duplicates
+landmarks <- all_landmarks[,,-whichdups] # remove duplicates from landmarks array
+photonames <- all_photonames[-whichdups] # remove duplicates from photo names
 ```
 
 ### Make data table
 ```{r}
+# Get individual vectors
 tadpoles <- dimnames(landmarks)[[3]]
 ponds <- str_extract(tadpoles, pattern = "(?<=^).{2,3}(?=\\_)") %>% as.factor()
 treatments <- str_extract(tadpoles, pattern = "(?<=\\_)[[:alpha:]]*(?=$)") %>% as.factor()
+
+# Aggregate into a data frame.
+metadata <- data.frame(tadpole = tadpoles,
+                       pond = ponds,
+                       treatment = treatments,
+                       photoname = photonames)
+
+metadata <- metadata %>% mutate(date = str_extract(photoname, "[[:digit:]]{8}")) # extract dates
 ```
 
 ### Generate sliders
