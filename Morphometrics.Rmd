@@ -355,3 +355,7 @@ allmorpho %>% filter(size > 3.5, !is.na(gs)) %>% ggplot(aes(x = size, y = PC2, c
 ```
 
 ## Export morphometric data
+```{r}
+save(allmorpho, file = "data/outputs/allmorpho.Rda")
+```
+
