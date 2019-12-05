@@ -128,6 +128,7 @@ summary(tiring_model_under5)
 ```
 
 ### Speed vs. size/shape
+#### Speed vs. GS
 ```{r}
 # Speed vs. gosner stage, by treatment
 stats %>% filter(!is.na(gs), crop == "First half second", maxspeedma5 < 0.2) %>% 
@@ -136,5 +137,25 @@ stats %>% filter(!is.na(gs), crop == "First half second", maxspeedma5 < 0.2) %>%
   geom_point() +
   geom_smooth(method = "lm")
 ```
+
+#### Speed vs. shape
+```{r}
+# Speed vs. PC1
+stats %>% filter(crop == crops[1], maxspeedma5 < 0.2) %>%
+  ggplot(aes(x = PC1, y = maxspeedma5, col = treatment))+
+  facet_wrap(~treatment)+
+  geom_point()+
+  geom_smooth(method = "lm")
+# Seems to be very little relationship between speed and PC1
+
+# Speed vs. PC2
+stats %>% filter(crop == crops[1], maxspeedma5 < 0.2) %>%
+  ggplot(aes(x = PC2, y = maxspeedma5, col = treatment))+
+  facet_wrap(~treatment)+
+  geom_point()+
+  geom_smooth(method = "lm")
+# A bit more of an effect for PC2. 
+```
+
 
 
