@@ -266,10 +266,10 @@ nrow(scores) == length(sizes) # same length
 sum(scores$tadpole != names(sizes)) # same order
 
 # Investigate relationships between shape and size, excluding size outliers.
-scores <- scores %>% mutate(size = sizes)
+scores2 <- scores %>% mutate(size = sizes) %>% select(PC1, PC2, tadpole, treatment, pond, size)
 
 # Size vs. PC1
-scores %>% filter(size > 3.5) %>% ggplot(aes(x = size, y = PC1, col = treatment))+
+scores2 %>% filter(size > 3.5) %>% ggplot(aes(x = size, y = PC1, col = treatment))+
   geom_point() +
   geom_smooth(method = "lm") +
   ggtitle("Size vs. PC1")+
@@ -277,7 +277,7 @@ scores %>% filter(size > 3.5) %>% ggplot(aes(x = size, y = PC1, col = treatment)
   xlab("Centroid size")
 
 # Size vs. PC2
-scores %>% filter(size > 3.5) %>% ggplot(aes(x = size, y = PC2, col = treatment))+
+scores2 %>% filter(size > 3.5) %>% ggplot(aes(x = size, y = PC2, col = treatment))+
   geom_point() +
   geom_smooth(method = "lm") +
   ggtitle("Size vs. PC2")+
@@ -286,5 +286,15 @@ scores %>% filter(size > 3.5) %>% ggplot(aes(x = size, y = PC2, col = treatment)
 ```
 
 ## Size, shape, and Gosner stage
+### Read in manual morpho data
+```{r}
+morpho <- read.csv("data/inputs/Combined_2019RespData_20190729.csv", as.is = T)
+morpho <- morpho %>% mutate(treatment = case_when(Treat == "HIGH" ~ "High",
+                                                  Treat == "LOW" ~ "Low",
+                                                  Treat == "WILD" ~ "Wild")) %>%
+  mutate(ID = gsub("-", "_", ID),
+         tadpole = paste0(ID, "_", treatment)) 
+head(scores2)
+```
 
 
