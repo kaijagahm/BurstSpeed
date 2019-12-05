@@ -14,4 +14,4 @@ library(DAAG)
 library(viridis)
 library(geomorph)
 library(abind)
-
+source("https://raw.githubusercontent.com/kaijagahm/general/master/locate.nas.txt")
