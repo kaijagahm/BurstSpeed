@@ -18,9 +18,11 @@ source("libraries.R")
 ## Load data
 ```{r}
 load("data/outputs/bursts_allcrops.Rda")
+load("data/outputs/allmorpho.Rda")
 ```
 
 ## Summary stats
+### Calculate stats
 ```{r}
 burst_stats <- bursts_allcrops %>% 
   group_by(fullname, trial, crop) %>%
@@ -32,11 +34,24 @@ burst_stats <- bursts_allcrops %>%
 burst_info <- bursts_allcrops %>% select(fullname, trial, pond, clutch, indiv, treatment, year, month, day, camera, crop) %>% distinct()
 
 burst_stats <- left_join(burst_stats, burst_info, by = c("fullname", "trial", "crop"))
+burst_stats <- burst_stats %>% mutate(tadpole = str_extract(fullname, pattern = "(?<=^).*(?=\\_[[:digit:]]{8}\\_.*$)"))
+# The above line doesn't quite work to get the names for the wild tadpoles, so we have to add "Wild" on.
+burst_stats$tadpole[burst_stats$treatment == "Wild"] <- paste0(burst_stats$tadpole[burst_stats$treatment == "Wild"], "_Wild")
 ```
 
-## Save stats
+### Save stats
 ```{r}
-save(burst_stats, file = "data/outputs/burst_stats.Rda")
+#save(burst_stats, file = "data/outputs/burst_stats.Rda")
+```
+
+## Join stats to morpho data
+```{r}
+stats <- burst_stats %>% select(-c(pond, clutch)) %>% 
+  left_join(allmorpho, by = c("tadpole", "treatment")) %>%
+         rename(burst_year = "year",
+         burst_month = "month",
+         burst_day = "day",
+         photo_date = "date") %>% select(-c(indiv.y, id, treat))
 ```
 
 ## Exploratory plotting
@@ -52,26 +67,45 @@ bursts_allcrops %>% filter(fullname == tadpoles[100], crop == crops[2]) %>%
 ```
 
 ```{r}
-head(burst_stats)
+head(stats)
 
-# Max speed by pond
-burst_stats %>% filter(crop == crops[2]) %>% ggplot()+
-  geom_boxplot(aes(x = factor(pond), y = log(maxspeedma5)))+
-  ggtitle("Log max speedma5 by pond")+
+# Max speed by pond (excluding high outliers)
+stats %>% filter(crop == crops[2], maxspeedma5 < 0.15) %>% ggplot()+
+  geom_boxplot(aes(x = factor(pond), y = maxspeedma5))+
+  ggtitle("max speedma5 by pond")+
   xlab("Pond")+
-  ylab("Log-transformed max speed (moving average), first second")
+  ylab("max speed (moving average), first second")
 
-# Max speed by pond
-burst_stats %>% filter(crop == crops[2]) %>% ggplot()+
-  geom_boxplot(aes(x = factor(pond), y = log(avgspeed)))+
-  ggtitle("log average speed by pond")+
+# Max speed by pond (excluding high outliers)
+stats %>% filter(crop == crops[2], avgspeed < 0.1) %>% ggplot()+
+  geom_boxplot(aes(x = factor(pond), y = avgspeed))+
+  ggtitle("average speed by pond")+
   xlab("Pond")+
-  ylab("Log-transformed average speed, first second")
+  ylab("average speed, first second")
+
+# Visualize speed distributions
+stats %>% filter(crop == crops[1]) %>% ggplot(aes(x = maxspeedma5))+
+  geom_density(aes(fill = treatment, col = treatment), alpha = 0.3)+
+  ggtitle("Max Speed (5-frame moving average)")
+
+stats %>% filter(crop == crops[1]) %>% ggplot(aes(x = avgspeed))+
+  geom_density(aes(fill = treatment, col = treatment), alpha = 0.3)+
+  ggtitle("First half second average speed")
+
+# Visualize speed distributions without outliers
+stats %>% filter(crop == crops[1], maxspeedma5 < 0.2) %>% ggplot(aes(x = maxspeedma5))+
+  geom_density(aes(fill = treatment, col = treatment), alpha = 0.3)+
+  ggtitle("Max Speed (5-frame moving average)")
+
+stats %>% filter(crop == crops[1], avgspeed < 0.1) %>% ggplot(aes(x = avgspeed))+
+  geom_density(aes(fill = treatment, col = treatment), alpha = 0.3)+
+  ggtitle("First half second average speed")
+
 ```
 
 ### Does speed decrease by trial number?
 ```{r}
-burst_stats %>% filter(crop == crops[2], trial < 5) %>%
+stats %>% filter(crop == crops[2], trial < 5) %>%
   ggplot(aes(x = jitter(trial), y = log(maxspeedma5), col = treatment))+
   geom_point()+
   geom_smooth(method = 'lm', formula = y ~ x)+
@@ -81,16 +115,26 @@ burst_stats %>% filter(crop == crops[2], trial < 5) %>%
 ```
 ```{r}
 # Model the decrease in speed
-tiring_model <- lm(avgspeed ~ trial + treatment, data =  burst_stats)
+tiring_model <- lm(avgspeed ~ trial + treatment, data = stats)
 summary(tiring_model)
 
 # There is an effect, but the effect is definitely small.
 
 # Limit it to under 5 trials
-tiring_model_under5 <- lm(avgspeed ~ trial + treatment, data = burst_stats[burst_stats$trial < 5,])
+tiring_model_under5 <- lm(avgspeed ~ trial + treatment, data = stats[stats$trial < 5,])
 summary(tiring_model_under5)
 
 # Less of an effect with fewer trials.
+```
+
+### Speed vs. size/shape
+```{r}
+# Speed vs. gosner stage, by treatment
+stats %>% filter(!is.na(gs), crop == "First half second", maxspeedma5 < 0.2) %>% 
+  ggplot(aes(x = jitter(gs), y = maxspeedma5, col = treatment))+
+  facet_wrap(~treatment)+
+  geom_point() +
+  geom_smooth(method = "lm")
 ```
 
 
