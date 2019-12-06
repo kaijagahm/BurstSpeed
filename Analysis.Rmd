@@ -13,12 +13,14 @@ knitr::opts_chunk$set(echo = TRUE)
 ## Load libraries
 ```{r, echo = FALSE}
 source("libraries.R")
+source("process_coordinates_funs.R")
 ```
 
 ## Load data
 ```{r}
 load("data/outputs/bursts_allcrops.Rda")
 load("data/outputs/allmorpho.Rda")
+load("data/outputs/scoords_allcrops.Rda")
 ```
 
 ## Summary stats
@@ -38,6 +40,25 @@ burst_stats <- burst_stats %>% mutate(tadpole = str_extract(fullname, pattern = 
 # The above line doesn't quite work to get the names for the wild tadpoles, so we have to add "Wild" on.
 burst_stats$tadpole[burst_stats$treatment == "Wild"] <- paste0(burst_stats$tadpole[burst_stats$treatment == "Wild"], "_Wild")
 ```
+
+### Add straight line distance from coords
+```{r}
+coords_stats <- scoords_allcrops %>%
+  group_by(fullname, trial, crop) %>%
+  filter(row_number() %in% c(1, n())) %>% 
+  summarize(xinit = x[1],
+            xfin = x[2],
+            yinit = y[1],
+            yfin = y[2],
+            xdiff = xfin-xinit,
+            ydiff = yfin-yinit,
+            pythag = sqrt(xdiff^2 + ydiff^2))
+```
+
+
+
+
+
 
 ### Save stats
 ```{r}
