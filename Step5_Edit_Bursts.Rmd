@@ -21,19 +21,25 @@ source("process_coordinates_funs.R")
 ```{r}
 load("data/outputs/speedsDF.Rda")
 load("data/outputs/trial_start_frames.Rda")
+load("data/outputs/scaled_coords_df.Rda")
 ```
 
-## Assign frame numbers to speedsDF
+## Assign frame numbers to speedsDF and scaled_coords_df
 ```{r}
 speedsDF <- speedsDF %>% mutate(unique_trial = paste(fullname, trial)) %>% as.data.frame()
 speedsDF <- tally_by_group(speedsDF, group_col = "unique_trial")
+
+scaled_coords_df <- scaled_coords_df %>% mutate(unique_trial = paste(fullname, trial)) %>% as.data.frame()
+scaled_coords_df <- tally_by_group(scaled_coords_df, group_col = "unique_trial")
 ```
 
 ## Trim trial beginnings
 ### Join trials to start frames
 ```{r}
 trial_start_frames <- trial_start_frames %>% mutate(unique_trial = paste(fullname, trial))
+
 speedsDF <- left_join(speedsDF, trial_start_frames, by = c("fullname", "trial", "unique_trial"))
+scaled_coords_df <- left_join(scaled_coords_df, trial_start_frames, by = c("fullname", "trial", "unique_trial"))
 ```
 
 ### Add initial (stationary) frame
@@ -41,20 +47,30 @@ speedsDF <- left_join(speedsDF, trial_start_frames, by = c("fullname", "trial", 
 # We want to allow one extra frame before the start of the trial for padding, so we can set the speed to 0 right before the trial starts.
 speedsDF <- speedsDF %>% mutate(frame_init = frame_start - 1)
 
-# Set speed to 0 for the initial frame
+scaled_coords_df <- scaled_coords_df %>% mutate(frame_init = frame_start - 1)
+
+# Set speed to 0 for the initial frame (speedsDF)
 speedsDF$speedma5[speedsDF$frame == speedsDF$frame_init] <- 0
 speedsDF$speed[speedsDF$frame == speedsDF$frame_init] <- 0
+
+# Set displacement to 0 for the initial frame (scaled_coords_df)
+scaled_coords_df$displacement[scaled_coords_df$frame == scaled_coords_df$frame_init] <- 0
+scaled_coords_df$displacement[scaled_coords_df$frame == scaled_coords_df$frame_init] <- 0
 ```
 
 ### Remove frames before initial frame
 ```{r}
 speedsDF <- speedsDF %>% filter(frame >= frame_init)
+scaled_coords_df <- scaled_coords_df %>% filter(frame >= frame_init)
 ```
 
 ### Relative vs. absolute frames
 ```{r}
 speedsDF <- speedsDF %>% rename(frame_trial = frame)
 speedsDF <- tally_by_group(speedsDF, group_col = "unique_trial") %>% rename(frame_burst = frame)
+
+scaled_coords_df <- scaled_coords_df %>% rename(frame_trial = frame)
+scaled_coords_df <- tally_by_group(scaled_coords_df, group_col = "unique_trial") %>% rename(frame_burst = frame)
 ```
 
 ## Duration of bursts
@@ -82,6 +98,7 @@ Need to discuss whether to exclude bursts less than 1/2 sec.
 
 
 ## Trim burst lengths
+### Trim speeds
 ```{r}
 todrop <- c("time", "angle", "px", "date", "frame_trial", "frame_start", "unique_trial")
 
@@ -92,7 +109,18 @@ bursts_secondhalfsec <- bursts %>% filter(frame_burst <= 60 & frame_burst > 30) 
 bursts_allcrops <- rbind(bursts, bursts_sec, bursts_halfsec, bursts_secondhalfsec)
 ```
 
-## Fix NA's
+### Trim scaled coords
+```{r}
+todrop <- c("time", "angle", "px", "date", "frame_trial", "frame_start", "unique_trial")
+
+scoords <- scaled_coords_df %>% select(-todrop) %>% mutate(crop = "Full burst")
+scoords_sec <- scoords %>% filter(frame_burst <= 60) %>% mutate(crop = "First second")
+scoords_halfsec <- scoords %>% filter(frame_burst <= 30) %>% mutate(crop = "First half second")
+scoords_secondhalfsec <- scoords %>% filter(frame_burst <= 60 & frame_burst > 30) %>% mutate(crop = "Second half second")
+scoords_allcrops <- rbind(scoords, scoords_sec, scoords_halfsec, scoords_secondhalfsec)
+```
+
+## Fix NA's in speeds
 ```{r}
 # Look at where the NA's in speed are
 bursts_allcrops[is.na(bursts_allcrops$speed),] #All of them have frame_burst as 1, so let's set the speed to 0. 
@@ -101,10 +129,10 @@ bursts_allcrops[is.na(bursts_allcrops$speed),] #All of them have frame_burst as 
 bursts_allcrops$speed[is.na(bursts_allcrops$speed)] <- 0
 ```
 
-
 ## Output
 ```{r}
 save(bursts_allcrops, file = "data/outputs/bursts_allcrops.Rda")
+save(scoords_allcrops, file = "data/outputs/scoords_allcrops.Rda")
 ```
 
 
