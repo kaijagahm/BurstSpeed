@@ -61,7 +61,7 @@ for(i in 1:length(alltrajs)){
 # Assign trial numbers and bind individual data frames into one for each tadpole
 speeds <- lapply(speeds, rbindlist, idcol = "trial")
 
-# Bind all tadpoles together into one list
+# Bind all tadpoles together into one data frame
 speedsDF <- rbindlist(speeds, idcol = "fullname", use.names = T)
 
 # Join more info from vidinfo
@@ -75,9 +75,23 @@ speedsDF <- speedsDF %>% group_by(fullname, trial) %>%
   mutate(speedma5 = rollapplyr(speed, 5, mean, fill = NA))
 ```
 
+# Coords
+## Get coords
+```{r}
+# Assign trial numbers and bind individual scaled coords data frames into one for each tadpole
+scaled_coords <- lapply(alltrajs, rbindlist, idcol = "trial")
+
+# Bind all scaled coords data frames into one data frame
+scaled_coords_df <- rbindlist(scaled_coords, idcol = "fullname", use.names = T)
+
+# Join more info from vidinfo
+scaled_coords_df <- left_join(scaled_coords_df, vidinfo, by = "fullname")
+```
+
 # Output
 ```{r}
 save(speedsDF, file = "data/outputs/speedsDF.Rda")
+save(scaled_coords_df, file = "data/outputs/scaled_coords_df.Rda")
 ```
 
 
