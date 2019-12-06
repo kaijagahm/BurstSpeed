@@ -52,17 +52,14 @@ coords_stats <- scoords_allcrops %>%
             yfin = y[2],
             xdiff = xfin-xinit,
             ydiff = yfin-yinit,
-            pythag = sqrt(xdiff^2 + ydiff^2))
+            slinedist = sqrt(xdiff^2 + ydiff^2)) %>% select(fullname, trial, crop, slinedist)
+
+burst_stats <- left_join(burst_stats, coords_stats, by = c("fullname", "trial", "crop"))
 ```
-
-
-
-
-
 
 ### Save stats
 ```{r}
-#save(burst_stats, file = "data/outputs/burst_stats.Rda")
+save(burst_stats, file = "data/outputs/burst_stats.Rda")
 ```
 
 ## Which time crop to use
