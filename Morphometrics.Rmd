@@ -337,7 +337,7 @@ allmorpho %>% filter(size > 3.5, !is.na(gs)) %>% ggplot(aes(x = size, y = PC1, c
   scale_color_viridis()+
   facet_wrap(~treatment) +
   ggtitle("Size vs. PC1, by treatment and GS")+
-  ylab("PC2 (~ head length:tail length)")+
+  ylab("PC1 (~ head length:tail length)")+
   xlab("Centroid Size") +
   labs(col = "Gosner Stage")
 
