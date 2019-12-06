@@ -105,15 +105,3 @@ findBeginningAngle <- function(df, anglevar){
   return(firstup-1)
 }
 
-# Function to find straight line distance between two points, given an x and a y
-# initial_point and final_point are two-element vectors of format c(x, y)
-pythag <- function(initial_point, final_point){
-  i_x <- initial_point[1]
-  i_y <- initial_point[2]
-  f_x <- final_point[1]
-  f_y <- final_point[2]
-  horiz_dist <- f_x - i_x
-  vert_dist <- f_y - i_y
-  diag_dist <- sqrt(horiz_dist^2 + vert_dist^2)
-  return(diag_dist)
-}
