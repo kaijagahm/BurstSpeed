@@ -26,7 +26,7 @@ load("data/outputs/allmorpho.Rda")
 ```{r}
 burst_stats <- bursts_allcrops %>% 
   group_by(fullname, trial, crop) %>%
-  summarize(avgspeed = mean(speed),
+  summarize(avgspeed = mean(speed, na.rm = T),
             maxspeed = max(speed, na.rm = T),
             maxspeedma5 = max(speedma5, na.rm = T)) %>%
   as.data.frame()
@@ -43,6 +43,23 @@ burst_stats$tadpole[burst_stats$treatment == "Wild"] <- paste0(burst_stats$tadpo
 ```{r}
 #save(burst_stats, file = "data/outputs/burst_stats.Rda")
 ```
+
+## Which time crop to use
+"Although a full second was measured for all tadpoles, most showed signs of slowing during the second half second (paired t‐tests comparing first and second half seconds: Bufo: t202 = 12 Scaphiopus t202 = 21, P < 0·001 for both)" (Arendt 2003, Functional Ecology)
+### Comparing avgspeed for first and second half seconds
+```{r}
+test <- burst_stats %>% filter(crop %in% c("First half second", "Second half second"))
+
+# Paired t-test for first and second half seconds, excluding bursts that don't have both.
+problems <- test %>% group_by(fullname, trial) %>% summarize(freq = n()) %>% filter(freq < 2) # identify problems
+
+# Remove problems
+test <- test %>% filter(!(paste(fullname, trial) %in% paste(problems$fullname, problems$trial))) %>% mutate(unique = paste(fullname, trial)) %>% select(unique, crop, avgspeed)
+
+# Run paired t-test
+t.test(avgspeed ~ crop, paired = T, data = test, alternative = "less") # alternative hypothesis that second half sec has a smaller mean than first half sec
+```
+Interestingly, the t-test does not reveal a significant difference in means. That's odd. 
 
 ## Join stats to morpho data
 ```{r}
@@ -105,12 +122,12 @@ stats %>% filter(crop == crops[1], avgspeed < 0.1) %>% ggplot(aes(x = avgspeed))
 
 ### Does speed decrease by trial number?
 ```{r}
-stats %>% filter(crop == crops[2], trial < 5) %>%
-  ggplot(aes(x = jitter(trial), y = log(maxspeedma5), col = treatment))+
+stats %>% filter(crop == crops[2], trial < 5, maxspeedma5 < 0.2) %>%
+  ggplot(aes(x = jitter(trial), y = maxspeedma5, col = treatment))+
   geom_point()+
   geom_smooth(method = 'lm', formula = y ~ x)+
-  ggtitle("Log max speed by trial number")+
-  ylab("Log-transformed max speed (moving average)")+
+  ggtitle("Max speed by trial number")+
+  ylab("Max speed (moving average)")+
   xlab("Trial number")
 ```
 ```{r}
