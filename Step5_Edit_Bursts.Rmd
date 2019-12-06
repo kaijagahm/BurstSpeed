@@ -64,7 +64,8 @@ todrop <- c("time", "angle", "px", "date", "frame_trial", "frame_start", "unique
 bursts <- speedsDF %>% select(-todrop) %>% mutate(crop = "Full burst")
 bursts_sec <- bursts %>% filter(frame_burst <= 60) %>% mutate(crop = "First second")
 bursts_halfsec <- bursts %>% filter(frame_burst <= 30) %>% mutate(crop = "First half second")
-bursts_allcrops <- rbind(bursts, bursts_sec, bursts_halfsec)
+bursts_secondhalfsec <- bursts %>% filter(frame_burst <= 60 & frame_burst > 30) %>% mutate(crop = "Second half second")
+bursts_allcrops <- rbind(bursts, bursts_sec, bursts_halfsec, bursts_secondhalfsec)
 ```
 
 ## Output
