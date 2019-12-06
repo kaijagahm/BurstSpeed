@@ -57,6 +57,30 @@ speedsDF <- speedsDF %>% rename(frame_trial = frame)
 speedsDF <- tally_by_group(speedsDF, group_col = "unique_trial") %>% rename(frame_burst = frame)
 ```
 
+## Duration of bursts
+### Check max durations
+```{r}
+tooshort <- speedsDF %>% group_by(fullname, trial) %>% 
+  summarize(maxframe = max(frame_burst)) %>%
+  filter(maxframe < 60)
+
+nrow(tooshort)
+# there are 74 bursts that are less than 60 frames long. What about less than half a sec?
+
+waytooshort <- speedsDF %>% group_by(fullname, trial) %>% 
+  summarize(maxframe = max(frame_burst)) %>%
+  filter(maxframe < 30)
+nrow(waytooshort)
+
+# Only 14 are less than half a second. Maybe we should exclude those?
+```
+
+Need to discuss whether to exclude bursts less than 1/2 sec.
+```{r}
+#speedsDF <- speedsDF %>% filter(!(paste(fullname, trial) %in% paste(waytooshort$fullname, waytooshort$trial))) # Remove individual bursts that were "waytooshort".
+```
+
+
 ## Trim burst lengths
 ```{r}
 todrop <- c("time", "angle", "px", "date", "frame_trial", "frame_start", "unique_trial")
@@ -67,6 +91,16 @@ bursts_halfsec <- bursts %>% filter(frame_burst <= 30) %>% mutate(crop = "First 
 bursts_secondhalfsec <- bursts %>% filter(frame_burst <= 60 & frame_burst > 30) %>% mutate(crop = "Second half second")
 bursts_allcrops <- rbind(bursts, bursts_sec, bursts_halfsec, bursts_secondhalfsec)
 ```
+
+## Fix NA's
+```{r}
+# Look at where the NA's in speed are
+bursts_allcrops[is.na(bursts_allcrops$speed),] #All of them have frame_burst as 1, so let's set the speed to 0. 
+
+# Set speed to 0
+bursts_allcrops$speed[is.na(bursts_allcrops$speed)] <- 0
+```
+
 
 ## Output
 ```{r}
