@@ -342,15 +342,17 @@ allmorpho %>% filter(size > 3.5, !is.na(gs)) %>% ggplot(aes(x = size, y = PC1, c
   labs(col = "Gosner Stage")
 
 # Size vs. PC2, with GS
-allmorpho %>% filter(size > 3.5, !is.na(gs)) %>% ggplot(aes(x = size, y = PC2, col = gs))+
+pc2plot <- allmorpho %>% filter(size > 3.5, !is.na(gs)) %>% ggplot(aes(x = size, y = PC2, col = gs))+
   geom_smooth(size = 0.5, colour = "black", method = "lm")+
   geom_point()+
   scale_color_viridis()+
   facet_wrap(~treatment)+
-  ggtitle("Size vs. PC2, by treatment and GS")+
-  ylab("PC2 (~ depth:length)")+
-  xlab("Centroid Size") +
-  labs(col = "Gosner Stage")
+  ggtitle("Size vs. depth:length ratio, by treatment and developmental stage")+
+  ylab("PC2 (~ Depth:length ratio)")+
+  xlab("Centroid size (cm)") +
+  labs(col = "Developmental \n Stage")
+
+ggsave(plot = pc2plot, filename = "~/Desktop/pc2plot.png", height = 5, width = 9)
 ```
 
 ## Export morphometric data
