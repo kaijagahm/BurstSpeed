@@ -99,6 +99,41 @@ test %>% ggplot(aes(x = sline_speed_m_s, col = crop, fill = crop))+
   geom_density(alpha = 0.4)
 ```
 
+## First half sec average across trials
+```{r}
+# By trial run (tadpole x date)
+burst_stats_avg_date <- burst_stats %>% filter(crop == "First half second") %>% group_by(fullname) %>%
+  summarize(avgavgspeed = mean(avgspeed),
+            avgmaxspeed = mean(maxspeed),
+            avgmaxspeedma5 = mean(maxspeedma5),
+            pond = pond[1],
+            clutch = clutch[1],
+            indiv = indiv[1],
+            treatment = treatment[1],
+            year = year[1],
+            month = month[1],
+            day = day[1],
+            camera = camera[1],
+            tadpole = tadpole[1],
+            avgslinedist = mean(slinedist),
+            time = time[1],
+            avgslinespeed_ms = mean(sline_speed_m_s)) %>%
+  as.data.frame()
+
+# By tadpole
+burst_stats_avg_tadpole <- burst_stats %>% filter(crop == "First half second") %>% group_by(tadpole) %>% 
+  summarize(avgavgspeed = mean(avgspeed),
+            avgmaxspeed = mean(maxspeed),
+            avgmaxspeedma5 = mean(maxspeedma5),
+            pond = pond[1],
+            clutch = clutch[1],
+            indiv = indiv[1],
+            treatment = treatment[1],
+            avgslinedist = mean(slinedist),
+            time = time[1],
+            avgslinespeed_ms = mean(sline_speed_m_s))
+```
+
 
 ## Join stats to morpho data
 ```{r}
@@ -145,20 +180,29 @@ bursts_allcrops %>% filter(fullname == tadpoles[100], crop == "First half second
 ```{r}
 head(stats)
 
-# Straight line speed by pond (excluding high outliers)
-stats %>% filter(crop == "First half second") %>% ggplot()+
-  geom_boxplot(aes(x = factor(pond), y = sline_speed_m_s))+
-  ggtitle("Straight line speed by pond")+
+# Straight line speed by pond (averaging across trials for each tadpole)
+burst_stats_avg_tadpole %>% ggplot()+
+  geom_violin(aes(x = factor(pond), y = avgslinespeed_ms), fill = "lightblue")+
+  ggtitle("Burst speed by pond of origin")+
   xlab("Pond")+
-  ylab("Straight line speed, first half second")
+  ylab("Burst speed (m/s)") + theme_minimal()
 
-# Straight line speed by treatment
-stats %>% filter(crop == "First half second") %>% ggplot()+
-  geom_boxplot(aes(x = treatment, y = sline_speed_m_s))+
-  ggtitle("Straight line speed by treatment")+
+# Straight line speed by treatment (averaging across trials for each tadpole)
+burst_stats_avg_tadpole %>% ggplot()+
+  geom_boxplot(aes(x = treatment, y = avgslinespeed_ms, fill = treatment))+
+  ggtitle("Burst speed by treatment")+
   xlab("Treatment")+
-  ylab("Straight line speed, first half second")
+  ylab("Speed (m/s)")+
+  labs(fill = "Temperature \n treatment")
+
+burst_stats_avg_tadpole %>% ggplot()+
+  geom_violin(aes(x = treatment, y = avgslinespeed_ms, fill = treatment))+
+  ggtitle("Burst speed by treatment")+
+  xlab("Treatment")+
+  ylab("Speed (m/s)")+
+  labs(fill = "Temperature \n treatment")+ theme_minimal()
 ```
+
 
 ### Does speed decrease by trial number?
 ```{r}
