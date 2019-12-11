@@ -21,6 +21,7 @@ source("process_coordinates_funs.R")
 ```{r}
 load("data/outputs/alltrajs.Rda")
 load("data/outputs/coords.Rda")
+load("data/outputs/vidinfo.Rda")
 ```
 
 ## Verify data
