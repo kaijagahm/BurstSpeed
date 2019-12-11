@@ -129,6 +129,20 @@ bursts_allcrops[is.na(bursts_allcrops$speed),] #All of them have frame_burst as 
 bursts_allcrops$speed[is.na(bursts_allcrops$speed)] <- 0
 ```
 
+## Add try numbers and edit full names
+```{r}
+trynums <- str_extract(string = bursts_allcrops$fullname, pattern = "(?<=\\_)[[:digit:]]{1}(?=\\_2019)") # get try numbers
+
+bursts_allcrops$trynum <- trynums # edit try numbers
+scoords_allcrops$trynum <- trynums # edit try numbers
+
+newfullnames <- str_replace(string = bursts_allcrops$fullname, pattern = "\\_[[:digit:]]{1}(?=\\_2019)", replacement = "") # get new full names (note pattern includes the _)
+
+bursts_allcrops$fullname <- newfullnames # edit full names
+scoords_allcrops$fullname <- newfullnames # edit full names
+```
+
+
 ## Output
 ```{r}
 save(bursts_allcrops, file = "data/outputs/bursts_allcrops.Rda")
