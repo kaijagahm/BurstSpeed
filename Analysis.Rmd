@@ -258,5 +258,17 @@ stats %>% filter(crop == "First half second") %>%
 # A bit more of an effect for PC2. 
 ```
 
+## Join water temp data
+```{r}
+expdata <- read.csv("data/inputs/Burst_Speed_Data.csv")
+
+expdata <- expdata %>% mutate(Date = as.character(Date),
+                              year = 2019,
+                              month = as.numeric(substr(Date, 1, 1)),
+                              day = as.numeric(str_extract(Date, pattern = "(?<=^[[:digit:]]\\/)[[:digit:]]{1,2}(?=\\/)")),
+                              Treatment = capwords(tolower(Treatment)))
+
+expdata <- expdata %>% mutate(fullname = case_when(Clutch != "W" ~ paste0(Pond, "_0", Clutch, "_", Indiv, "_", Treatment, "_", year, month, day, "_C", Cam)))
+```
 
 
