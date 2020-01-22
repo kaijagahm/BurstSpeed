@@ -140,8 +140,11 @@ newfullnames <- str_replace(string = bursts_allcrops$fullname, pattern = "\\_[[:
 
 bursts_allcrops$fullname <- newfullnames # edit full names
 scoords_allcrops$fullname <- newfullnames # edit full names
-```
 
+# Set only tries to 1
+bursts_allcrops$trynum[is.na(bursts_allcrops$trynum)] <- "1"
+scoords_allcrops$trynum[is.na(scoords_allcrops$trynum)] <- "1"
+```
 
 ## Output
 ```{r}
