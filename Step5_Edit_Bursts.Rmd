@@ -149,7 +149,6 @@ bursts_allcrops$fullname <- newfullnames # edit full names
 scoords_allcrops$fullname <- newfullnames # edit full names
 ```
 
-
 ## Add tadpole names
 ```{r}
 bursts_allcrops <- bursts_allcrops %>% mutate(tadpole = str_extract(fullname, pattern = "(?<=^).*(?=\\_[[:digit:]]{8}\\_.*$)"))
@@ -159,6 +158,29 @@ bursts_allcrops$tadpole[bursts_allcrops$treatment == "Wild"] <- paste0(bursts_al
 scoords_allcrops <- scoords_allcrops %>% mutate(tadpole = str_extract(fullname, pattern = "(?<=^).*(?=\\_[[:digit:]]{8}\\_.*$)"))
 # The above line doesn't quite work to get the names for the wild tadpoles, so we have to add "Wild" on.
 scoords_allcrops$tadpole[scoords_allcrops$treatment == "Wild"] <- paste0(scoords_allcrops$tadpole[scoords_allcrops$treatment == "Wild"], "_Wild")
+```
+
+## Double check that we're not missing any multi-try tadpoles
+Try numbers were derived from the tadpoles' full names, which were in turn derived from the file names of the photos. I don't trust those, so let's double check.
+```{r}
+bursts_allcrops <- bursts_allcrops %>% mutate(fulldate = str_extract(fullname, "[[:digit:]]{8}"))
+
+tries <- bursts_allcrops %>% group_by(tadpole) %>% mutate(ntries = length(unique(fulldate))) %>% group_by(tadpole, fulldate) %>% slice(1) %>% as.data.frame()
+
+tries_numbered <- tries %>% tally_by_group(group_col = "tadpole") %>% rename(trynum_new = frame) %>% select(fullname, trynum_new)
+
+bursts_allcrops <- bursts_allcrops %>% left_join(tries_numbered, by = "fullname") %>% mutate(trynum = NULL) %>% rename(trynum = trynum_new) # got rid of the old try numbers and added the new ones.
+
+
+#~~~~~~~~~~~~~~~
+# Same for scoords
+scoords_allcrops <- scoords_allcrops %>% mutate(fulldate = str_extract(fullname, "[[:digit:]]{8}"))
+
+tries <- scoords_allcrops %>% group_by(tadpole) %>% mutate(ntries = length(unique(fulldate))) %>% group_by(tadpole, fulldate) %>% slice(1) %>% as.data.frame()
+
+tries_numbered <- tries %>% tally_by_group(group_col = "tadpole") %>% rename(trynum_new = frame) %>% select(fullname, trynum_new)
+
+scoords_allcrops <- scoords_allcrops %>% left_join(tries_numbered, by = "fullname") %>% mutate(trynum = NULL) %>% rename(trynum = trynum_new) # got rid of the old try numbers and added the new ones.
 ```
 
 ## Remove first trynums for tadpoles with multiple tries
