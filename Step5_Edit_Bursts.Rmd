@@ -146,6 +146,17 @@ bursts_allcrops$trynum[is.na(bursts_allcrops$trynum)] <- "1"
 scoords_allcrops$trynum[is.na(scoords_allcrops$trynum)] <- "1"
 ```
 
+## Add tadpole names
+```{r}
+bursts_allcrops <- bursts_allcrops %>% mutate(tadpole = str_extract(fullname, pattern = "(?<=^).*(?=\\_[[:digit:]]{8}\\_.*$)"))
+# The above line doesn't quite work to get the names for the wild tadpoles, so we have to add "Wild" on.
+bursts_allcrops$tadpole[bursts_allcrops$treatment == "Wild"] <- paste0(bursts_allcrops$tadpole[bursts_allcrops$treatment == "Wild"], "_Wild")
+
+scoords_allcrops <- scoords_allcrops %>% mutate(tadpole = str_extract(fullname, pattern = "(?<=^).*(?=\\_[[:digit:]]{8}\\_.*$)"))
+# The above line doesn't quite work to get the names for the wild tadpoles, so we have to add "Wild" on.
+scoords_allcrops$tadpole[scoords_allcrops$treatment == "Wild"] <- paste0(scoords_allcrops$tadpole[scoords_allcrops$treatment == "Wild"], "_Wild")
+```
+
 ## Output
 ```{r}
 save(bursts_allcrops, file = "data/outputs/bursts_allcrops.Rda")
