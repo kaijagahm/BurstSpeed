@@ -259,6 +259,7 @@ stats %>% filter(crop == "First half second") %>%
 ```
 
 ## Join water temp data
+### Load and prep data
 ```{r}
 expdata <- read.csv("data/inputs/Burst_Speed_Data.csv")
 
@@ -267,8 +268,25 @@ expdata <- expdata %>% mutate(Date = as.character(Date),
                               month = as.numeric(substr(Date, 1, 1)),
                               day = as.numeric(str_extract(Date, pattern = "(?<=^[[:digit:]]\\/)[[:digit:]]{1,2}(?=\\/)")),
                               Treatment = capwords(tolower(Treatment)))
-
-expdata <- expdata %>% mutate(fullname = case_when(Clutch != "W" ~ paste0(Pond, "_0", Clutch, "_", Indiv, "_", Treatment, "_", year, month, day, "_C", Cam)))
+expdata <- expdata %>% mutate(tadpole = case_when(Clutch != "W" ~ 
+                                                    paste0(Pond, "_0", Clutch, "_", Indiv, "_", Treatment),
+                                                  Clutch == "W" &  nchar(as.character(Indiv)) == 1 ~ 
+                                                    paste0(Pond, "_W_0", Indiv, "_Wild"),
+                                                  Clutch == "W" & nchar(as.character(Indiv)) == 2 ~
+                                                    paste0(Pond, "_W_", Indiv, "_Wild")))
 ```
 
+### Join to burst speed stats
+```{r}
+expdata_tojoin <- expdata %>% select(T_initial, T_final, tadpole, year, month, day, Cam) %>% mutate(Cam = factor(as.character(Cam))) %>% filter(!is.na(T_initial))
+
+stats_temp <- stats %>% left_join(expdata_tojoin, by = c("tadpole", "burst_year" = "year", "burst_month" = "month", "burst_day" = "day", "camera" = "Cam"))
+```
+
+### Investigate problems
+```{r}
+a <- stats_temp %>% filter(is.na(T_initial)) %>% select(tadpole) %>% unique()
+b <- expdata %>% filter(tadpole %in% a) # 0 rows
+# let's check manually
+```
 
