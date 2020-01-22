@@ -293,3 +293,9 @@ stats_fast1 <- stats %>% group_by(tadpole) %>% filter(sline_speed_m_s == max(sli
 stats_fast3 <- stats %>% group_by(tadpole) %>% arrange(desc(sline_speed_m_s), .by_group = T) %>% slice(1:3)
 ```
 
+## Output
+```{r}
+save(stats_fast1, file = "data/outputs/stats_fast1.Rda")
+save(stats_fast3, file = "data/outputs/stats_fast3.Rda")
+```
+
