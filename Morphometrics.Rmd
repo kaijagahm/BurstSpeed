@@ -328,7 +328,16 @@ locate.nas(allmorpho)
 allmorpho %>% filter(is.na(treat))
 # I'm not sure why there are NA's: that would mean we have photos of these specimens, but not measurements/stages for them. Not sure why that would be. I searched manually for a few of the tadpole ID's, and it looks like it's not just a question of the join failing for some reason.
 ```
+#### Fix some names
+```{r}
+allmorpho$tadpole[allmorpho$tadpole == "PB_W_02_High"] <- "PB_W_02_Wild"
+allmorpho$treatment[allmorpho$tadpole == "PB_W_02_Wild"] <- "Wild"
 
+allmorpho$tadpole[allmorpho$tadpole == "BO_W_02_High"] <- "BO_W_02_Wild"
+allmorpho$treatment[allmorpho$tadpole == "BO_W_02_Wild"] <- "Wild"
+```
+
+## Size vs. PC's
 ```{r}
 # Size vs. PC1, with GS
 allmorpho %>% filter(size > 3.5, !is.na(gs)) %>% ggplot(aes(x = size, y = PC1, col = gs))+
