@@ -136,15 +136,19 @@ trynums <- str_extract(string = bursts_allcrops$fullname, pattern = "(?<=\\_)[[:
 bursts_allcrops$trynum <- trynums # edit try numbers
 scoords_allcrops$trynum <- trynums # edit try numbers
 
-newfullnames <- str_replace(string = bursts_allcrops$fullname, pattern = "\\_[[:digit:]]{1}(?=\\_2019)", replacement = "") # get new full names (note pattern includes the _)
-
-bursts_allcrops$fullname <- newfullnames # edit full names
-scoords_allcrops$fullname <- newfullnames # edit full names
-
 # Set only tries to 1
 bursts_allcrops$trynum[is.na(bursts_allcrops$trynum)] <- "1"
 scoords_allcrops$trynum[is.na(scoords_allcrops$trynum)] <- "1"
 ```
+
+## Edit full names to remove try numbers
+```{r}
+newfullnames <- str_replace(string = bursts_allcrops$fullname, pattern = "\\_[[:digit:]]{1}(?=\\_2019)", replacement = "") # get new full names (note pattern includes the _)
+
+bursts_allcrops$fullname <- newfullnames # edit full names
+scoords_allcrops$fullname <- newfullnames # edit full names
+```
+
 
 ## Add tadpole names
 ```{r}
@@ -155,6 +159,24 @@ bursts_allcrops$tadpole[bursts_allcrops$treatment == "Wild"] <- paste0(bursts_al
 scoords_allcrops <- scoords_allcrops %>% mutate(tadpole = str_extract(fullname, pattern = "(?<=^).*(?=\\_[[:digit:]]{8}\\_.*$)"))
 # The above line doesn't quite work to get the names for the wild tadpoles, so we have to add "Wild" on.
 scoords_allcrops$tadpole[scoords_allcrops$treatment == "Wild"] <- paste0(scoords_allcrops$tadpole[scoords_allcrops$treatment == "Wild"], "_Wild")
+```
+
+## Remove first trynums for tadpoles with multiple tries
+Biological reasoning: If I did a second try, it was because the first one(s) were inadequate/bad, so we will exclude those.
+```{r}
+bursts_allcrops <- bursts_allcrops %>% group_by(tadpole) %>% filter(trynum == max(trynum)) %>% as.data.frame()
+
+# Double check that we only have one try per tadpole.
+test <- bursts_allcrops %>% group_by(tadpole) %>% summarize(ntries = length(unique(trynum)))
+table(test$ntries, exclude = NULL)
+
+# ~~~~~~~~
+# now the same for scoords
+scoords_allcrops <- scoords_allcrops %>% group_by(tadpole) %>% filter(trynum == max(trynum)) %>% as.data.frame()
+
+# Double check that we only have one try per tadpole.
+test <- scoords_allcrops %>% group_by(tadpole) %>% summarize(ntries = length(unique(trynum)))
+table(test$ntries, exclude = NULL)
 ```
 
 ## Output
