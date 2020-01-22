@@ -18,5 +18,8 @@
 *.prfpset
 *.prproj
 
+# Ignore .DS_Store
+*.DS_Store
+
 
 
