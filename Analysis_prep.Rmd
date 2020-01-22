@@ -277,3 +277,19 @@ stats %>% ggplot(aes(x = T_initial, y = sline_speed_m_s, col = treatment))+
   geom_smooth(method = "lm")
 ```
 
+## Partition data
+### Only the first half second
+```{r}
+stats <- stats %>% filter(crop == "First half second")
+```
+
+### Fastest 1 trial
+```{r}
+stats_fast1 <- stats %>% group_by(tadpole) %>% filter(sline_speed_m_s == max(sline_speed_m_s))
+```
+
+### Fastest 3 trials
+```{r}
+stats_fast3 <- stats %>% group_by(tadpole) %>% arrange(desc(sline_speed_m_s), .by_group = T) %>% slice(1:3)
+```
+
