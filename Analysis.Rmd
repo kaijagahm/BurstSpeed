@@ -138,15 +138,13 @@ problems <- stats %>% filter(is.na(PC1)) %>% select(tadpole, trial, crop, treatm
 problemtadpoles <- unique(problems$tadpole)
 problemtadpoles
 problemtadpoles %in% allmorpho$tadpole # we just don't have morpho data for these tadpoles; it's not a faulty join.
-
-# BO_W_02_Wild is accidentally recorded as BO_W_02_High in allmorpho. Same with PB_W_02_Wild: accidentally recorded as PB_W_02_High.
 ```
 
 ## Exploratory plotting
 ```{r}
-tadpoles <- unique(bursts_allcrops$fullname)
+tadpoles <- unique(bursts_allcrops$tadpole)
 
-bursts_allcrops %>% filter(fullname == tadpoles[100], crop == "First half second") %>% 
+bursts_allcrops %>% filter(tadpole == tadpoles[100], crop == "First half second") %>% 
   ggplot(aes(x = frame_burst, y = speedma5, col = factor(trial)))+
   geom_line()+
   xlab("Frame")+
@@ -256,18 +254,26 @@ expdata <- expdata %>% mutate(tadpole = case_when(Clutch != "W" ~
 ```{r}
 expdata_tojoin <- expdata %>% select(T_initial, T_final, tadpole, year, month, day, Cam) %>% mutate(Cam = factor(as.character(Cam))) %>% filter(!is.na(T_initial))
 
-stats_temp <- stats %>% left_join(expdata_tojoin, by = c("tadpole", "burst_year" = "year", "burst_month" = "month", "burst_day" = "day", "camera" = "Cam"))
+stats <- stats %>% left_join(expdata_tojoin, by = c("tadpole", "burst_year" = "year", "burst_month" = "month", "burst_day" = "day", "camera" = "Cam"))
 ```
 
 ### Investigate problems
 ```{r}
-na_rows <- stats_temp %>% filter(is.na(T_initial))
+na_rows <- stats %>% filter(is.na(T_initial))
 shouldbena <- expdata %>% filter(is.na(T_initial)) %>% select(tadpole) %>% unique()
-problematic_na_rows <- na_rows %>% filter(!(tadpole %in% shouldbena$tadpole)) %>% group_by(fullname) %>% slice(1) %>% select(tadpole, burst_year, burst_month, burst_day, camera, T_initial)
+problematic_na_rows <- na_rows %>% filter(!tadpole %in% shouldbena$tadpole) %>% group_by(tadpole) %>% slice(1) %>% select(tadpole, burst_year, burst_month, burst_day, camera, T_initial)
 
+expdata_tojoin %>% filter(tadpole %in% problematic_na_rows$tadpole)
 
-check <- expdata_tojoin %>% filter(tadpole %in% problematic_na_rows$tadpole)
-# Hmm, so some of these do have temperatures on the original data sheet. What's the problem?
+# There are a few problems left, but it's not due to a problematic join. We just seem to be missing the temp data for these. For the purposes of figuring out whether burst speed relates to water temp, we don't need to worry about that.
 
+stats <- stats %>% mutate(T_final = NULL) # remove T_final, since we don't have that for most of them.
+```
+
+## Effects of water temp
+```{r}
+stats %>% ggplot(aes(x = T_initial, y = sline_speed_m_s, col = treatment))+
+  geom_point()+
+  geom_smooth(method = "lm")
 ```
 
