@@ -131,13 +131,14 @@ stats <- burst_stats %>% select(-c(pond, clutch)) %>%
          rename(burst_year = "year",
          burst_month = "month",
          burst_day = "day",
-         photo_date = "date") %>% select(-c(indiv.y, id, treat))
+         photo_date = "date") %>% select(-c(indiv.y, id, treat)) %>% rename(indiv = indiv.x)
 
 locate.nas(stats) # weirdness.
 problems <- stats %>% filter(is.na(PC1)) %>% select(tadpole, trial, crop, treatment) %>% distinct()
 problemtadpoles <- unique(problems$tadpole)
 problemtadpoles
 problemtadpoles %in% allmorpho$tadpole # we just don't have morpho data for these tadpoles; it's not a faulty join.
+problemtadpoles
 ```
 
 ## Exploratory plotting
@@ -291,11 +292,14 @@ stats_fast1 <- stats %>% group_by(tadpole) %>% filter(sline_speed_m_s == max(sli
 ### Fastest 3 trials
 ```{r}
 stats_fast3 <- stats %>% group_by(tadpole) %>% arrange(desc(sline_speed_m_s), .by_group = T) %>% slice(1:3)
+
+stats_fast3_avg <- stats_fast3 %>% select(-c(trial, T_initial)) %>% summarize_if(.predicate = is.numeric, .funs = mean)
 ```
 
 ## Output
 ```{r}
 save(stats_fast1, file = "data/outputs/stats_fast1.Rda")
 save(stats_fast3, file = "data/outputs/stats_fast3.Rda")
+save(stats_fast3_avg, file = "data/outputs/stats_fast3_avg.Rda") 
 ```
 
