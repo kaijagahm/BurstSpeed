@@ -9,3 +9,58 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+Load libraries and data
+```{r}
+source("libraries.R")
+load("data/outputs/stats_fast1.Rda")
+dat1 <- stats_fast1 %>% select(tadpole, trial, indiv, treatment, sline_speed_m_s, PC1, PC2, pond, size, clutch, mass, gs, T_initial) %>% ungroup() %>% mutate(treatment = factor(treatment),
+                                              pond = factor(pond),
+                                              clutch = factor(clutch)) %>% 
+  filter(treatment %in% c("High", "Low"), !is.na(PC1)) %>% droplevels()
+```
+
+Hierarchical mixed model, incorporating pond within clutch
+Dat1: fastest trial per tadpole
+```{r}
+mod1 <- lmer(sline_speed_m_s ~ treatment + (1|pond) + (1|pond:clutch), data = dat1)
+summary(mod1)
+
+summary(aov(sline_speed_m_s ~ treatment + pond*clutch, data = dat1)) # none are significant 
+summary(aov(sline_speed_m_s ~ treatment + size + pond*clutch, data = dat1)) # only size is significant
+summary(aov(sline_speed_m_s ~ size + treatment + pond*clutch, data = dat1)) # account for the size effect first
+summary(aov(sline_speed_m_s ~ size + PC2 + treatment + pond*clutch, data = dat1)) # shape is not significant after accounting for size (same holds for PC1)
+summary(aov(sline_speed_m_s ~ PC2 + treatment + pond*clutch, data = dat1)) # only PC2 is significant if size is removed
+summary(aov(sline_speed_m_s ~ PC2 + gs + treatment + pond*clutch, data = dat1)) 
+summary(aov(sline_speed_m_s ~ size + gs + treatment + pond*clutch, data = dat1))
+summary(aov(sline_speed_m_s ~ mass + gs + treatment + pond*clutch, data = dat1)) # first three are significant in all
+
+
+testcors <- dat1 %>% select(PC1, PC2, size, mass, gs)
+plot(testcors)
+```
+
+Load data for the top 3 trials
+```{r}
+load("data/outputs/stats_fast3.Rda")
+dat3 <- stats_fast3 %>% select(tadpole, trial, indiv, treatment, sline_speed_m_s, PC1, PC2, pond, size, clutch, mass, gs, T_initial) %>% ungroup() %>% mutate(treatment = factor(treatment),
+                                              pond = factor(pond),
+                                              clutch = factor(clutch)) %>% 
+  filter(treatment %in% c("High", "Low"), !is.na(PC1)) %>% droplevels()
+
+head(dat3)
+```
+
+Anovas etc
+```{r}
+dat3 <- dat3 %>% mutate(pond_clutch = paste(pond, clutch),
+                        pond_clutch_indiv = paste(pond, clutch, indiv))
+
+summary(aov(sline_speed_m_s ~ pond + clutch + indiv, data = dat3))
+summary(aov(sline_speed_m_s ~ pond + pond_clutch + pond_clutch_indiv, data = dat3))
+
+summary(lmer(sline_speed_m_s ~ gs + treatment + (1 | tadpole), data = dat3))
+       
+
+dat3 %>% ggplot(aes(x = jitter(gs), y = sline_speed_m_s, col = treatment))+ geom_point() + geom_smooth(method = "lm")
+```
+
