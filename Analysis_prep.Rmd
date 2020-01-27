@@ -286,12 +286,13 @@ stats <- stats %>% filter(crop == "First half second")
 
 ### Fastest 1 trial
 ```{r}
-stats_fast1 <- stats %>% group_by(tadpole) %>% filter(sline_speed_m_s == max(sline_speed_m_s))
+stats_fast1 <- stats %>% group_by(tadpole) %>% filter(!is.na(sline_speed_m_s)) %>%
+  filter(sline_speed_m_s == max(sline_speed_m_s))
 ```
 
 ### Fastest 3 trials
 ```{r}
-stats_fast3 <- stats %>% group_by(tadpole) %>% arrange(desc(sline_speed_m_s), .by_group = T) %>% slice(1:3)
+stats_fast3 <- stats %>% filter(!is.na(sline_speed_m_s)) %>% group_by(tadpole) %>% arrange(desc(sline_speed_m_s), .by_group = T) %>% slice(1:3) 
 
 stats_fast3_avg <- stats_fast3 %>% select(-c(trial, T_initial)) %>% summarize_if(.predicate = is.numeric, .funs = mean)
 ```
