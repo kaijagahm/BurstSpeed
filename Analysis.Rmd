@@ -9,58 +9,66 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-Load libraries and data
-```{r}
+# Load libraries
+```{r, echo = F}
 source("libraries.R")
-load("data/outputs/stats_fast1.Rda")
-dat1 <- stats_fast1 %>% select(tadpole, trial, indiv, treatment, sline_speed_m_s, PC1, PC2, pond, size, clutch, mass, gs, T_initial) %>% ungroup() %>% mutate(treatment = factor(treatment),
-                                              pond = factor(pond),
-                                              clutch = factor(clutch)) %>% 
-  filter(treatment %in% c("High", "Low"), !is.na(PC1)) %>% droplevels()
 ```
 
-Hierarchical mixed model, incorporating pond within clutch
-Dat1: fastest trial per tadpole
-```{r}
-mod1 <- lmer(sline_speed_m_s ~ treatment + (1|pond) + (1|pond:clutch), data = dat1)
-summary(mod1)
-
-summary(aov(sline_speed_m_s ~ treatment + pond*clutch, data = dat1)) # none are significant 
-summary(aov(sline_speed_m_s ~ treatment + size + pond*clutch, data = dat1)) # only size is significant
-summary(aov(sline_speed_m_s ~ size + treatment + pond*clutch, data = dat1)) # account for the size effect first
-summary(aov(sline_speed_m_s ~ size + PC2 + treatment + pond*clutch, data = dat1)) # shape is not significant after accounting for size (same holds for PC1)
-summary(aov(sline_speed_m_s ~ PC2 + treatment + pond*clutch, data = dat1)) # only PC2 is significant if size is removed
-summary(aov(sline_speed_m_s ~ PC2 + gs + treatment + pond*clutch, data = dat1)) 
-summary(aov(sline_speed_m_s ~ size + gs + treatment + pond*clutch, data = dat1))
-summary(aov(sline_speed_m_s ~ mass + gs + treatment + pond*clutch, data = dat1)) # first three are significant in all
-
-
-testcors <- dat1 %>% select(PC1, PC2, size, mass, gs)
-plot(testcors)
-```
-
-Load data for the top 3 trials
+# Load data
+## Select relevant columns and change data types
 ```{r}
 load("data/outputs/stats_fast3.Rda")
 dat3 <- stats_fast3 %>% select(tadpole, trial, indiv, treatment, sline_speed_m_s, PC1, PC2, pond, size, clutch, mass, gs, T_initial) %>% ungroup() %>% mutate(treatment = factor(treatment),
-                                              pond = factor(pond),
-                                              clutch = factor(clutch)) %>% 
+                                                      pond = factor(pond),
+                                                      clutch = factor(clutch)) %>% 
   filter(treatment %in% c("High", "Low"), !is.na(PC1)) %>% droplevels()
-
-head(dat3)
 ```
 
-Anovas etc
+## Remove observations that are NA for mass
 ```{r}
-dat3 <- dat3 %>% mutate(pond_clutch = paste(pond, clutch),
-                        pond_clutch_indiv = paste(pond, clutch, indiv))
-
-summary(aov(sline_speed_m_s ~ pond + clutch + indiv, data = dat3))
-summary(aov(sline_speed_m_s ~ pond + pond_clutch + pond_clutch_indiv, data = dat3))
-
-summary(lmer(sline_speed_m_s ~ gs + treatment + (1 | tadpole), data = dat3))
-       
-
-dat3 %>% ggplot(aes(x = jitter(gs), y = sline_speed_m_s, col = treatment))+ geom_point() + geom_smooth(method = "lm")
+dat3 <- dat3 %>% filter(!is.na(mass))
 ```
+
+# Code random effects explicitly
+We should have used different letters for the individuals in the two temperature treatments, because strictly speaking we should have labeled the individuals before choosing which ones to put into which temperature treatment. We did select those randomly, but the naming scheme that we chose does not reflect that.
+
+We don't want to change the letters on the tadpoles because that would make the data be out of sync with all of the labels on everything up to this point. Instead, we're going to stick with our scheme of appending "high" or "low" to the names to distinguish e.g. CPS_01_A in high/low treatments (since that is NOT the same individual.)
+```{r}
+dat3 <- dat3 %>% # remove tadpole column
+  mutate(clutch = factor(paste(pond, clutch)), # code clutches explicitly
+         indiv = factor(paste(clutch, indiv, treatment))) # code individuals explicitly
+locate.nas(dat3)
+```
+
+
+Hierarchical mixed model, incorporating pond within clutch and accounting for multiple trials per individual
+Dat3: fastest 3 trials per tadpole
+```{r}
+mod1 <- lmer(sline_speed_m_s ~ treatment * mass + (1|pond/clutch) + (1|indiv), data = dat3)
+summary(mod1)
+
+dat3$predicted_speed <- predict(mod1, re.form = NA, newdata = dat3)
+dat3$predicted_speed_withresids <- predict(mod1, re.form = NA, newdata = dat3) + resid(mod1, newdata = dat3)
+
+# Compare ggplots
+dat3 %>% ggplot(aes(x = mass, y = sline_speed_m_s, col = treatment))+
+  geom_point()+
+  geom_smooth(method = "lm")+
+  ylab("speed")+
+  ggtitle("Original data")
+
+dat3 %>% ggplot(aes(x = mass, y = predicted_speed, col = treatment))+
+  geom_point()+
+  geom_smooth(method = "lm")+
+  ylab("predicted_speed")+
+  ggtitle("Predicted data")
+
+dat3 %>% ggplot(aes(x = mass, y = predicted_speed_withresids, col = treatment))+
+  geom_point()+
+  geom_smooth(method = "lm")+
+  ylab("predicted_speed_withresids")+
+  ggtitle("Predicted data with residuals")
+```
+The similarity between these graphs shows us that we have correctly specified the structure of our model.
+
 
