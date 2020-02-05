@@ -44,12 +44,24 @@ locate.nas(dat3)
 Hierarchical mixed model, incorporating pond within clutch and accounting for multiple trials per individual
 Dat3: fastest 3 trials per tadpole
 ```{r}
+library(lmerTest)
 mod1 <- lmer(sline_speed_m_s ~ treatment * mass + (1|pond/clutch) + (1|indiv), data = dat3)
 summary(mod1)
 
+# removing the pond random effect, because it doesn't tell us anything. In fact, we need to do this to get a non-singular fit.
+mod2 <- lmer(sline_speed_m_s ~ treatment * mass + (1|pond:clutch) + (1|indiv), data = dat3)
+mod3 <- lmer(sline_speed_m_s ~ treatment * mass + (1|clutch/indiv), data = dat3) # use this syntax, but remember that clutch already accounts for being nested within pond. 
+
+# : specifies that clutch is nested within pond, but without first fitting pond (since we discovered we don't need to)
+# / explicitly fits pond first and then clutch.
+
+
 dat3$predicted_speed <- predict(mod1, re.form = NA, newdata = dat3)
 dat3$predicted_speed_withresids <- predict(mod1, re.form = NA, newdata = dat3) + resid(mod1, newdata = dat3)
+```
 
+Test that the random effect structure is correct
+```{r}
 # Compare ggplots
 dat3 %>% ggplot(aes(x = mass, y = sline_speed_m_s, col = treatment))+
   geom_point()+
@@ -69,6 +81,62 @@ dat3 %>% ggplot(aes(x = mass, y = predicted_speed_withresids, col = treatment))+
   ylab("predicted_speed_withresids")+
   ggtitle("Predicted data with residuals")
 ```
-The similarity between these graphs shows us that we have correctly specified the structure of our model.
+The similarity between these graphs shows us that we have correctly specified the structure of our random effects
 
+Deciding on main effects
+1. Look at correlations
+```{r}
+#dat3 %>% select(PC1, PC2, size, mass, gs, T_initial, treatment) %>% ggpairs()
+```
+Size, mass, and gosner stage are all closely correlated. 
+
+2. Remove NA's from the data
+```{r}
+dat3_nonas <- dat3 %>% filter(!is.na(T_initial))
+```
+
+3. Reduce size variables to first principal component
+```{r}
+size_pca <- prcomp(dat3_nonas %>% select(gs, size, mass))
+dat3_nonas$size_pc1 <- size_pca$x[,1]# put the size principal component into the data frame
+```
+
+3. Standardize variables
+```{r}
+# Function to calculate z scores
+standardize <- function(vector){
+  mu <- mean(vector)
+  sd <- sd(vector)
+  z_vector <- (vector-mu)/sd
+  return(z_vector)
+}
+
+dat3_nonas <- dat3_nonas %>% mutate_at(.vars = c("PC1", "PC2", "mass", "size", "gs", "size_pc1"), standardize)
+```
+
+4. Fit full models with different alternatives for the size/mass variable
+```{r}
+fullmodel_mass <- lmer(sline_speed_m_s ~ PC1*PC2*mass*treatment + T_initial + (1|clutch/indiv), data = dat3_nonas, na.action = "na.fail") # FAILED TO CONVERGE
+
+fullmodel_size <- lmer(sline_speed_m_s ~ PC1*PC2*size*treatment + T_initial + (1|clutch/indiv), data = dat3_nonas, na.action = "na.fail")
+
+fullmodel_gs <- lmer(sline_speed_m_s ~ PC1*PC2*gs*treatment + T_initial + (1|clutch/indiv), data = dat3_nonas, na.action = "na.fail") # SINGULAR
+
+fullmodel_pc <- lmer(sline_speed_m_s ~ PC1*PC2*size_pc1*treatment + T_initial + (1|clutch/indiv), data = dat3_nonas, na.action = "na.fail") # SINGULAR
+```
+
+5. Dredge each of the full models that converged
+```{r}
+dredge_size_selection <- dredge(global.model = fullmodel_size)
+dredge_size_models <- get.models(dredge_size_selection, subset = TRUE)
+
+dredge_gs_selection <- dredge(global.model = fullmodel_gs)
+dredge_size_models <- get.models(dredge_gs_selection)
+
+dredge_pc_selection <- dredge(global.model = fullmodel_pc)
+dredge_size_models <- get.models(dredge_pc_selection)
+```
+
+
+Could also try binning temperature and putting it in as a random effect.
 
