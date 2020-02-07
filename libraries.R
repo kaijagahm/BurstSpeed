@@ -18,3 +18,4 @@ source("https://raw.githubusercontent.com/kaijagahm/general/master/locate.nas.tx
 library(lme4)
 library(GGally)
 library(lmerTest)
+library(MuMIn)
