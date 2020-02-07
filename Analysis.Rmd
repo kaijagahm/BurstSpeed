@@ -153,9 +153,29 @@ aic_table <- AIC(mod_mass, mod_size, mod_gs, mod_pc) %>% mutate(mod = row.names(
 aic_table
 ```
 
-# Try binning temperature and re-running this process with temperature as a random effect
+Try binning temperature and re-running this process with temperature as a random effect
 ```{r}
 # Create categorical temperature bins based on standard deviations
 dat3_nonas <- dat3_nonas %>% mutate(tcat = cut(T_initial, seq(-3, 3, 1), right = FALSE, labels = c(1:6)))
+```
+
+Re-fit the full models
+```{r}
+tcat_mass <- lmer(sline_speed_m_s ~ PC1*PC2*mass*treatment + (1|clutch/indiv) + (1|tcat), data = dat3_nonas, na.action = "na.fail", REML = FALSE) # FAILED TO CONVERGE
+
+tcat_size <- lmer(sline_speed_m_s ~ PC1*PC2*size*treatment + (1|clutch/indiv) + (1|tcat), data = dat3_nonas, na.action = "na.fail", REML = FALSE)
+
+tcat_gs <- lmer(sline_speed_m_s ~ PC1*PC2*gs*treatment +  (1|clutch/indiv) + (1|tcat), data = dat3_nonas, na.action = "na.fail", REML = FALSE) # SINGULAR
+
+tcat_pc <- lmer(sline_speed_m_s ~ PC1*PC2*size_pc1*treatment + (1|clutch/indiv) + (1|tcat), data = dat3_nonas, na.action = "na.fail", REML = FALSE) # SINGULAR
+
+
+#tcat_mass_best <- dredge(tcat_mass)[1,]
+#tcat_size_best <- dredge(tcat_size)[1,]
+#tcat_gs_best <- dredge(tcat_gs)[1,]
+#tcat_pc_best <- dredge(tcat_pc)[1,]
+
+#tcat_info_best <- list(tcat_mass_best, tcat_size_best, tcat_gs_best, tcat_pc_best)
+#save(tcat_info_best, file = "data/outputs/tcat_info_best.Rda")
 ```
 
