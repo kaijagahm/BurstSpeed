@@ -86,7 +86,7 @@ The similarity between these graphs shows us that we have correctly specified th
 Deciding on main effects
 1. Look at correlations
 ```{r}
-#dat3 %>% select(PC1, PC2, size, mass, gs, T_initial, treatment) %>% ggpairs()
+dat3 %>% select(PC1, PC2, size, mass, gs, T_initial, treatment) %>% ggpairs()
 ```
 Size, mass, and gosner stage are all closely correlated. 
 
@@ -111,32 +111,51 @@ standardize <- function(vector){
   return(z_vector)
 }
 
-dat3_nonas <- dat3_nonas %>% mutate_at(.vars = c("PC1", "PC2", "mass", "size", "gs", "size_pc1"), standardize)
+dat3_nonas <- dat3_nonas %>% mutate_at(.vars = c("PC1", "PC2", "mass", "size", "gs", "size_pc1", "T_initial"), standardize)
 ```
 
 4. Fit full models with different alternatives for the size/mass variable
 ```{r}
-fullmodel_mass <- lmer(sline_speed_m_s ~ PC1*PC2*mass*treatment + T_initial + (1|clutch/indiv), data = dat3_nonas, na.action = "na.fail") # FAILED TO CONVERGE
+fullmodel_mass <- lmer(sline_speed_m_s ~ PC1*PC2*mass*treatment + T_initial + (1|clutch/indiv), data = dat3_nonas, na.action = "na.fail", REML = FALSE) # FAILED TO CONVERGE
 
-fullmodel_size <- lmer(sline_speed_m_s ~ PC1*PC2*size*treatment + T_initial + (1|clutch/indiv), data = dat3_nonas, na.action = "na.fail")
+fullmodel_size <- lmer(sline_speed_m_s ~ PC1*PC2*size*treatment + T_initial + (1|clutch/indiv), data = dat3_nonas, na.action = "na.fail", REML = FALSE)
 
-fullmodel_gs <- lmer(sline_speed_m_s ~ PC1*PC2*gs*treatment + T_initial + (1|clutch/indiv), data = dat3_nonas, na.action = "na.fail") # SINGULAR
+fullmodel_gs <- lmer(sline_speed_m_s ~ PC1*PC2*gs*treatment + T_initial + (1|clutch/indiv), data = dat3_nonas, na.action = "na.fail", REML = FALSE) # SINGULAR
 
-fullmodel_pc <- lmer(sline_speed_m_s ~ PC1*PC2*size_pc1*treatment + T_initial + (1|clutch/indiv), data = dat3_nonas, na.action = "na.fail") # SINGULAR
+fullmodel_pc <- lmer(sline_speed_m_s ~ PC1*PC2*size_pc1*treatment + T_initial + (1|clutch/indiv), data = dat3_nonas, na.action = "na.fail", REML = FALSE) # SINGULAR
 ```
 
 5. Dredge each of the full models that converged
 ```{r}
-dredge_size_selection <- dredge(global.model = fullmodel_size)
-dredge_size_models <- get.models(dredge_size_selection, subset = TRUE)
+#dredge_mass_best <- dredge(fullmodel_mass)[1,]
+#dredge_size_best <- dredge(fullmodel_size)[1,]
+#dredge_gs_best <- dredge(fullmodel_gs)[1,]
+#dredge_pc_best <- dredge(fullmodel_pc)[1,]
 
-dredge_gs_selection <- dredge(global.model = fullmodel_gs)
-dredge_size_models <- get.models(dredge_gs_selection)
+#dredge_info_best <- list(dredge_mass_best, dredge_size_best, dredge_gs_best, dredge_pc_best)
+#save(dredge_info_best, file = "data/outputs/dredge_info_best.Rda")
 
-dredge_pc_selection <- dredge(global.model = fullmodel_pc)
-dredge_size_models <- get.models(dredge_pc_selection)
+load("data/outputs/dredge_info_best.Rda")
+
+# Make models from the info
+dredge_info_best # look at the model selection table for the top models
+
+# recreate the top models
+mod_mass <- lmer(sline_speed_m_s ~ mass*treatment + PC2 + T_initial + (1 | clutch/indiv), data = dat3_nonas)
+
+mod_size <- lmer(sline_speed_m_s ~ size*treatment + PC1 + T_initial + (1 | clutch/indiv), data = dat3_nonas)
+
+mod_gs <- lmer(sline_speed_m_s ~ gs*treatment*PC1 + T_initial + (1 | clutch/indiv), data = dat3_nonas)
+
+mod_pc <- lmer(sline_speed_m_s ~ PC1*treatment*size_pc1 + T_initial + (1 | clutch/indiv), data = dat3_nonas) # this one is singular
+
+aic_table <- AIC(mod_mass, mod_size, mod_gs, mod_pc) %>% mutate(mod = row.names(.)) %>% arrange(AIC)
+aic_table
 ```
 
-
-Could also try binning temperature and putting it in as a random effect.
+# Try binning temperature and re-running this process with temperature as a random effect
+```{r}
+# Create categorical temperature bins based on standard deviations
+dat3_nonas <- dat3_nonas %>% mutate(tcat = cut(T_initial, seq(-3, 3, 1), right = FALSE, labels = c(1:6)))
+```
 
