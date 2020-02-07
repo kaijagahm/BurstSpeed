@@ -177,5 +177,22 @@ tcat_pc <- lmer(sline_speed_m_s ~ PC1*PC2*size_pc1*treatment + (1|clutch/indiv) 
 
 #tcat_info_best <- list(tcat_mass_best, tcat_size_best, tcat_gs_best, tcat_pc_best)
 #save(tcat_info_best, file = "data/outputs/tcat_info_best.Rda")
+
+load("data/outputs/tcat_info_best.Rda")
+
+# Make models from the info
+tcat_info_best # look at the model selection table for the top models
+
+# recreate the top models
+mod_mass_tcat <- lmer(sline_speed_m_s ~ mass*treatment + PC2 + (1 | clutch/indiv) + (1 | tcat), data = dat3_nonas) # failed to converge
+
+mod_size_tcat <- lmer(sline_speed_m_s ~ size*treatment + PC1 + (1 | clutch/indiv) + (1 | tcat), data = dat3_nonas) # is singular
+
+mod_gs_tcat <- lmer(sline_speed_m_s ~ PC1*treatment*gs + (1 | clutch/indiv) + (1 | tcat), data = dat3_nonas) # is singular
+
+mod_pc_tcat <- lmer(sline_speed_m_s ~ PC1*treatment*size_pc1 + (1 | clutch/indiv) + (1 | tcat), data = dat3_nonas) # is singular
+
+aic_table_tcat <- AIC(mod_mass_tcat, mod_size_tcat, mod_gs_tcat, mod_pc_tcat) %>% mutate(mod = row.names(.)) %>% arrange(AIC)
+aic_table_tcat
 ```
 
