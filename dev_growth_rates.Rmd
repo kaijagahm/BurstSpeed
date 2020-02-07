@@ -9,8 +9,58 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+## Load libraries
+```{r}
+source("libraries.R")
+source("process_coordinates_funs.R")
+```
+
+
 ## Load data
 ```{r}
+dat <- read.csv("data/inputs/dev_growth_rates_baasim.csv", na.strings = c("", " ", "-"))
+```
 
+## Clean data
+```{r}
+dat <- dat %>% select(-c(Note..Why.are.EI.darker., X)) %>% mutate(Inc = capwords(tolower(as.character(Inc)))) %>% rename(treatment = Inc)
+
+# Fix the one that's NA for photo number
+dat$Photo.number[is.na(dat$Photo.number)] <- 1
+
+# Put names in lowercase
+names(dat) <- names(dat) %>% tolower()
+
+# Make tadpole column
+dat <- dat %>% mutate(tadpole = paste0(pond, "_0", clutch, "_", indiv, "_", treatment))
+
+# Fix the dates
+dat <- dat %>% mutate(photo.date = ymd(photo.date)) #wow, I can't believe this just...works!
+
+# Drop factor levels
+dat <- dat %>% mutate_if(is.factor, droplevels)
+
+# Convert column types
+tofactor <- c("treatment", "tadpole")
+tonumeric <- c("svl.pix", "totl.pix", "svl.mm", "totl.mm")
+
+dat <- dat %>% mutate_at(vars(tofactor), funs(as.factor)) %>%
+  mutate_at(vars(tonumeric), funs(as.numeric))
+
+# Get rid of question marks
+dat$stage.problem[grepl("?", dat$stage, fixed = TRUE)] <- "Y"
+dat$length.problem[grepl("?", dat$length, fixed = TRUE)] <- "Y"
+dat$stage <- gsub("?", "", dat$stage, fixed = TRUE)
+dat$length <- gsub("?", "", dat$length, fixed = TRUE)
+
+# Correct ponds
+
+
+```
+
+## Exploratory plotting
+```{r}
+dat %>% group_by(tadpole) %>% ggplot(aes(x = photo.date, y = stage, col = pond)) +
+  geom_line()
 ```
 
