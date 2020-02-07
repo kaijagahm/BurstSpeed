@@ -116,7 +116,7 @@ dat3_nonas <- dat3_nonas %>% mutate_at(.vars = c("PC1", "PC2", "mass", "size", "
 
 4. Fit full models with different alternatives for the size/mass variable
 ```{r}
-fullmodel_mass <- lmer(sline_speed_m_s ~ PC1*PC2*mass*treatment + T_initial + (1|clutch/indiv), data = dat3_nonas, na.action = "na.fail", REML = FALSE) # FAILED TO CONVERGE
+fullmodel_mass <- lmer(sline_speed_m_s ~ PC1*PC2*mass*treatment + T_initial + (1|clutch/indiv), data = dat3_nonas, na.action = "na.fail", REML = FALSE) 
 
 fullmodel_size <- lmer(sline_speed_m_s ~ PC1*PC2*size*treatment + T_initial + (1|clutch/indiv), data = dat3_nonas, na.action = "na.fail", REML = FALSE)
 
@@ -232,9 +232,9 @@ dat3_nonas %>% ggplot(aes(x = PC1, col = treatment, fill = treatment))+
 Calculate R (ICCC)
 ```{r}
 summary(mod_gs)
-indiv_variance <- 1329e-04
-clutch_variance <- 3.186e-12
-resid_variance <- 1.181e-04
+indiv_variance <- 1322e-04
+clutch_variance <- 7.998e-12
+resid_variance <- 1.182e-04
 
 tot_rand_variance <- indiv_variance + clutch_variance + resid_variance
 iccc_indiv <- indiv_variance/tot_rand_variance
@@ -242,5 +242,49 @@ iccc_clutch <- clutch_variance/tot_rand_variance
 
 iccc_indiv # individual-level variance is a much larger component than clutch-level variance.
 iccc_clutch
+
+
 ```
 
+Confidence intervals for ICCC
+```{r}
+calc_iccc_indiv <- function(model){
+  mod_smy <- summary(model) # get the model summary
+  df <- mod_smy$varcor %>% as.data.frame() # extract info about the random variables
+  random_var <- sum(df$vcov) # total random variance
+  iccc <- df$vcov[1]/random_var # variance of the chosen variable divided by total random variance
+}
+
+calc_iccc_clutch <- function(model){
+  mod_smy <- summary(mod_gs) # get the model summary
+  df <- mod_smy$varcor %>% as.data.frame() # extract info about the random variables
+  random_var <- sum(df$vcov) # total random variance
+  iccc <- df$vcov[2]/random_var # variance of the chosen variable divided by total random variance
+}
+
+calc_iccc_resid <- function(model){
+  mod_smy <- summary(mod_gs) # get the model summary
+  df <- mod_smy$varcor %>% as.data.frame() # extract info about the random variables
+  random_var <- sum(df$vcov) # total random variance
+  iccc <- df$vcov[3]/random_var # variance of the chosen variable divided by total random variance
+}
+
+# Bootstrapping for individual iccc
+boot_iccc_indiv <- bootMer(mod_gs, calc_iccc_indiv, nsim = 1000, .progress = "txt")
+boot_iccc_clutch <- bootMer(mod_gs, calc_iccc_clutch, nsim = 1000, .progress = "txt")
+boot_iccc_resid <- bootMer(mod_gs, calc_iccc_resid, nsim = 1000, .progress = "txt")
+
+iccc_indiv_vec <- boot_iccc_indiv$t
+iccc_clutch_vec <- boot_iccc_clutch$t
+iccc_resid_vec <- boot_iccc_resid$t
+
+# Make a data frame for visualization
+iccc <- data.frame(level = c(rep("clutch", 1000), rep("indiv", 1000), rep("resid", 1000)),
+                   iccc_estimate = c(iccc_clutch_vec, iccc_indiv_vec, iccc_resid_vec))
+
+iccc %>% ggplot(aes(x = level, y = iccc_estimate))+
+  theme_minimal()+
+  geom_boxplot()+
+  ylab("ICCC")+
+  xlab("Random variable")
+```
