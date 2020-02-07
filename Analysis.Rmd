@@ -196,3 +196,51 @@ aic_table_tcat <- AIC(mod_mass_tcat, mod_size_tcat, mod_gs_tcat, mod_pc_tcat) %>
 aic_table_tcat
 ```
 
+Check variance inflation factor for the original models to make sure temp isn't highly multicollinear
+```{r}
+vif(fullmodel_size)
+vif(fullmodel_mass)
+vif(fullmodel_gs)
+vif(fullmodel_pc)
+```
+
+And the winner is... mod_gs!
+```{r}
+summary(mod_gs)
+```
+
+Check normality of variables
+```{r}
+dat3_nonas %>% ggplot(aes(sample = sline_speed_m_s, col = treatment))+
+  stat_qq()
+
+dat3_nonas %>% ggplot(aes(sample = gs, col = treatment))+
+  stat_qq()
+
+dat3_nonas %>% ggplot(aes(sample = T_initial, col = treatment))+
+  stat_qq()
+
+dat3_nonas %>% ggplot(aes(sample = PC1, col = treatment))+
+  stat_qq()
+
+dat3_nonas %>% ggplot(aes(x = PC1, col = treatment, fill = treatment))+
+  geom_density(alpha = 0.5)
+
+# Data are pretty much normally distributed, except for the PC1 measurements, which show a significant right skew.
+```
+
+Calculate R (ICCC)
+```{r}
+summary(mod_gs)
+indiv_variance <- 1329e-04
+clutch_variance <- 3.186e-12
+resid_variance <- 1.181e-04
+
+tot_rand_variance <- indiv_variance + clutch_variance + resid_variance
+iccc_indiv <- indiv_variance/tot_rand_variance
+iccc_clutch <- clutch_variance/tot_rand_variance
+
+iccc_indiv # individual-level variance is a much larger component than clutch-level variance.
+iccc_clutch
+```
+
