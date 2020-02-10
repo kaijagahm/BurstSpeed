@@ -289,7 +289,8 @@ iccc %>% ggplot(aes(x = level, y = iccc_estimate))+
 indiv_means <- dat3_nonas %>% group_by(indiv) %>% 
   summarize(indiv_mean_speed = mean(sline_speed_m_s),
             clutch = clutch[1],
-            treatment = treatment[1]) 
+            treatment = treatment[1],
+            pond = pond[1]) 
 
 head(indiv_means)
 ```
@@ -325,6 +326,7 @@ treatment_diffs <- clutch_means %>%
 treatment_diffs %>% ggplot(aes(x = diff))+
   geom_histogram()
 ```
+What I've calculated here is D, the "scope of plastic response" (Stearns 1992, cited in Valladares _et al._ 2006): mean at low resource availability - mean at high resource availability. (note low vs. high is switched from the paper because in this case high temp ~ slower speed.)
 
 ## Individuals vs. means
 ### Opposite treatment means
@@ -344,14 +346,27 @@ head(indiv_means)
 ```
 
 ### Indiv/opp clutch differences
+If we always subtract individual - mean, or always mean - individual, the distribution will be centered around 0 because we'll be subtracting a mixture of high-low and low-high. Need to be consistent with temperatures, which means inconsistent with direction of subtraction.
+
+We're going to default to always subtracting low - high. 
 ```{r}
 indiv_means <- indiv_means %>%
-  mutate(indiv_opp_clutch_diff = indiv_mean_speed - opposite_clutch_mean)
+  mutate(indiv_opp_clutch_diff = case_when(treatment == "High" ~ opposite_clutch_mean - indiv_mean_speed,
+                                           treatment == "Low" ~ indiv_mean_speed - opposite_clutch_mean))
 ```
 ### Visualize
 ```{r}
 indiv_means %>% ggplot(aes(x = indiv_opp_clutch_diff))+
   geom_histogram()+
   theme_minimal()
+
+indiv_means %>% ggplot(aes(x = pond,
+                           y = indiv_opp_clutch_diff,
+                           col = pond))+
+  geom_violin()+
+  geom_point()+
+  theme_minimal()+
+  scale_color_viridis(discrete = TRUE)
+
 ```
 
