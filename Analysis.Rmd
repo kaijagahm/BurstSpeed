@@ -331,7 +331,7 @@ treatment_diffs %>% ggplot(aes(x = diff))+
 ```{r}
 clutch_means <- clutch_means %>%
   group_by(clutch) %>%
-  mutate(opposite_mean = case_when(treatment == "High" ~ clutch_mean_speed[treatment == "Low"],
+  mutate(opposite_clutch_mean = case_when(treatment == "High" ~ clutch_mean_speed[treatment == "Low"],
                                    treatment == "Low" ~ clutch_mean_speed[treatment == "High"]))
 ```
 
@@ -346,6 +346,12 @@ head(indiv_means)
 ### Indiv/opp clutch differences
 ```{r}
 indiv_means <- indiv_means %>%
-  mutate(indiv_opp_clutch_diff = indiv_mean_speed - )
+  mutate(indiv_opp_clutch_diff = indiv_mean_speed - opposite_clutch_mean)
+```
+### Visualize
+```{r}
+indiv_means %>% ggplot(aes(x = indiv_opp_clutch_diff))+
+  geom_histogram()+
+  theme_minimal()
 ```
 
