@@ -15,18 +15,8 @@ source("libraries.R")
 ```
 
 # Load data
-## Select relevant columns and change data types
 ```{r}
 load("data/outputs/stats_fast3.Rda")
-dat3 <- stats_fast3 %>% select(tadpole, trial, indiv, treatment, sline_speed_m_s, PC1, PC2, pond, size, clutch, mass, gs, T_initial) %>% ungroup() %>% mutate(treatment = factor(treatment),
-                                                      pond = factor(pond),
-                                                      clutch = factor(clutch)) %>% 
-  filter(treatment %in% c("High", "Low"), !is.na(PC1)) %>% droplevels()
-```
-
-## Remove observations that are NA for mass
-```{r}
-dat3 <- dat3 %>% filter(!is.na(mass))
 ```
 
 # Code random effects explicitly
@@ -34,10 +24,27 @@ We should have used different letters for the individuals in the two temperature
 
 We don't want to change the letters on the tadpoles because that would make the data be out of sync with all of the labels on everything up to this point. Instead, we're going to stick with our scheme of appending "high" or "low" to the names to distinguish e.g. CPS_01_A in high/low treatments (since that is NOT the same individual.)
 ```{r}
-dat3 <- dat3 %>% # remove tadpole column
+stats_fast3 <- stats_fast3 %>% # remove tadpole column
   mutate(clutch = factor(paste(pond, clutch)), # code clutches explicitly
          indiv = factor(paste(clutch, indiv, treatment))) # code individuals explicitly
-locate.nas(dat3)
+locate.nas(stats_fast3)
+```
+
+## Select relevant columns and change data types
+```{r}
+dat3 <- stats_fast3 %>% select(tadpole, trial, indiv, treatment, sline_speed_m_s, PC1, PC2, pond, size, clutch, mass, gs, T_initial) %>% ungroup() %>% mutate(treatment = factor(treatment),
+                     pond = factor(pond),
+                     clutch = factor(clutch)) %>%
+  filter(treatment %in% c("High", "Low"), !is.na(PC1)) %>% droplevels()
+
+wild <- stats_fast3 %>% select(tadpole, trial, treatment, sline_speed_m_s, PC1, PC2, pond, size, mass, gs, T_initial) %>% ungroup() %>% mutate(treatment = factor(treatment),
+                     pond = factor(pond)) %>% 
+  filter(treatment == "Wild") %>% droplevels()
+```
+
+## Remove observations that are NA for mass
+```{r}
+dat3 <- dat3 %>% filter(!is.na(mass))
 ```
 
 
@@ -368,5 +375,134 @@ indiv_means %>% ggplot(aes(x = pond,
   theme_minimal()+
   scale_color_viridis(discrete = TRUE)
 
+```
+
+# Morphology vs. Burst Speed
+Does morphology help to explain burst speed? And does this relationship hold in wild populations?
+
+## Model for lab tadpoles
+### Subset data
+```{r}
+head(dat3_nonas)
+
+morpho_nonas <- dat3_nonas %>% select(tadpole, pond, clutch, indiv, treatment, trial, sline_speed_m_s, PC1, PC2, size, mass, gs, size_pc1)
+
+# morpho_nonas %>% select(PC1, PC2, size, mass, gs, treatment, size_pc1) %>% ggpairs() # take a look at the variables
+
+morpho_nonas_small <- morpho_nonas %>% select(PC1, PC2, size_pc1, treatment, indiv, clutch, pond, tadpole, sline_speed_m_s)
+```
+
+### Full model
+Keeping the random effect structure from mod_gs
+```{r}
+summary(mod_gs)
+
+full_morpho_mod <-lmer(sline_speed_m_s ~ PC1*PC2*size_pc1*treatment + (1|clutch/indiv), data = morpho_nonas_small, na.action = "na.fail", REML = FALSE) 
+```
+
+### Dredge
+```{r}
+dr <- dredge(full_morpho_mod)
+```
+
+### Fit best model
+```{r}
+dr[1:5,] # Look at the top of the dredge table
+
+# Best model from that table, re-fit with REML = TRUE
+morpho_mod <- lmer(sline_speed_m_s ~ PC1*treatment + size_pc1*treatment + (1|clutch/indiv), data = morpho_nonas_small, REML = TRUE, na.action = "na.fail")
+summary(morpho_mod)
+```
+
+### Examine residuals
+```{r}
+morpho_resid <- resid(morpho_mod)
+hist(morpho_resid)
+qqnorm(morpho_resid)
+```
+
+## Wild tadpoles
+### Clean wild data
+```{r}
+head(wild)
+wild_nonas <- wild[complete.cases(wild),] # remove NA's
+
+# Create PC variable for size
+size_pca <- prcomp(wild_nonas %>% select(gs, size, mass))
+wild_nonas$size_pc1 <- size_pca$x[,1]# put the size principal component into the data frame
+
+wild_nonas <- wild_nonas %>% mutate_at(.vars = c("PC1", "PC2", "mass", "size", "gs", "size_pc1", "T_initial"), standardize)
+
+wild_nonas <- wild_nonas %>% mutate(tcat = cut(T_initial, seq(-3, 3, 1), right = FALSE, labels = c(1:6)))
+
+head(wild_nonas)
+```
+
+### Explore wild data
+```{r}
+# Any differences by pond?
+wild_nonas %>% ggplot(aes(x = size_pc1, y = sline_speed_m_s, col = T_initial))+
+  geom_smooth(method = "lm", col = "gray", se = F)+
+  geom_point()+
+  facet_wrap(~pond)+
+  scale_color_viridis()
+
+# Size_pc1
+wild_nonas %>% 
+  ggplot(aes(x = size_pc1, y = sline_speed_m_s, col = pond))+
+  geom_smooth(method = "lm", se = F)+
+  geom_point()+
+  scale_color_viridis(discrete = TRUE)
+
+# Size
+wild_nonas %>% 
+  ggplot(aes(x = size, y = sline_speed_m_s, col = pond))+
+  geom_smooth(method = "lm", se = F)+
+  geom_point()+
+  scale_color_viridis(discrete = TRUE)
+
+# Gosner stage
+wild_nonas %>% 
+  ggplot(aes(x = gs, y = sline_speed_m_s, col = pond))+
+  geom_smooth(method = "lm", se = F)+
+  geom_point()+
+  scale_color_viridis(discrete = TRUE)
+
+# Mass
+wild_nonas %>% 
+  ggplot(aes(x = mass, y = sline_speed_m_s, col = pond))+
+  geom_smooth(method = "lm", se = F)+
+  geom_point()+
+  scale_color_viridis(discrete = TRUE)
+
+# Shape PC1
+wild_nonas %>% 
+  ggplot(aes(x = PC1, y = sline_speed_m_s, col = pond))+
+  geom_smooth(method = "lm", se = F)+
+  geom_point()+
+  scale_color_viridis(discrete = TRUE)
+
+# Shape PC2
+wild_nonas %>% 
+  ggplot(aes(x = PC2, y = sline_speed_m_s, col = pond))+
+  geom_smooth(method = "lm", se = F)+
+  geom_point()+
+  scale_color_viridis(discrete = TRUE)
+```
+
+
+
+
+### Testing wild models
+```{r}
+morpho_wild_1 <- lmer(sline_speed_m_s ~ size_pc1*T_initial + (1|pond), data = wild_nonas)
+summary(morpho_wild_1)
+
+wild_nonas %>% ggplot(aes(x = size_pc1, y = sline_speed_m_s, col = T_initial))+
+  geom_point()+
+  theme_minimal()+
+  scale_color_viridis()
+
+morpho_wild_2 <- lmer(sline_speed_m_s ~ size_pc1*tcat + (1|pond))
 ```
 
