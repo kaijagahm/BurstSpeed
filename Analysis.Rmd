@@ -283,27 +283,28 @@ iccc %>% ggplot(aes(x = level, y = iccc_estimate))+
 ```
 
 # Plasticity
-## Individual means
+## Differences in means
+### Individual means
 ```{r}
 indiv_means <- dat3_nonas %>% group_by(indiv) %>% 
-  summarize(mean_speed = mean(sline_speed_m_s),
+  summarize(indiv_mean_speed = mean(sline_speed_m_s),
             clutch = clutch[1],
             treatment = treatment[1]) 
 
 head(indiv_means)
 ```
 
-## Clutch means
+### Clutch means
 ```{r}
 clutch_means <- indiv_means %>% 
   group_by(clutch, treatment) %>% 
-  summarize(clutch_mean_speed = mean(mean_speed))
+  summarize(clutch_mean_speed = mean(indiv_mean_speed))
 
 clutch_means %>% arrange(clutch)
 clutch_means %$% table(clutch) #ADD THIS TO THE TUTORIAL!!!
 ```
 
-### Remove clutches not in both treatments
+#### Remove clutches not in both treatments
 ```{r}
 clutch_means <- clutch_means %>% 
   group_by(clutch) %>%
@@ -315,7 +316,7 @@ clutch_means <- clutch_means %>%
 # We actually only removed CPS 1, which didn't occur in the Low treatment (probably because they all died?)
 ```
 
-## Treatment differences
+###Treatment differences
 ```{r}
 treatment_diffs <- clutch_means %>%
   group_by(clutch) %>%
@@ -323,5 +324,28 @@ treatment_diffs <- clutch_means %>%
 
 treatment_diffs %>% ggplot(aes(x = diff))+
   geom_histogram()
+```
+
+## Individuals vs. means
+### Opposite treatment means
+```{r}
+clutch_means <- clutch_means %>%
+  group_by(clutch) %>%
+  mutate(opposite_mean = case_when(treatment == "High" ~ clutch_mean_speed[treatment == "Low"],
+                                   treatment == "Low" ~ clutch_mean_speed[treatment == "High"]))
+```
+
+### Join to individual means
+```{r}
+indiv_means <- indiv_means %>%
+  left_join(clutch_means, by = c("treatment", "clutch"))
+
+head(indiv_means)
+```
+
+### Indiv/opp clutch differences
+```{r}
+indiv_means <- indiv_means %>%
+  mutate(indiv_opp_clutch_diff = indiv_mean_speed - )
 ```
 
