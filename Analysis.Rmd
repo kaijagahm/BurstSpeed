@@ -41,8 +41,11 @@ locate.nas(dat3)
 ```
 
 
+# Mixed modeling
 Hierarchical mixed model, incorporating pond within clutch and accounting for multiple trials per individual
 Dat3: fastest 3 trials per tadpole
+
+## Establish random effect structure
 ```{r}
 library(lmerTest)
 mod1 <- lmer(sline_speed_m_s ~ treatment * mass + (1|pond/clutch) + (1|indiv), data = dat3)
@@ -60,7 +63,7 @@ dat3$predicted_speed <- predict(mod1, re.form = NA, newdata = dat3)
 dat3$predicted_speed_withresids <- predict(mod1, re.form = NA, newdata = dat3) + resid(mod1, newdata = dat3)
 ```
 
-Test that the random effect structure is correct
+## Check random effect structure
 ```{r}
 # Compare ggplots
 dat3 %>% ggplot(aes(x = mass, y = sline_speed_m_s, col = treatment))+
@@ -83,25 +86,25 @@ dat3 %>% ggplot(aes(x = mass, y = predicted_speed_withresids, col = treatment))+
 ```
 The similarity between these graphs shows us that we have correctly specified the structure of our random effects
 
-Deciding on main effects
-1. Look at correlations
+## Figure out main effects
+### Investigate correlations
 ```{r}
 dat3 %>% select(PC1, PC2, size, mass, gs, T_initial, treatment) %>% ggpairs()
 ```
 Size, mass, and gosner stage are all closely correlated. 
 
-2. Remove NA's from the data
+### Remove NA's
 ```{r}
 dat3_nonas <- dat3 %>% filter(!is.na(T_initial))
 ```
 
-3. Reduce size variables to first principal component
+### PCA on size variables
 ```{r}
 size_pca <- prcomp(dat3_nonas %>% select(gs, size, mass))
 dat3_nonas$size_pc1 <- size_pca$x[,1]# put the size principal component into the data frame
 ```
 
-3. Standardize variables
+### Standardize variables
 ```{r}
 # Function to calculate z scores
 standardize <- function(vector){
@@ -114,7 +117,7 @@ standardize <- function(vector){
 dat3_nonas <- dat3_nonas %>% mutate_at(.vars = c("PC1", "PC2", "mass", "size", "gs", "size_pc1", "T_initial"), standardize)
 ```
 
-4. Fit full models with different alternatives for the size/mass variable
+### Fit full models
 ```{r}
 fullmodel_mass <- lmer(sline_speed_m_s ~ PC1*PC2*mass*treatment + T_initial + (1|clutch/indiv), data = dat3_nonas, na.action = "na.fail", REML = FALSE) 
 
@@ -125,7 +128,7 @@ fullmodel_gs <- lmer(sline_speed_m_s ~ PC1*PC2*gs*treatment + T_initial + (1|clu
 fullmodel_pc <- lmer(sline_speed_m_s ~ PC1*PC2*size_pc1*treatment + T_initial + (1|clutch/indiv), data = dat3_nonas, na.action = "na.fail", REML = FALSE) # SINGULAR
 ```
 
-5. Dredge each of the full models that converged
+### Dredge full models
 ```{r}
 #dredge_mass_best <- dredge(fullmodel_mass)[1,]
 #dredge_size_best <- dredge(fullmodel_size)[1,]
@@ -153,13 +156,14 @@ aic_table <- AIC(mod_mass, mod_size, mod_gs, mod_pc) %>% mutate(mod = row.names(
 aic_table
 ```
 
-Try binning temperature and re-running this process with temperature as a random effect
+## Try temperature as random effect
+### Bin temperature by sd's
 ```{r}
 # Create categorical temperature bins based on standard deviations
 dat3_nonas <- dat3_nonas %>% mutate(tcat = cut(T_initial, seq(-3, 3, 1), right = FALSE, labels = c(1:6)))
 ```
 
-Re-fit the full models
+### Re-fit full models
 ```{r}
 tcat_mass <- lmer(sline_speed_m_s ~ PC1*PC2*mass*treatment + (1|clutch/indiv) + (1|tcat), data = dat3_nonas, na.action = "na.fail", REML = FALSE) # FAILED TO CONVERGE
 
@@ -195,8 +199,9 @@ mod_pc_tcat <- lmer(sline_speed_m_s ~ PC1*treatment*size_pc1 + (1 | clutch/indiv
 aic_table_tcat <- AIC(mod_mass_tcat, mod_size_tcat, mod_gs_tcat, mod_pc_tcat) %>% mutate(mod = row.names(.)) %>% arrange(AIC)
 aic_table_tcat
 ```
+Models with temperature as a categorical random effect either don't converge or are singular. Seems like we should not do this.
 
-Check variance inflation factor for the original models to make sure temp isn't highly multicollinear
+## Check for multicollinearity
 ```{r}
 vif(fullmodel_size)
 vif(fullmodel_mass)
@@ -204,32 +209,19 @@ vif(fullmodel_gs)
 vif(fullmodel_pc)
 ```
 
-And the winner is... mod_gs!
+## Select model
 ```{r}
 summary(mod_gs)
 ```
 
-Check normality of variables
+## Check for normality
 ```{r}
-dat3_nonas %>% ggplot(aes(sample = sline_speed_m_s, col = treatment))+
-  stat_qq()
-
-dat3_nonas %>% ggplot(aes(sample = gs, col = treatment))+
-  stat_qq()
-
-dat3_nonas %>% ggplot(aes(sample = T_initial, col = treatment))+
-  stat_qq()
-
-dat3_nonas %>% ggplot(aes(sample = PC1, col = treatment))+
-  stat_qq()
-
-dat3_nonas %>% ggplot(aes(x = PC1, col = treatment, fill = treatment))+
-  geom_density(alpha = 0.5)
-
-# Data are pretty much normally distributed, except for the PC1 measurements, which show a significant right skew.
+residuals <- resid(mod_gs)
+residuals %>% qqnorm() # looks good! 
 ```
 
-Calculate R (ICCC)
+# ICCC 
+## Calculate ICCC
 ```{r}
 summary(mod_gs)
 indiv_variance <- 1322e-04
@@ -242,11 +234,9 @@ iccc_clutch <- clutch_variance/tot_rand_variance
 
 iccc_indiv # individual-level variance is a much larger component than clutch-level variance.
 iccc_clutch
-
-
 ```
 
-Confidence intervals for ICCC
+## Bootstrap CI's for ICCC
 ```{r}
 calc_iccc_indiv <- function(model){
   mod_smy <- summary(model) # get the model summary
@@ -281,7 +271,10 @@ iccc_resid_vec <- boot_iccc_resid$t
 # Make a data frame for visualization
 iccc <- data.frame(level = c(rep("clutch", 1000), rep("indiv", 1000), rep("resid", 1000)),
                    iccc_estimate = c(iccc_clutch_vec, iccc_indiv_vec, iccc_resid_vec))
+```
 
+## Visualize 
+```{r}
 iccc %>% ggplot(aes(x = level, y = iccc_estimate))+
   theme_minimal()+
   geom_boxplot()+
