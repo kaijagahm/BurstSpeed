@@ -281,3 +281,47 @@ iccc %>% ggplot(aes(x = level, y = iccc_estimate))+
   ylab("ICCC")+
   xlab("Random variable")
 ```
+
+# Plasticity
+## Individual means
+```{r}
+indiv_means <- dat3_nonas %>% group_by(indiv) %>% 
+  summarize(mean_speed = mean(sline_speed_m_s),
+            clutch = clutch[1],
+            treatment = treatment[1]) 
+
+head(indiv_means)
+```
+
+## Clutch means
+```{r}
+clutch_means <- indiv_means %>% 
+  group_by(clutch, treatment) %>% 
+  summarize(clutch_mean_speed = mean(mean_speed))
+
+clutch_means %>% arrange(clutch)
+clutch_means %$% table(clutch) #ADD THIS TO THE TUTORIAL!!!
+```
+
+### Remove clutches not in both treatments
+```{r}
+clutch_means <- clutch_means %>% 
+  group_by(clutch) %>%
+  mutate(freq = n()) %>%
+  ungroup() %>%
+  filter(freq == 2) %>%
+  select(-freq)
+
+# We actually only removed CPS 1, which didn't occur in the Low treatment (probably because they all died?)
+```
+
+## Treatment differences
+```{r}
+treatment_diffs <- clutch_means %>%
+  group_by(clutch) %>%
+  summarize(diff = clutch_mean_speed[treatment == "Low"] - clutch_mean_speed[treatment == "High"])
+
+treatment_diffs %>% ggplot(aes(x = diff))+
+  geom_histogram()
+```
+
