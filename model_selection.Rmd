@@ -29,3 +29,35 @@ mod3 <- lmer(sline_speed_m_s ~ treatment * mass + (1|clutch/indiv), data = dat3)
 dat3$predicted_speed <- predict(mod1, re.form = NA, newdata = dat3)
 dat3$predicted_speed_withresids <- predict(mod1, re.form = NA, newdata = dat3) + resid(mod1, newdata = dat3)
 ```
+
+## Check random effect structure
+```{r}
+# Compare ggplots
+dat3 %>% ggplot(aes(x = mass, y = sline_speed_m_s, col = treatment))+
+  geom_point()+
+  geom_smooth(method = "lm")+
+  ylab("speed")+
+  ggtitle("Original data")
+
+dat3 %>% ggplot(aes(x = mass, y = predicted_speed, col = treatment))+
+  geom_point()+
+  geom_smooth(method = "lm")+
+  ylab("predicted_speed")+
+  ggtitle("Predicted data")
+
+dat3 %>% ggplot(aes(x = mass, y = predicted_speed_withresids, col = treatment))+
+  geom_point()+
+  geom_smooth(method = "lm")+
+  ylab("predicted_speed_withresids")+
+  ggtitle("Predicted data with residuals")
+```
+The similarity between these graphs shows us that we have correctly specified the structure of our random effects
+
+
+## Figure out main effects
+### Investigate correlations
+```{r}
+dat3 %>% select(PC1, PC2, size, mass, gs, T_initial, treatment) %>% ggpairs()
+```
+
+Size, mass, and gosner stage are all closely correlated. 
