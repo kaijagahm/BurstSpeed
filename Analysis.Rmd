@@ -47,59 +47,6 @@ wild <- stats_fast3 %>% select(tadpole, trial, treatment, sline_speed_m_s, PC1, 
 dat3 <- dat3 %>% filter(!is.na(mass))
 ```
 
-
-# Mixed modeling
-Hierarchical mixed model, incorporating pond within clutch and accounting for multiple trials per individual
-Dat3: fastest 3 trials per tadpole
-
-## Establish random effect structure
-```{r}
-library(lmerTest)
-mod1 <- lmer(sline_speed_m_s ~ treatment * mass + (1|pond/clutch) + (1|indiv), data = dat3)
-summary(mod1)
-
-# removing the pond random effect, because it doesn't tell us anything. In fact, we need to do this to get a non-singular fit.
-mod2 <- lmer(sline_speed_m_s ~ treatment * mass + (1|pond:clutch) + (1|indiv), data = dat3)
-mod3 <- lmer(sline_speed_m_s ~ treatment * mass + (1|clutch/indiv), data = dat3) # use this syntax, but remember that clutch already accounts for being nested within pond. 
-
-# : specifies that clutch is nested within pond, but without first fitting pond (since we discovered we don't need to)
-# / explicitly fits pond first and then clutch.
-
-
-dat3$predicted_speed <- predict(mod1, re.form = NA, newdata = dat3)
-dat3$predicted_speed_withresids <- predict(mod1, re.form = NA, newdata = dat3) + resid(mod1, newdata = dat3)
-```
-
-## Check random effect structure
-```{r}
-# Compare ggplots
-dat3 %>% ggplot(aes(x = mass, y = sline_speed_m_s, col = treatment))+
-  geom_point()+
-  geom_smooth(method = "lm")+
-  ylab("speed")+
-  ggtitle("Original data")
-
-dat3 %>% ggplot(aes(x = mass, y = predicted_speed, col = treatment))+
-  geom_point()+
-  geom_smooth(method = "lm")+
-  ylab("predicted_speed")+
-  ggtitle("Predicted data")
-
-dat3 %>% ggplot(aes(x = mass, y = predicted_speed_withresids, col = treatment))+
-  geom_point()+
-  geom_smooth(method = "lm")+
-  ylab("predicted_speed_withresids")+
-  ggtitle("Predicted data with residuals")
-```
-The similarity between these graphs shows us that we have correctly specified the structure of our random effects
-
-## Figure out main effects
-### Investigate correlations
-```{r}
-dat3 %>% select(PC1, PC2, size, mass, gs, T_initial, treatment) %>% ggpairs()
-```
-Size, mass, and gosner stage are all closely correlated. 
-
 ### Remove NA's
 ```{r}
 dat3_nonas <- dat3 %>% filter(!is.na(T_initial))
@@ -422,14 +369,21 @@ plasticity <- indiv_means %>% select(-c(clutch_mean_speed)) %>% rename(D = indiv
 ### Fit model predicting difference by pond
 ```{r}
 head(plasticity)
+plasticity <- plasticity %>% mutate(clutch_only = factor(str_extract(clutch, pattern = "(?<= )[[:digit:]](?=$)")))
+
 pls_mod <- lmer(D ~ pond + (1|clutch), data = plasticity)
 summary(pls_mod)
 
 plot(pls_mod) # plot residuals: they look good.
 
-# plot effect sizes
+# Plot effect sizes
+sjPlot::plot_model(pls_mod, type = "eff")
 
-
+# Plot all D points
+plasticity %>% ggplot(aes(x = pond, y = D))+
+  geom_violin()+
+  geom_jitter(aes(col = clutch_only), width = 0.1)+
+  scale_color_viridis(discrete = T)
 ```
 
 
