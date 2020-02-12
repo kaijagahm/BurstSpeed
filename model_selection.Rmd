@@ -1,0 +1,31 @@
+---
+title: "Model_Selection"
+author: "Kaija Gahm"
+date: "2/12/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Mixed modeling
+Hierarchical mixed model, incorporating pond within clutch and accounting for multiple trials per individual
+Dat3: fastest 3 trials per tadpole
+
+## Establish random effect structure
+```{r}
+mod1 <- lmer(sline_speed_m_s ~ treatment * mass + (1|pond/clutch) + (1|indiv), data = dat3)
+summary(mod1)
+
+# removing the pond random effect, because it doesn't tell us anything. In fact, we need to do this to get a non-singular fit.
+mod2 <- lmer(sline_speed_m_s ~ treatment * mass + (1|pond:clutch) + (1|indiv), data = dat3)
+mod3 <- lmer(sline_speed_m_s ~ treatment * mass + (1|clutch/indiv), data = dat3) # use this syntax, but remember that clutch already accounts for being nested within pond. 
+
+# : specifies that clutch is nested within pond, but without first fitting pond (since we discovered we don't need to)
+# / explicitly fits pond first and then clutch.
+
+
+dat3$predicted_speed <- predict(mod1, re.form = NA, newdata = dat3)
+dat3$predicted_speed_withresids <- predict(mod1, re.form = NA, newdata = dat3) + resid(mod1, newdata = dat3)
+```
