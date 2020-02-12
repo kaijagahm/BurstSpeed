@@ -58,6 +58,16 @@ dat$length <- gsub("?", "", dat$length, fixed = TRUE)
 
 ```
 
+```{r}
+head(dat)
+set.seed(1)
+kaija_check_sample <- sample(nrow(dat), 25)
+kaija_check_sample
+
+kaija_photos_tocheck <- dat[kaija_check_sample,] %>% arrange(photo.date, photo.number)
+write.csv(kaija_photos_tocheck, file = "data/outputs/kaija_photos_tocheck.csv", row.names = F)
+```
+
 ## Exploratory plotting
 ```{r}
 dat %>% group_by(tadpole) %>% ggplot(aes(x = photo.date, y = stage, col = pond)) +
