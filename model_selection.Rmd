@@ -9,6 +9,11 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+# Load data
+```{r}
+load("data/outputs/dat3.Rda")
+```
+
 # Mixed modeling
 Hierarchical mixed model, incorporating pond within clutch and accounting for multiple trials per individual
 Dat3: fastest 3 trials per tadpole
@@ -190,13 +195,6 @@ vif(fullmodel_gs)
 vif(fullmodel_pc)
 ```
 
-## Select model
-```{r}
-consensus_mod <- mod_gs
-summary(mod_gs)
-save(consensus_mod, file = "data/outputs/consensus_mod.Rda")
-```
-
 ## Check for normality
 ```{r}
 dat3_nonas <- dat3_nonas %>% mutate(resid = resid(mod_gs))
@@ -226,3 +224,10 @@ Var_exp: variance is an exponent of the variable
 For all of this we have to refit with nlme.
 Hard to fit variance structure on mean-standardized data
 Var_power should still work on negative number. Can also do combinations of e.g. var_power and var_ident
+
+## Select model
+```{r}
+consensus_mod <- mod_gs
+summary(mod_gs)
+save(consensus_mod, file = "data/outputs/consensus_mod.Rda")
+```
