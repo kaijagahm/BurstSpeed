@@ -20,3 +20,4 @@ library(GGally) # for ggpairs
 library(lmerTest) # to get quasi-p-values on lmer models
 library(MuMIn) # for dredge
 library(car) # for the vif function
+library(sjPlot) # to visualize effect sizes.
