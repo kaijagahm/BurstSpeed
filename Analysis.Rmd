@@ -105,10 +105,12 @@ Size, mass, and gosner stage are all closely correlated.
 dat3_nonas <- dat3 %>% filter(!is.na(T_initial))
 ```
 
+#[RE-DO THIS PART]: PC of size and mass, not gs. 
 ### PCA on size variables
 ```{r}
 size_pca <- prcomp(dat3_nonas %>% select(gs, size, mass))
 dat3_nonas$size_pc1 <- size_pca$x[,1]# put the size principal component into the data frame
+size_pca
 ```
 
 ### Standardize variables
@@ -223,9 +225,57 @@ summary(mod_gs)
 
 ## Check for normality
 ```{r}
-residuals <- resid(mod_gs)
-residuals %>% qqnorm() # looks good! 
+dat3_nonas <- dat3_nonas %>% mutate(resid = resid(mod_gs))
+dat3_nonas %$% qqnorm(resid) # looks good! 
+
+mod_gs
+
+head(dat3_nonas)
+dat3_nonas %>% ggplot(aes(x = PC1, y = resid))+
+  geom_point() +
+  facet_wrap(~treatment)
+
+dat3_nonas %>% ggplot(aes(x = jitter(gs), y = resid))+
+  geom_point() +
+  facet_wrap(~treatment)
+
+dat3_nonas %>% ggplot(aes(x = T_initial, y = resid))+
+  geom_point() +
+  facet_wrap(~treatment)
+
+dat3_nonas %>% ggplot(aes(x = resid, col = treatment))+
+  geom_density(aes(fill = treatment), alpha = 0.5)
 ```
+Identity variance structure: each gs gets its own variance
+Var_exp: variance is an exponent of the variable
+For all of this we have to refit with nlme.
+Hard to fit variance structure on mean-standardized data
+Var_power should still work on negative number. Can also do combinations of e.g. var_power and var_ident
+
+## Check for normality on the size_pc1 model instead 
+```{r}
+dat3_nonas <- dat3_nonas %>% mutate(resid_sizepc = resid(mod_pc))
+dat3_nonas %$% qqnorm(resid_sizepc) # looks good! 
+
+mod_pc
+
+head(dat3_nonas)
+dat3_nonas %>% ggplot(aes(x = PC1, y = resid_sizepc))+
+  geom_point() +
+  facet_wrap(~treatment)
+
+dat3_nonas %>% ggplot(aes(x = jitter(size_pc1), y = resid_sizepc))+
+  geom_point() +
+  facet_wrap(~treatment)
+
+dat3_nonas %>% ggplot(aes(x = T_initial, y = resid_sizepc))+
+  geom_point() +
+  facet_wrap(~treatment)
+
+dat3_nonas %>% ggplot(aes(x = resid_sizepc, col = treatment))+
+  geom_density(aes(fill = treatment), alpha = 0.5)
+```
+
 
 # ICCC 
 ## Calculate ICCC
@@ -342,6 +392,8 @@ clutch_means <- clutch_means %>%
   group_by(clutch) %>%
   mutate(opposite_clutch_mean = case_when(treatment == "High" ~ clutch_mean_speed[treatment == "Low"],
                                    treatment == "Low" ~ clutch_mean_speed[treatment == "High"]))
+
+head(clutch_means)
 ```
 
 ### Join to individual means
@@ -361,21 +413,26 @@ indiv_means <- indiv_means %>%
   mutate(indiv_opp_clutch_diff = case_when(treatment == "High" ~ opposite_clutch_mean - indiv_mean_speed,
                                            treatment == "Low" ~ indiv_mean_speed - opposite_clutch_mean))
 ```
-### Visualize
-```{r}
-indiv_means %>% ggplot(aes(x = indiv_opp_clutch_diff))+
-  geom_histogram()+
-  theme_minimal()
 
-indiv_means %>% ggplot(aes(x = pond,
-                           y = indiv_opp_clutch_diff,
-                           col = pond))+
-  geom_violin()+
-  geom_point()+
-  theme_minimal()+
-  scale_color_viridis(discrete = TRUE)
+### Simplify data
+```{r}
+plasticity <- indiv_means %>% select(-c(clutch_mean_speed)) %>% rename(D = indiv_opp_clutch_diff)
+```
+
+### Fit model predicting difference by pond
+```{r}
+head(plasticity)
+pls_mod <- lmer(D ~ pond + (1|clutch), data = plasticity)
+summary(pls_mod)
+
+plot(pls_mod) # plot residuals: they look good.
+
+# plot effect sizes
+
 
 ```
+
+
 
 # Morphology vs. Burst Speed
 Does morphology help to explain burst speed? And does this relationship hold in wild populations?
@@ -503,6 +560,6 @@ wild_nonas %>% ggplot(aes(x = size_pc1, y = sline_speed_m_s, col = T_initial))+
   theme_minimal()+
   scale_color_viridis()
 
-morpho_wild_2 <- lmer(sline_speed_m_s ~ size_pc1*tcat + (1|pond))
+morpho_wild_2 <- lmer(sline_speed_m_s ~ size_pc1*tcat + (1|pond), data = wild_nonas)
 ```
 
