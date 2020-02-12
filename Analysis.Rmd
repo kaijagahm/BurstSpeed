@@ -42,9 +42,15 @@ wild <- stats_fast3 %>% select(tadpole, trial, treatment, sline_speed_m_s, PC1, 
   filter(treatment == "Wild") %>% droplevels()
 ```
 
+## Export the data for modeling in model_selection.Rmd
+```{r}
+save(dat3, file = "data/outputs/dat3.Rda")
+```
 
-
-
+# Load consensus model
+```{r}
+load("data/outputs/consensus_mod.Rda")
+```
 
 
 
