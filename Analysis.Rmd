@@ -47,30 +47,6 @@ wild <- stats_fast3 %>% select(tadpole, trial, treatment, sline_speed_m_s, PC1, 
 
 
 
-## Check for normality on the size_pc1 model instead 
-```{r}
-dat3_nonas <- dat3_nonas %>% mutate(resid_sizepc = resid(mod_pc))
-dat3_nonas %$% qqnorm(resid_sizepc) # looks good! 
-
-mod_pc
-
-head(dat3_nonas)
-dat3_nonas %>% ggplot(aes(x = PC1, y = resid_sizepc))+
-  geom_point() +
-  facet_wrap(~treatment)
-
-dat3_nonas %>% ggplot(aes(x = jitter(size_pc1), y = resid_sizepc))+
-  geom_point() +
-  facet_wrap(~treatment)
-
-dat3_nonas %>% ggplot(aes(x = T_initial, y = resid_sizepc))+
-  geom_point() +
-  facet_wrap(~treatment)
-
-dat3_nonas %>% ggplot(aes(x = resid_sizepc, col = treatment))+
-  geom_density(aes(fill = treatment), alpha = 0.5)
-```
-
 
 # ICCC 
 ## Calculate ICCC
