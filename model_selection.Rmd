@@ -115,31 +115,6 @@ dredge_full[1:5,] # take a look at the top five models
 # Look at top five, see if the actual results for treatment effect are changing. If not, then we just know that we're accounting for the variables of interest. Provide table in supplements. 
 ```
 
-
-
-
-
-
-
-
-
-
-## Check for multicollinearity
-```{r}
-vif(fullmodel_size)
-vif(fullmodel_mass)
-vif(fullmodel_gs)
-```
-
-## Save models
-```{r}
-save(mod_mass, file = "data/outputs/mod_mass.Rda") # the mass model has the best AIC
-save(mod_gs, file = "data/outputs/mod_gs.Rda") # but we want to include gs.
-
-# I can't seem to include gs in the full model along with mass, at least not if we allow for interactions: doesn't converge.
-```
-
-
 ## Check residuals
 ```{r}
 dat3_nonas <- dat3_nonas %>% mutate(resid = resid(mod_gs))
