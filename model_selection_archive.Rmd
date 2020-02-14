@@ -161,3 +161,10 @@ aic_table_tcat
 ```
 Models with temperature as a categorical random effect either don't converge or are singular. Seems like we should not do this.
 
+## Check for multicollinearity
+```{r}
+vif(fullmodel_size)
+vif(fullmodel_mass)
+vif(fullmodel_gs)
+```
+
