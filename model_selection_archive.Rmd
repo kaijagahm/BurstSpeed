@@ -1,0 +1,98 @@
+---
+title: "model_selection_archive"
+author: "Kaija Gahm"
+date: "2/14/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+This document holds analyses we thought about doing, or brief checks we did on our mixed models while testing them, that we either decided not to pursue or took as evidence that a strategy wasn't working.
+
+# Load libraries
+```{r}
+source("libraries.R")
+```
+
+# Load data
+```{r}
+load("data/outputs/dat3_nonas.Rda")
+```
+
+## Figuring out the size/mass/gs thing
+### PCA on size and mass
+```{r}
+size_pca <- prcomp(dat3_nonas %>% select(size, mass))
+size_pca # it wouldn't really be helpful to put this in, since each PC is basically just one of these variables. Hmm..
+```
+
+### Relating gs to size and mass
+[STILL FOGGY ON THIS]
+```{r}
+size_mod <- lm(size ~ gs, data = dat3_nonas)
+summary(size_mod)
+mass_mod <- lm(mass ~ gs, data = dat3_nonas)
+summary(mass_mod)
+
+#comparing residual of gs vs size to resid of gs vs mass
+
+dat3_nonas %>% ggplot(aes(x = jitter(gs), y = mass))+
+  geom_point()+
+  geom_smooth(method = "loess")
+```
+
+### Standardize variables
+```{r}
+# Function to calculate z scores
+standardize <- function(vector){
+  mu <- mean(vector)
+  sd <- sd(vector)
+  z_vector <- (vector-mu)/sd
+  return(z_vector)
+}
+
+dat3_nonas <- dat3_nonas %>% mutate_at(.vars = c("PC1", "PC2", "mass", "size", "gs", "T_initial"), standardize)
+```
+
+## Fit full models
+### Regression tree??
+```{r}
+# First, we fit a basic model to account for the variation based on clutch/individual random effects, and based on the water temperature during the experiment.
+basic <- lmer(sline_speed_m_s ~ T_initial + (1|clutch/indiv), data = dat3_nonas, na.action = "na.fail")
+dat3_nonas %<>% mutate(basic_resid = resid(basic))
+
+dat3_nonas %>% ggplot(aes(x = PC1, y = basic_resid, col = treatment))+
+  geom_point()+
+  geom_smooth(method = "lm", se = F)
+
+dat3_nonas %>% ggplot(aes(x = PC2, y = basic_resid, col = treatment))+
+  geom_point()+
+  geom_smooth(method = "lm", se = F)
+
+dat3_nonas %>% ggplot(aes(x = size, y = basic_resid, col = treatment))+
+  geom_point()+
+  geom_smooth(method = "lm", se = F)
+
+dat3_nonas %>% ggplot(aes(x = mass, y = basic_resid, col = treatment))+
+  geom_point()+
+  geom_smooth(method = "lm", se = F)
+
+mod <- lm(basic_resid ~ PC1*treatment, data = dat3_nonas, na.action = "na.fail")
+summary(mod)
+
+mod <- lm(basic_resid ~ PC2*treatment, data = dat3_nonas, na.action = "na.fail")
+summary(mod)
+```
+
+### Deciding between size, mass, and gosner stage
+```{r}
+
+fullmodel_mass <- lmer(sline_speed_m_s ~ PC1*PC2*mass*treatment + T_initial + (1|clutch/indiv), data = dat3_nonas, na.action = "na.fail", REML = FALSE) 
+
+fullmodel_size <- lmer(sline_speed_m_s ~ PC1*PC2*size*treatment + T_initial + (1|clutch/indiv), data = dat3_nonas, na.action = "na.fail", REML = FALSE)
+
+fullmodel_gs <- lmer(sline_speed_m_s ~ PC1*PC2*gs*treatment + T_initial + (1|clutch/indiv), data = dat3_nonas, na.action = "na.fail", REML = FALSE) # SINGULAR
+```
+
