@@ -140,6 +140,30 @@ m5 <- lmer(sline_speed_m_s ~ mass*treatment + gs*mass + PC2 + T_initial +
 # all of these have singular fits! Is that a problem?
 ```
 
+### Create new df
+```{r}
+newdf <- dat3_nonas %>% select(treatment, clutch, indiv)
+newdf_means <- dat3_nonas %>% summarize(mass = mean(mass),
+                                        gs = mean(gs),
+                                        T_initial = mean(T_initial),
+                                        PC2 = mean(PC2))
+newdf[,4:7] <- newdf_means
+newdf <- newdf %>% mutate(model1 = predict(m1, newdf),
+                          model2 = predict(m2, newdf),
+                          model3 = predict(m3, newdf),
+                          model4 = predict(m4, newdf),
+                          model5 = predict(m5, newdf))
+
+df_preds <- newdf %>% select(treatment, model1, model2, model3, model4, model5) %>% 
+  pivot_longer(cols = c(model1, model2, model3, model4, model5), 
+               names_to = "model",
+               values_to = "predicted_speed")
+
+df_preds %>% ggplot(aes(x = treatment, y = predicted_speed, fill = treatment))+
+  geom_boxplot()+
+  facet_wrap(~model)
+```
+
 
 
 
