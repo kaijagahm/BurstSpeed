@@ -91,12 +91,14 @@ size_pca # it wouldn't really be helpful to put this in, since each PC is basica
 ### Relating gs to size and mass
 [STILL FOGGY ON THIS]
 ```{r}
-gs_mod <- mgcv::gam(gs ~ size + mass, data = dat3_nonas)
-summary(gs_mod)
+size_mod <- lm(size ~ gs, data = dat3_nonas)
+summary(size_mod)
+mass_mod <- lm(mass ~ gs, data = dat3_nonas)
+summary(mass_mod)
 
-dat3_nonas %<>% mutate(gs_pred = predict(gs_mod, newdata = dat3_nonas))
+#comparing residual of gs vs size to resid of gs vs mass
 
-dat3_nonas %>% ggplot(aes(x = gs_pred, y = mass))+
+dat3_nonas %>% ggplot(aes(x = jitter(gs), y = mass))+
   geom_point()+
   geom_smooth(method = "loess")
 ```
@@ -117,13 +119,60 @@ dat3_nonas <- dat3_nonas %>% mutate_at(.vars = c("PC1", "PC2", "mass", "size", "
 
 ## Fit full models
 ```{r}
+fullmodel <- lmer(sline_speed_m_s ~ gs*PC1*PC2*size*mass*treatment + T_initial + (1|clutch/indiv), data = dat3_nonas, na.action = "na.fail", REML = FALSE)
+summary(fullmodel) # we need to get rid of some of these
+vif(fullmodel) # getting large
+
+shape <- lmer(sline_speed_m_s ~ PC1*PC2*treatment + T_initial + (1|clutch/indiv), data = dat3_nonas, na.action = "na.fail")
+summary(shape)
+
+sizemass <- lmer(sline_speed_m_s ~ size*mass*treatment + T_initial + (1|clutch/indiv), data = dat3_nonas, na.action = "na.fail")
+summary(sizemass)
+
+basic <- lmer(sline_speed_m_s ~ T_initial + (1|clutch/indiv), data = dat3_nonas, na.action = "na.fail")
+dat3_nonas %<>% mutate(basic_resid = resid(basic))
+
+dat3_nonas %>% ggplot(aes(x = PC1, y = basic_resid, col = treatment))+
+  geom_point()+
+  geom_smooth(method = "lm", se = F)
+
+dat3_nonas %>% ggplot(aes(x = PC2, y = basic_resid, col = treatment))+
+  geom_point()+
+  geom_smooth(method = "lm", se = F)
+
+dat3_nonas %>% ggplot(aes(x = size, y = basic_resid, col = treatment))+
+  geom_point()+
+  geom_smooth(method = "lm", se = F)
+
+dat3_nonas %>% ggplot(aes(x = mass, y = basic_resid, col = treatment))+
+  geom_point()+
+  geom_smooth(method = "lm", se = F)
+
+mod <- lm(basic_resid ~ PC1*treatment, data = dat3_nonas, na.action = "na.fail")
+summary(mod)
+
+mod <- lm(basic_resid ~ PC2*treatment, data = dat3_nonas, na.action = "na.fail")
+summary(mod)
+
+
+full <- lmer(sline_speed_m_s ~ PC2*mass*gs*treatment + T_initial + (1|clutch/indiv),
+             data = dat3_nonas, na.action = "na.fail", REML = F)
+vif(full)
+
+dredge_full <- dredge(full)
+dredge_full[1:5,]
+# Look at top five, see if the actual results for treatment effect are changing. If not, then we just know that we're accounting for the variables of interest. Provide table in supplements. 
+
+dredge_full %>% ggplot(aes(x = 1:nrow(.), y = AICc))+
+  geom_point()
+
+
 fullmodel_mass <- lmer(sline_speed_m_s ~ PC1*PC2*mass*treatment + T_initial + (1|clutch/indiv), data = dat3_nonas, na.action = "na.fail", REML = FALSE) 
 
 fullmodel_size <- lmer(sline_speed_m_s ~ PC1*PC2*size*treatment + T_initial + (1|clutch/indiv), data = dat3_nonas, na.action = "na.fail", REML = FALSE)
 
 fullmodel_gs <- lmer(sline_speed_m_s ~ PC1*PC2*gs*treatment + T_initial + (1|clutch/indiv), data = dat3_nonas, na.action = "na.fail", REML = FALSE) # SINGULAR
 ```
-
 
 
 ### Dredge full models
@@ -212,7 +261,7 @@ save(mod_gs, file = "data/outputs/mod_gs.Rda") # but we want to include gs.
 
 ## Check residuals
 ```{r}
-dat3_nonas <- dat3_nonas %>% mutate(resid = resid(mod_mass))
+dat3_nonas <- dat3_nonas %>% mutate(resid = resid(mod_gs))
 
 dat3_nonas %$% qqnorm(resid)
 plot(mod_mass) # looks roughly normal, but just to make sure, we'll do individual plots
@@ -221,7 +270,7 @@ dat3_nonas %>% ggplot(aes(x = PC1, y = resid))+
   geom_point() +
   facet_wrap(~treatment)
 
-dat3_nonas %>% ggplot(aes(x = mass, y = resid))+
+dat3_nonas %>% ggplot(aes(x = gs, y = resid))+
   geom_point() +
   facet_wrap(~treatment) # the gosner stage data violates the equal variance assumption
 
@@ -276,8 +325,6 @@ summary(mod_varconstpower)
 
 
 anova(mod_nostruct, mod_varfixed, mod_varexp, mod_varconstpower) # varexp seems to be the best, but not by a particularly large margin.
-
-
 ```
 
 If var_exp is the best variance structure, we should re-do the models 
