@@ -67,7 +67,7 @@ The similarity between these graphs shows us that we have correctly specified th
 ## Figure out main effects
 ### Investigate correlations
 ```{r}
-dat3 %>% select(PC1, PC2, size, mass, gs, T_initial, treatment) %>% ggpairs()
+#dat3 %>% select(PC1, PC2, size, mass, gs, T_initial, treatment) %>% ggpairs()
 ```
 Size, mass, and gosner stage are all closely correlated. 
 
@@ -79,28 +79,7 @@ dat3 <- dat3 %>% filter(!is.na(mass))
 ### Remove NA's
 ```{r}
 dat3_nonas <- dat3 %>% filter(!is.na(T_initial))
-```
-
-## Figuring out the size/mass/gs thing
-### PCA on size and mass
-```{r}
-size_pca <- prcomp(dat3_nonas %>% select(size, mass))
-size_pca # it wouldn't really be helpful to put this in, since each PC is basically just one of these variables. Hmm..
-```
-
-### Relating gs to size and mass
-[STILL FOGGY ON THIS]
-```{r}
-size_mod <- lm(size ~ gs, data = dat3_nonas)
-summary(size_mod)
-mass_mod <- lm(mass ~ gs, data = dat3_nonas)
-summary(mass_mod)
-
-#comparing residual of gs vs size to resid of gs vs mass
-
-dat3_nonas %>% ggplot(aes(x = jitter(gs), y = mass))+
-  geom_point()+
-  geom_smooth(method = "loess")
+save(dat3_nonas, file = "data/outputs/dat3_nonas.Rda")
 ```
 
 ### Standardize variables
@@ -116,62 +95,25 @@ standardize <- function(vector){
 dat3_nonas <- dat3_nonas %>% mutate_at(.vars = c("PC1", "PC2", "mass", "size", "gs", "T_initial"), standardize)
 ```
 
+## Make some biological decisions
+In all of the tests that we ran, PC1 and PC2 were kind of equivalent (but with slightly more effect of PC2 than PC1), and mass and size were also basically equivalent. Therefore, we choose:
+1. PC2 over PC1
+2. mass over size: since they're pretty much the same anyway, this shouldn't change the results. Mass was calculated by weighing the tadpoles, whereas size was calculated from the same landmarks used to calculate the shape PC's: seems more indirect, so we'll go with mass. Mass is also more of a real biological phenomenon. Size would basically end up being the area of a cross section of the tadpole, which is probably not as important for physiological processes as mass. The two are also highly correlated, so we don't want both in the model.
 
-## Fit full models
+## Fit full model
 ```{r}
-fullmodel <- lmer(sline_speed_m_s ~ gs*PC1*PC2*size*mass*treatment + T_initial + (1|clutch/indiv), data = dat3_nonas, na.action = "na.fail", REML = FALSE)
-summary(fullmodel) # we need to get rid of some of these
-vif(fullmodel) # getting large
-
-shape <- lmer(sline_speed_m_s ~ PC1*PC2*treatment + T_initial + (1|clutch/indiv), data = dat3_nonas, na.action = "na.fail")
-summary(shape)
-
-sizemass <- lmer(sline_speed_m_s ~ size*mass*treatment + T_initial + (1|clutch/indiv), data = dat3_nonas, na.action = "na.fail")
-summary(sizemass)
-
-basic <- lmer(sline_speed_m_s ~ T_initial + (1|clutch/indiv), data = dat3_nonas, na.action = "na.fail")
-dat3_nonas %<>% mutate(basic_resid = resid(basic))
-
-dat3_nonas %>% ggplot(aes(x = PC1, y = basic_resid, col = treatment))+
-  geom_point()+
-  geom_smooth(method = "lm", se = F)
-
-dat3_nonas %>% ggplot(aes(x = PC2, y = basic_resid, col = treatment))+
-  geom_point()+
-  geom_smooth(method = "lm", se = F)
-
-dat3_nonas %>% ggplot(aes(x = size, y = basic_resid, col = treatment))+
-  geom_point()+
-  geom_smooth(method = "lm", se = F)
-
-dat3_nonas %>% ggplot(aes(x = mass, y = basic_resid, col = treatment))+
-  geom_point()+
-  geom_smooth(method = "lm", se = F)
-
-mod <- lm(basic_resid ~ PC1*treatment, data = dat3_nonas, na.action = "na.fail")
-summary(mod)
-
-mod <- lm(basic_resid ~ PC2*treatment, data = dat3_nonas, na.action = "na.fail")
-summary(mod)
-
-
 full <- lmer(sline_speed_m_s ~ PC2*mass*gs*treatment + T_initial + (1|clutch/indiv),
              data = dat3_nonas, na.action = "na.fail", REML = F)
-vif(full)
+vif(full) # check variance inflation factors: kind of high, but we're also going to be removing some of the interaction terms. Doesn't look too bad for the individual terms, especially because we already know that mass and gosner stage are correlated.
 
-dredge_full <- dredge(full)
-dredge_full[1:5,]
+#dredge_full <- dredge(full)
+#save(dredge_full, file = "data/outputs/dredge_full.Rda")
+load("data/outputs/dredge_full.Rda") # load the dredge output
+dredge_full[1:5,] # take a look at the top five models
+
+
 # Look at top five, see if the actual results for treatment effect are changing. If not, then we just know that we're accounting for the variables of interest. Provide table in supplements. 
 
-dredge_full %>% ggplot(aes(x = 1:nrow(.), y = AICc))+
-  geom_point()
-
-
-fullmodel_mass <- lmer(sline_speed_m_s ~ PC1*PC2*mass*treatment + T_initial + (1|clutch/indiv), data = dat3_nonas, na.action = "na.fail", REML = FALSE) 
-
-fullmodel_size <- lmer(sline_speed_m_s ~ PC1*PC2*size*treatment + T_initial + (1|clutch/indiv), data = dat3_nonas, na.action = "na.fail", REML = FALSE)
-
-fullmodel_gs <- lmer(sline_speed_m_s ~ PC1*PC2*gs*treatment + T_initial + (1|clutch/indiv), data = dat3_nonas, na.action = "na.fail", REML = FALSE) # SINGULAR
 ```
 
 
