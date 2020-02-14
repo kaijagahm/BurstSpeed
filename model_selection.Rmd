@@ -9,6 +9,11 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+# Load libraries
+```{r}
+source("libraries.R")
+```
+
 # Load data
 ```{r}
 load("data/outputs/dat3.Rda")
@@ -32,7 +37,6 @@ mod3 <- lmer(sline_speed_m_s ~ treatment * mass + (1|clutch/indiv), data = dat3)
 
 
 dat3$predicted_speed <- predict(mod1, re.form = NA, newdata = dat3)
-dat3$predicted_speed_withresids <- predict(mod1, re.form = NA, newdata = dat3) + resid(mod1, newdata = dat3)
 ```
 
 ## Check random effect structure
@@ -76,12 +80,23 @@ dat3 <- dat3 %>% filter(!is.na(mass))
 dat3_nonas <- dat3 %>% filter(!is.na(T_initial))
 ```
 
-#[RE-DO THIS PART]: PC of size and mass, not gs. 
-### PCA on size variables
+## Figuring out the size/mass/gs thing
+### PCA on size and mass
 ```{r}
-size_pca <- prcomp(dat3_nonas %>% select(gs, size, mass))
-dat3_nonas$size_pc1 <- size_pca$x[,1]# put the size principal component into the data frame
-size_pca
+size_pca <- prcomp(dat3_nonas %>% select(size, mass))
+size_pca # it wouldn't really be helpful to put this in, since each PC is basically just one of these variables. Hmm..
+```
+
+### Relating gs to size and mass
+```{r}
+gs_mod <- mgcv::gam(gs ~ size + mass, data = dat3_nonas)
+summary(gs_mod)
+
+dat3_nonas %<>% mutate(gs_pred = predict(gs_mod, newdata = dat3_nonas))
+
+dat3_nonas %>% ggplot(aes(x = gs_pred, y = mass))+
+  geom_point()+
+  geom_smooth(method = "loess")
 ```
 
 ### Standardize variables
@@ -94,19 +109,17 @@ standardize <- function(vector){
   return(z_vector)
 }
 
-dat3_nonas <- dat3_nonas %>% mutate_at(.vars = c("PC1", "PC2", "mass", "size", "gs", "size_pc1", "T_initial"), standardize)
+dat3_nonas <- dat3_nonas %>% mutate_at(.vars = c("PC1", "PC2", "mass", "size", "gs", "T_initial"), standardize)
 ```
 
 
-### Fit full models
+## Fit full models
 ```{r}
 fullmodel_mass <- lmer(sline_speed_m_s ~ PC1*PC2*mass*treatment + T_initial + (1|clutch/indiv), data = dat3_nonas, na.action = "na.fail", REML = FALSE) 
 
 fullmodel_size <- lmer(sline_speed_m_s ~ PC1*PC2*size*treatment + T_initial + (1|clutch/indiv), data = dat3_nonas, na.action = "na.fail", REML = FALSE)
 
 fullmodel_gs <- lmer(sline_speed_m_s ~ PC1*PC2*gs*treatment + T_initial + (1|clutch/indiv), data = dat3_nonas, na.action = "na.fail", REML = FALSE) # SINGULAR
-
-fullmodel_pc <- lmer(sline_speed_m_s ~ PC1*PC2*size_pc1*treatment + T_initial + (1|clutch/indiv), data = dat3_nonas, na.action = "na.fail", REML = FALSE) # SINGULAR
 ```
 
 
@@ -133,9 +146,7 @@ mod_size <- lmer(sline_speed_m_s ~ size*treatment + PC1 + T_initial + (1 | clutc
 
 mod_gs <- lmer(sline_speed_m_s ~ gs*treatment*PC1 + T_initial + (1 | clutch/indiv), data = dat3_nonas)
 
-mod_pc <- lmer(sline_speed_m_s ~ PC1*treatment*size_pc1 + T_initial + (1 | clutch/indiv), data = dat3_nonas) # this one is singular
-
-aic_table <- AIC(mod_mass, mod_size, mod_gs, mod_pc) %>% mutate(mod = row.names(.)) %>% arrange(AIC)
+aic_table <- AIC(mod_mass, mod_size, mod_gs) %>% mutate(mod = row.names(.)) %>% arrange(AIC)
 aic_table
 ```
 
@@ -155,15 +166,12 @@ tcat_size <- lmer(sline_speed_m_s ~ PC1*PC2*size*treatment + (1|clutch/indiv) + 
 
 tcat_gs <- lmer(sline_speed_m_s ~ PC1*PC2*gs*treatment +  (1|clutch/indiv) + (1|tcat), data = dat3_nonas, na.action = "na.fail", REML = FALSE) # SINGULAR
 
-tcat_pc <- lmer(sline_speed_m_s ~ PC1*PC2*size_pc1*treatment + (1|clutch/indiv) + (1|tcat), data = dat3_nonas, na.action = "na.fail", REML = FALSE) # SINGULAR
-
 
 #tcat_mass_best <- dredge(tcat_mass)[1,]
 #tcat_size_best <- dredge(tcat_size)[1,]
 #tcat_gs_best <- dredge(tcat_gs)[1,]
-#tcat_pc_best <- dredge(tcat_pc)[1,]
 
-#tcat_info_best <- list(tcat_mass_best, tcat_size_best, tcat_gs_best, tcat_pc_best)
+#tcat_info_best <- list(tcat_mass_best, tcat_size_best, tcat_gs_best)
 #save(tcat_info_best, file = "data/outputs/tcat_info_best.Rda")
 
 load("data/outputs/tcat_info_best.Rda")
@@ -178,9 +186,7 @@ mod_size_tcat <- lmer(sline_speed_m_s ~ size*treatment + PC1 + (1 | clutch/indiv
 
 mod_gs_tcat <- lmer(sline_speed_m_s ~ PC1*treatment*gs + (1 | clutch/indiv) + (1 | tcat), data = dat3_nonas) # is singular
 
-mod_pc_tcat <- lmer(sline_speed_m_s ~ PC1*treatment*size_pc1 + (1 | clutch/indiv) + (1 | tcat), data = dat3_nonas) # is singular
-
-aic_table_tcat <- AIC(mod_mass_tcat, mod_size_tcat, mod_gs_tcat, mod_pc_tcat) %>% mutate(mod = row.names(.)) %>% arrange(AIC)
+aic_table_tcat <- AIC(mod_mass_tcat, mod_size_tcat, mod_gs_tcat) %>% mutate(mod = row.names(.)) %>% arrange(AIC)
 aic_table_tcat
 ```
 
@@ -192,24 +198,28 @@ Models with temperature as a categorical random effect either don't converge or 
 vif(fullmodel_size)
 vif(fullmodel_mass)
 vif(fullmodel_gs)
-vif(fullmodel_pc)
 ```
 
-## Check for normality
+## Save model
+```{r}
+save(mod_gs, file = "data/outputs/mod_gs.Rda")
+```
+
+
+## Check residuals
 ```{r}
 dat3_nonas <- dat3_nonas %>% mutate(resid = resid(mod_gs))
-dat3_nonas %$% qqnorm(resid) # looks good! 
 
-mod_gs
+dat3_nonas %$% qqnorm(resid)
+plot(mod_gs) # looks roughly normal, but just to make sure, we'll do individual plots
 
-head(dat3_nonas)
 dat3_nonas %>% ggplot(aes(x = PC1, y = resid))+
   geom_point() +
   facet_wrap(~treatment)
 
 dat3_nonas %>% ggplot(aes(x = jitter(gs), y = resid))+
   geom_point() +
-  facet_wrap(~treatment)
+  facet_wrap(~treatment) # the gosner stage data violates the equal variance assumption
 
 dat3_nonas %>% ggplot(aes(x = T_initial, y = resid))+
   geom_point() +
@@ -218,6 +228,53 @@ dat3_nonas %>% ggplot(aes(x = T_initial, y = resid))+
 dat3_nonas %>% ggplot(aes(x = resid, col = treatment))+
   geom_density(aes(fill = treatment), alpha = 0.5)
 ```
+
+
+## Add variance structure
+```{r}
+# this is how we fitted our original model, mod_gs
+mod_gs <- lmer(sline_speed_m_s ~ gs*treatment*PC1 + T_initial + (1 | clutch/indiv), data = dat3_nonas)
+
+mod_nostruct <- lme(sline_speed_m_s ~ gs*treatment*PC1 + T_initial, 
+         random = ~ 1 | clutch/indiv, 
+         data = dat3_nonas)
+summary(mod_nostruct)
+
+mod_varfixed <- lme(sline_speed_m_s ~ gs*treatment*PC1 + T_initial, 
+         random = ~ 1 | clutch/indiv,
+         weights = varFixed(~gs),
+         data = dat3_nonas)
+summary(mod_varfixed)
+
+mod_varident <- lme(sline_speed_m_s ~ gs*treatment*PC1 + T_initial, 
+         random = ~ 1 | clutch/indiv,
+         weights = varIdent(form = ~ 1 | factor(as.character(gs))),
+         data = dat3_nonas) # does not converge
+
+mod_varpower <- lme(sline_speed_m_s ~ gs*treatment*PC1 + T_initial, 
+         random = ~ 1 | clutch/indiv,
+         weights = varPower(form = ~ gs),
+         data = dat3_nonas)
+summary(mod_varpower) # but we shouldn't use this, since gs can take a value of 0 once scaled.
+
+mod_varexp <- lme(sline_speed_m_s ~ gs*treatment*PC1 + T_initial, 
+         random = ~ 1 | clutch/indiv,
+         weights = varExp(form = ~ gs),
+         data = dat3_nonas)
+summary(mod_varexp)
+
+mod_varconstpower <- lme(sline_speed_m_s ~ gs*treatment*PC1 + T_initial, 
+         random = ~ 1 | clutch/indiv,
+         weights = varConstPower(form = ~ gs),
+         data = dat3_nonas)
+summary(mod_varconstpower)
+
+
+anova(mod_nostruct, mod_varfixed, mod_varexp, mod_varconstpower) # varexp seems to be the best, but not by a particularly large margin.
+
+
+```
+
 
 Identity variance structure: each gs gets its own variance
 Var_exp: variance is an exponent of the variable
