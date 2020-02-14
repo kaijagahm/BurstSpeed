@@ -164,37 +164,20 @@ df_preds %>% ggplot(aes(x = treatment, y = predicted_speed, fill = treatment))+
   facet_wrap(~model)
 ```
 
-## Select a final model
+## Select a model
 Since all of the top 5 basically give the same results, we're going to choose model 1. 
 ```{r}
 consensus_mod <- m1
 #save(consensus_mod, file = "data/outputs/consensus_mod.Rda")
 ```
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 ## Check residuals
 ```{r}
-dat3_nonas <- dat3_nonas %>% mutate(resid = resid(mod_gs))
+dat3_nonas <- dat3_nonas %>% mutate(resid = resid(consensus_mod))
+formula(consensus_mod)
 
 dat3_nonas %$% qqnorm(resid)
-plot(mod_mass) # looks roughly normal, but just to make sure, we'll do individual plots
-
-dat3_nonas %>% ggplot(aes(x = PC1, y = resid))+
-  geom_point() +
-  facet_wrap(~treatment)
+plot(consensus_mod) # looks roughly normal, but just to make sure, we'll do individual plots
 
 dat3_nonas %>% ggplot(aes(x = gs, y = resid))+
   geom_point() +
@@ -208,48 +191,46 @@ dat3_nonas %>% ggplot(aes(x = resid, col = treatment))+
   geom_density(aes(fill = treatment), alpha = 0.5)
 ```
 
-
 ## Add variance structure
 ```{r}
 # this is how we fitted our original model, mod_gs
-mod_gs <- lmer(sline_speed_m_s ~ gs*treatment*PC1 + T_initial + (1 | clutch/indiv), data = dat3_nonas)
+formula(consensus_mod)
 
-mod_nostruct <- lme(sline_speed_m_s ~ gs*treatment*PC1 + T_initial, 
+mod_nostruct <- lme(sline_speed_m_s ~ mass*treatment + gs + T_initial, 
          random = ~ 1 | clutch/indiv, 
          data = dat3_nonas)
 summary(mod_nostruct)
 
-mod_varfixed <- lme(sline_speed_m_s ~ gs*treatment*PC1 + T_initial, 
+mod_varfixed <- lme(sline_speed_m_s ~ mass*treatment + gs + T_initial, 
          random = ~ 1 | clutch/indiv,
          weights = varFixed(~gs),
          data = dat3_nonas)
 summary(mod_varfixed)
 
-# this one does not converge
-# mod_varident <- lme(sline_speed_m_s ~ gs*treatment*PC1 + T_initial, 
-#          random = ~ 1 | clutch/indiv,
-#          weights = varIdent(form = ~ 1 | factor(as.character(gs))),
-#          data = dat3_nonas) # does not converge
-
-mod_varpower <- lme(sline_speed_m_s ~ gs*treatment*PC1 + T_initial, 
+mod_varident <- lme(sline_speed_m_s ~ mass*treatment + gs + T_initial,
          random = ~ 1 | clutch/indiv,
-         weights = varPower(form = ~ gs),
+         weights = varIdent(form = ~ 1 | factor(as.character(gs))),
          data = dat3_nonas)
-summary(mod_varpower) # but we shouldn't use this, since gs can take a value of 0 once scaled.
 
-mod_varexp <- lme(sline_speed_m_s ~ gs*treatment*PC1 + T_initial, 
+# mod_varpower <- lme(sline_speed_m_s ~ mass*treatment + gs + T_initial, 
+#          random = ~ 1 | clutch/indiv,
+#          weights = varPower(form = ~ gs),
+#          data = dat3_nonas)
+# summary(mod_varpower) # but we shouldn't use this, since gs can take a value of 0 once scaled.
+
+mod_varexp <- lme(sline_speed_m_s ~ mass*treatment + gs + T_initial, 
          random = ~ 1 | clutch/indiv,
          weights = varExp(form = ~ gs),
          data = dat3_nonas)
 summary(mod_varexp)
 
-mod_varconstpower <- lme(sline_speed_m_s ~ gs*treatment*PC1 + T_initial, 
+mod_varconstpower <- lme(sline_speed_m_s ~ mass*treatment + gs + T_initial, 
          random = ~ 1 | clutch/indiv,
          weights = varConstPower(form = ~ gs),
          data = dat3_nonas)
 summary(mod_varconstpower)
 
 
-anova(mod_nostruct, mod_varfixed, mod_varexp, mod_varconstpower) # varexp seems to be the best, but not by a particularly large margin.
+anova(mod_nostruct, mod_varfixed, mod_varident, mod_varexp, mod_varconstpower) # varexp seems to be the best, but not by a particularly large margin.
 ```
 
