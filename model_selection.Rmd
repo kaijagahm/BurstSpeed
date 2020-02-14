@@ -231,6 +231,11 @@ mod_varconstpower <- lme(sline_speed_m_s ~ mass*treatment + gs + T_initial,
 summary(mod_varconstpower)
 
 
-anova(mod_nostruct, mod_varfixed, mod_varident, mod_varexp, mod_varconstpower) # varexp seems to be the best, but not by a particularly large margin.
+anova(mod_nostruct, mod_varfixed, mod_varident, mod_varexp, mod_varconstpower) # varident seems to be the best...
+```
+
+```{r}
+consensus_mod_varident <- mod_varident
+save(consensus_mod_varident, file = "data/outputs/consensus_mod_varident")
 ```
 
