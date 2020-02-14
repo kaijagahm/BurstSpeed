@@ -100,7 +100,8 @@ In all of the tests that we ran, PC1 and PC2 were kind of equivalent (but with s
 1. PC2 over PC1
 2. mass over size: since they're pretty much the same anyway, this shouldn't change the results. Mass was calculated by weighing the tadpoles, whereas size was calculated from the same landmarks used to calculate the shape PC's: seems more indirect, so we'll go with mass. Mass is also more of a real biological phenomenon. Size would basically end up being the area of a cross section of the tadpole, which is probably not as important for physiological processes as mass. The two are also highly correlated, so we don't want both in the model.
 
-## Fit full model
+## Model selection
+### Fit full model
 ```{r}
 full <- lmer(sline_speed_m_s ~ PC2*mass*gs*treatment + T_initial + (1|clutch/indiv),
              data = dat3_nonas, na.action = "na.fail", REML = F)
@@ -108,12 +109,51 @@ vif(full) # check variance inflation factors: kind of high, but we're also going
 
 #dredge_full <- dredge(full)
 #save(dredge_full, file = "data/outputs/dredge_full.Rda")
-load("data/outputs/dredge_full.Rda") # load the dredge output
-dredge_full[1:5,] # take a look at the top five models
-
 
 # Look at top five, see if the actual results for treatment effect are changing. If not, then we just know that we're accounting for the variables of interest. Provide table in supplements. 
 ```
+
+### Fit top five models
+```{r}
+load("data/outputs/dredge_full.Rda") # load the dredge output
+dredge_full[1:5,] # take a look at the top five models
+
+m1 <- lmer(sline_speed_m_s ~ mass*treatment + gs + T_initial + 
+             (1 | clutch/indiv), data = dat3_nonas, REML = F, 
+    na.action = "na.fail")
+
+m2 <- lmer(sline_speed_m_s ~ mass*treatment + PC2 + gs + T_initial + 
+             (1 | clutch/indiv), data = dat3_nonas, REML = F, 
+    na.action = "na.fail")
+
+m3 <- lmer(sline_speed_m_s ~ mass*treatment + gs*mass + T_initial + 
+             (1 | clutch/indiv), data = dat3_nonas, REML = F, 
+    na.action = "na.fail")
+
+m4 <- lmer(sline_speed_m_s ~ treatment*gs + T_initial + 
+             (1 | clutch/indiv), data = dat3_nonas, REML = F, 
+    na.action = "na.fail")
+
+m5 <- lmer(sline_speed_m_s ~ mass*treatment + gs*mass + PC2 + T_initial + 
+             (1 | clutch/indiv), data = dat3_nonas, REML = F, na.action = "na.fail")
+
+# all of these have singular fits! Is that a problem?
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 ## Check residuals
 ```{r}
