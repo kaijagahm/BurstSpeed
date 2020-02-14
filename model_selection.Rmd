@@ -164,6 +164,12 @@ df_preds %>% ggplot(aes(x = treatment, y = predicted_speed, fill = treatment))+
   facet_wrap(~model)
 ```
 
+## Select a final model
+Since all of the top 5 basically give the same results, we're going to choose model 1. 
+```{r}
+consensus_mod <- m1
+#save(consensus_mod, file = "data/outputs/consensus_mod.Rda")
+```
 
 
 
@@ -247,27 +253,3 @@ summary(mod_varconstpower)
 anova(mod_nostruct, mod_varfixed, mod_varexp, mod_varconstpower) # varexp seems to be the best, but not by a particularly large margin.
 ```
 
-If var_exp is the best variance structure, we should re-do the models 
-## Re-do models with variance structure
-### New full model with mass and gs
-```{r}
-newfull_mass_gs <- lmer(sline_speed_m_s ~ PC1*PC2*mass*treatment + gs + T_initial + (1|clutch/indiv), data = dat3_nonas, na.action = "na.fail", REML = FALSE) 
-
-#newfull_mass_gs_best <- dredge(newfull_mass_gs)[1,]
-#save(newfull_mass_gs_best, file = "data/outputs/newfull_mass_gs_best.Rda")
-load("data/outputs/newfull_mass_gs_best.Rda")
-```
-
-### New best model
-```{r}
-newfull_mass_gs_best
-mod_mass_gs <- lmer(sline_speed_m_s ~ mass*treatment + gs + T_initial + (1 | clutch/indiv), data = dat3_nonas) # the best model failed to converge. What do we do??
-```
-
-
-## Select model
-```{r}
-consensus_mod <- mod_gs
-summary(mod_gs)
-save(consensus_mod, file = "data/outputs/consensus_mod.Rda")
-```
