@@ -19,6 +19,8 @@ source("process_coordinates_funs.R")
 ## Load data
 ```{r}
 load("data/outputs/bursts_allcrops.Rda")
+
+bursts_allcrops %$% table(pond)
 load("data/outputs/allmorpho.Rda")
 load("data/outputs/scoords_allcrops.Rda")
 ```
