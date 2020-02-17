@@ -11,22 +11,21 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ## Load libraries
 ```{r}
-source("libraries.R")
+suppressMessages(source("libraries.R"))
 source("process_coordinates_funs.R")
 ```
 
 
 ## Load data
 ```{r}
-dat <- read.csv("data/inputs/dev_growth_rates_baasim.csv", na.strings = c("", " ", "-"))
+dat <- read.csv("data/inputs/dev_growth_rates_baasim.csv", na.strings = c("", " ", "-"), as.is = T)
+head(dat)
 ```
 
-## Clean data
+## Data cleaning
+### Tidying
 ```{r}
-dat <- dat %>% select(-c(Note..Why.are.EI.darker., X)) %>% mutate(Inc = capwords(tolower(as.character(Inc)))) %>% rename(treatment = Inc)
-
-# Fix the one that's NA for photo number
-dat$Photo.number[is.na(dat$Photo.number)] <- 1
+dat <- dat %>% select(-c(Note..Why.are.EI.darker., X)) %>% mutate(Inc = capwords(tolower(as.character(Inc)))) %>% rename(treatment = Inc) # fix treatment formatting, get rid of a column we don't need
 
 # Put names in lowercase
 names(dat) <- names(dat) %>% tolower()
@@ -41,23 +40,96 @@ dat <- dat %>% mutate(photo.date = ymd(photo.date)) #wow, I can't believe this j
 dat <- dat %>% mutate_if(is.factor, droplevels)
 
 # Convert column types
-tofactor <- c("treatment", "tadpole")
-tonumeric <- c("svl.pix", "totl.pix", "svl.mm", "totl.mm")
+tofactor <- c("treatment", "tadpole") # cols to convert to factor
+tonumeric <- c("svl.pix", "totl.pix", "svl.mm", "totl.mm") # cols to convert to numeric
+tochar <- c("pond") # cols to convert to numeric
 
-dat <- dat %>% mutate_at(vars(tofactor), funs(as.factor)) %>%
-  mutate_at(vars(tonumeric), funs(as.numeric))
+dat <- dat %>% mutate_at(vars(tofactor), as.factor) %>%
+  mutate_at(vars(tonumeric), as.numeric) %>%
+  mutate_at(vars(tochar), as.character) # perform conversion of column types
+```
 
+### Fixing errors/inconsistencies
+```{r}
 # Get rid of question marks
 dat$stage.problem[grepl("?", dat$stage, fixed = TRUE)] <- "Y"
 dat$length.problem[grepl("?", dat$length, fixed = TRUE)] <- "Y"
 dat$stage <- gsub("?", "", dat$stage, fixed = TRUE)
 dat$length <- gsub("?", "", dat$length, fixed = TRUE)
+dat$stage[dat$stage %in% c("", " ")] <- NA
+
+table(dat$stage, exclude = NULL)
 
 # Correct ponds
+dat$pond[dat$pond == "LPS"] <- "CPS"
+dat$pond[dat$pond %in% c("E1 ", "EI", "EL")] <- "E1"
+table(dat$pond)
 
+# Investigate ponds labeled "DB": could be either PB or DE.
+dat %>% filter(pond == "DB")
 
+# went back and checked these against the photos
+dat$pond[dat$treatment == "High" & dat$photo.date == "2019-05-15" & dat$photo.number == "59"] <- "PB"
+dat$pond[dat$treatment == "High" & dat$photo.date == "2019-05-15" & dat$photo.number == "71"] <- "PB"
+dat$pond[dat$treatment == "Low" & dat$photo.date == "2019-06-07" & dat$photo.number == "42"] <- "DE"
+dat$pond[dat$treatment == "Low" & dat$photo.date == "2019-06-07" & dat$photo.number == "45"] <- "PB"
+dat$pond[dat$treatment == "Low" & dat$photo.date == "2019-06-12" & dat$photo.number == "42"] <- "PB"
+
+table(dat$pond) # now that that's squared away, we can make this a factor
+dat <- dat %>% mutate(pond = factor(pond))
+head(dat)
+
+# Drop tadpoles that weren't labeled
+table(dat$tadpole)
+dat <- dat %>% filter(!(tadpole %in% c("NA_0NA_NA_High", "NA_0NA_NA_Low")))
 ```
 
+### Subsetting
+```{r}
+# Remove any where stage is NA
+dat <- dat %>% filter(!is.na(stage))
+nrow(dat)
+
+# See tadpole duplicates on the same day
+duplicates <- dat %>% 
+  group_by(photo.date, tadpole) %>% 
+  filter(n() > 1) %>% ungroup() %>% as.data.frame()
+
+# For any duplicates, we're just going to average the measurements.
+dat2 <- dat %>% group_by(photo.date, tadpole, pond, clutch, indiv, treatment) %>%
+  mutate(photo.number = as.character(photo.number)) %>%
+  summarize(photo.number = case_when(n() == 1 ~ photo.number[1],
+                                     n() > 1 ~ "multiple"),
+            stage = mean(as.numeric(as.character(stage))),
+            svl.pix = mean(svl.pix),
+            totl.pix = mean(totl.pix),
+            svl.mm = mean(svl.mm),
+            totl.mm = mean(totl.mm))
+```
+
+## Sanity checks
+```{r}
+# svl.pix should always be less than totl.pix
+dat %$% all(svl.pix < totl.pix)
+
+# svl.mm should always be less than totl.mm
+dat %$% all(svl.mm < totl.mm)
+
+dat %>% ggplot(aes(x = svl.mm, y = totl.mm, col = treatment))+
+  geom_point()+
+  geom_smooth(method = "lm")
+```
+
+## Developmental plots
+```{r}
+dat2 %>% filter(treatment == "High") %>% ggplot(aes(x = photo.date, y = jitter(stage), group = interaction(tadpole, treatment))) +
+  geom_point() +
+  geom_line(alpha = 0.2)
+
+dat2 %>% filter(photo.date == "2019-05-17")
+```
+
+## Separate out a sample to check
 ```{r}
 head(dat)
 set.seed(1)
@@ -67,10 +139,3 @@ kaija_check_sample
 kaija_photos_tocheck <- dat[kaija_check_sample,] %>% arrange(photo.date, photo.number)
 write.csv(kaija_photos_tocheck, file = "data/outputs/kaija_photos_tocheck.csv", row.names = F)
 ```
-
-## Exploratory plotting
-```{r}
-dat %>% group_by(tadpole) %>% ggplot(aes(x = photo.date, y = stage, col = pond)) +
-  geom_line()
-```
-
