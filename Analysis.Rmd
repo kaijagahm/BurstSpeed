@@ -60,13 +60,13 @@ load("data/outputs/consensus_mod.Rda")
 ### Manual calculation of residuals
 #### Retaining the individual speeds and comparing them to different things
 ```{r}
-overall <- dat3 %>% select(treatment, pond, clutch, indiv, tadpole, trial, sline_speed_m_s) %>% 
+overall <- dat3 %>% select(treatment, pond, clutch, tadpole, trial, sline_speed_m_s) %>% 
   group_by(treatment) %>%
   mutate(mean = mean(sline_speed_m_s),
                 resid = sline_speed_m_s - mean) %>%
   mutate(level = "overall")
 
-indiv <- overall %>% group_by(treatment, indiv) %>% 
+indiv <- overall %>% group_by(treatment, tadpole) %>% 
   mutate(mean = mean(sline_speed_m_s),
          resid = sline_speed_m_s - mean) %>%
   mutate(level = "indiv")
@@ -81,12 +81,30 @@ pond <- overall %>% group_by(treatment, pond) %>%
          resid = sline_speed_m_s - mean) %>%
   mutate(level = "pond")
 
-resids <- rbind(overall, indiv, clutch, pond) # put them all together
+wild_overall <- wild %>% select(treatment, pond, tadpole, trial, sline_speed_m_s) %>%
+  group_by(treatment) %>%
+  mutate(mean = mean(sline_speed_m_s),
+         resid = sline_speed_m_s - mean) %>%
+  mutate(level = "overall")
+
+wild_indiv <- wild_overall %>% group_by(treatment, tadpole) %>%
+  mutate(mean = mean(sline_speed_m_s),
+         resid = sline_speed_m_s - mean) %>%
+  mutate(level = "indiv")
+
+wild_pond <- wild_overall %>% group_by(treatment, pond) %>%
+  mutate(mean = mean(sline_speed_m_s),
+         resid = sline_speed_m_s - mean) %>%
+  mutate(level = "pond")
+
+resids <- rbind(overall, indiv, clutch, pond, wild_overall, wild_indiv, wild_pond) # put them all together
+
 resids$level <- factor(resids$level, levels = c("overall", "pond", "clutch", "indiv"))
 
 resids %>% ggplot(aes(x = resid, col = treatment, fill = treatment))+
   geom_density(alpha = 0.4, adjust = 2)+
-  facet_grid(rows = vars(level), cols = vars(treatment))
+  facet_grid(rows = vars(level), cols = vars(treatment))+
+  theme_minimal()
 ```
 
 #### Retaining the individual speeds and comparing them to different things
@@ -94,22 +112,17 @@ resids %>% ggplot(aes(x = resid, col = treatment, fill = treatment))+
 overallsmall <- overall %>% select(treatment, mean, resid, level)
 head(overallsmall)
 
-indiv <- overall %>% group_by(treatment, indiv) %>% 
-  mutate(mean = mean(sline_speed_m_s),
-         resid = sline_speed_m_s - mean) %>% ungroup() %>%
-  mutate(level = "indiv")
-
 indivsmall <- indiv %>% select(treatment, mean, resid, level)
 head(indivsmall)
 
 clutch <- indiv %>% 
-  select(treatment, pond, clutch, indiv, mean) %>% 
+  select(treatment, pond, clutch, tadpole, mean) %>% 
   distinct() %>% # get rid of multiple trials
   rename(indiv_mean = mean) %>%
   group_by(treatment, clutch) %>%
   mutate(clutch_mean = mean(indiv_mean),
          resid = indiv_mean - clutch_mean) %>%
-  select(-c(indiv_mean, indiv)) %>%
+  select(-c(indiv_mean, tadpole)) %>%
   rename(mean = clutch_mean) %>% ungroup() %>%
   mutate(level = "clutch")
 clutchsmall <- clutch %>% select(treatment, mean, resid, level)
@@ -126,6 +139,12 @@ pond <- clutch %>% select(-resid) %>%
   mutate(level = "pond")
 pondsmall <- pond %>% select(treatment, mean, resid, level)
 head(pondsmall)
+
+head(wild_overall)
+wild_overallsmall <- wild_overall %>% select(treatment, mean, resid, level)
+
+
+
 
 resids_cumulative <- bind_rows(overallsmall, indivsmall, clutchsmall, pondsmall)
 resids_cumulative$level <- factor(resids_cumulative$level, levels = c("overall", "pond", "clutch", "indiv"))
