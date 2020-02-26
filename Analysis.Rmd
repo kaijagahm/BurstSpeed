@@ -56,8 +56,90 @@ load("data/outputs/consensus_mod.Rda")
 
 # ICCC 
 ## Calculate ICCC
+
+### Manual calculation of residuals
+#### Retaining the individual speeds and comparing them to different things
 ```{r}
-summary(mod_gs)
+overall <- dat3 %>% select(treatment, pond, clutch, indiv, tadpole, trial, sline_speed_m_s) %>% 
+  group_by(treatment) %>%
+  mutate(mean = mean(sline_speed_m_s),
+                resid = sline_speed_m_s - mean) %>%
+  mutate(level = "overall")
+
+indiv <- overall %>% group_by(treatment, indiv) %>% 
+  mutate(mean = mean(sline_speed_m_s),
+         resid = sline_speed_m_s - mean) %>%
+  mutate(level = "indiv")
+
+clutch <- overall %>% group_by(treatment, clutch) %>%
+  mutate(mean = mean(sline_speed_m_s),
+         resid = sline_speed_m_s - mean) %>%
+  mutate(level = "clutch")
+
+pond <- overall %>% group_by(treatment, pond) %>%
+  mutate(mean = mean(sline_speed_m_s),
+         resid = sline_speed_m_s - mean) %>%
+  mutate(level = "pond")
+
+resids <- rbind(overall, indiv, clutch, pond) # put them all together
+resids$level <- factor(resids$level, levels = c("overall", "pond", "clutch", "indiv"))
+
+resids %>% ggplot(aes(x = resid, col = treatment, fill = treatment))+
+  geom_density(alpha = 0.4, adjust = 2)+
+  facet_grid(rows = vars(level), cols = vars(treatment))
+```
+
+#### Retaining the individual speeds and comparing them to different things
+```{r}
+overallsmall <- overall %>% select(treatment, mean, resid, level)
+head(overallsmall)
+
+indiv <- overall %>% group_by(treatment, indiv) %>% 
+  mutate(mean = mean(sline_speed_m_s),
+         resid = sline_speed_m_s - mean) %>% ungroup() %>%
+  mutate(level = "indiv")
+
+indivsmall <- indiv %>% select(treatment, mean, resid, level)
+head(indivsmall)
+
+clutch <- indiv %>% 
+  select(treatment, pond, clutch, indiv, mean) %>% 
+  distinct() %>% # get rid of multiple trials
+  rename(indiv_mean = mean) %>%
+  group_by(treatment, clutch) %>%
+  mutate(clutch_mean = mean(indiv_mean),
+         resid = indiv_mean - clutch_mean) %>%
+  select(-c(indiv_mean, indiv)) %>%
+  rename(mean = clutch_mean) %>% ungroup() %>%
+  mutate(level = "clutch")
+clutchsmall <- clutch %>% select(treatment, mean, resid, level)
+head(clutchsmall)
+
+pond <- clutch %>% select(-resid) %>%
+  distinct() %>%
+  rename(clutch_mean = mean) %>%
+  group_by(treatment, pond) %>%
+  mutate(pond_mean = mean(clutch_mean),
+         resid = clutch_mean - pond_mean) %>%
+  select(-c(clutch_mean, clutch)) %>%
+  rename(mean = pond_mean) %>% ungroup() %>%
+  mutate(level = "pond")
+pondsmall <- pond %>% select(treatment, mean, resid, level)
+head(pondsmall)
+
+resids_cumulative <- bind_rows(overallsmall, indivsmall, clutchsmall, pondsmall)
+resids_cumulative$level <- factor(resids_cumulative$level, levels = c("overall", "pond", "clutch", "indiv"))
+
+head(resids_cumulative)
+
+resids_cumulative %>% ggplot(aes(x = resid, col = treatment, fill = treatment))+
+  geom_density(alpha = 0.4, adjust = 2)+
+  facet_grid(rows = vars(level), cols = vars(treatment))
+```
+
+```{r}
+load("data/outputs/consensus_mod.Rda")
+summary(consensus_mod)
 indiv_variance <- 1322e-04
 clutch_variance <- 7.998e-12
 resid_variance <- 1.182e-04
@@ -106,6 +188,10 @@ iccc_resid_vec <- boot_iccc_resid$t
 iccc <- data.frame(level = c(rep("clutch", 1000), rep("indiv", 1000), rep("resid", 1000)),
                    iccc_estimate = c(iccc_clutch_vec, iccc_indiv_vec, iccc_resid_vec))
 ```
+Look back into literature: ICCC paper. 
+
+
+
 
 ## Visualize 
 ```{r}
