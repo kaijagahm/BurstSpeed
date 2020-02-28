@@ -45,6 +45,8 @@ checks %>% ggplot(aes(x = svl.mm - svl.mm.verify, fill = person, col = person))+
 
 checks %>% ggplot(aes(x = totl.mm - totl.mm.verify, fill = person, col = person))+
   geom_density(alpha = 0.5) # big oof
+
+table(checks$person)
 ```
 
 # Visualize
@@ -111,3 +113,4 @@ pondmeans %>% filter(!is.na(pond)) %>%
   theme_minimal()
 ```
 
+Add final stages.

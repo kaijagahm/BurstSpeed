@@ -27,7 +27,6 @@ load("data/outputs/consensus_mod.Rda")
 
 # ICCC 
 ## Calculate ICCC
-
 ### Manual calculation of residuals
 #### Retaining the individual speeds and comparing them to different things
 ```{r}

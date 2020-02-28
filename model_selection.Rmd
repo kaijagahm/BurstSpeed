@@ -63,13 +63,12 @@ Dat3: fastest 3 trials per tadpole
 mod1 <- lmer(sline_speed_m_s ~ treatment * mass + (1|pond/clutch) + (1|indiv) + (1|camera), data = dat3)
 summary(mod1)
 
-# removing the pond random effect, because it doesn't tell us anything. In fact, we need to do this to get a non-singular fit.
-mod2 <- lmer(sline_speed_m_s ~ treatment * mass + (1|pond:clutch) + (1|indiv), data = dat3)
+# removing the pond and camera random effects, because they don't tell us much. In fact, we need to remove the pond effect to get a non-singular fit.
 mod3 <- lmer(sline_speed_m_s ~ treatment * mass + (1|clutch/indiv), data = dat3) # use this syntax, but remember that clutch already accounts for being nested within pond. 
+# note that if we add camera to this model, it doesn't converge.
 
 # : specifies that clutch is nested within pond, but without first fitting pond (since we discovered we don't need to)
 # / explicitly fits pond first and then clutch.
-
 
 dat3$predicted_speed <- predict(mod1, re.form = NA, newdata = dat3)
 dat3$predicted_speed_withresids <- predict(mod1, re.form = NA, newdata = dat3) + resid(mod1, newdata = dat3)
