@@ -113,4 +113,6 @@ pondmeans %>% filter(!is.na(pond)) %>%
   theme_minimal()
 ```
 
-Add final stages.
+Add embryo stages and final stages.
+
+Make graphs of pond temperature vs. incubator temperature.
