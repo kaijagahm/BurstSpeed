@@ -1,0 +1,113 @@
+---
+title: "dev_growth_rates"
+author: "Kaija Gahm"
+date: "2/28/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Load libraries
+```{r}
+source("libraries.R")
+```
+
+# Read data
+```{r}
+dev <- read.csv("data/inputs/dev_measurements_kaija_andis.csv", as.is = T)
+```
+
+# Clean data
+```{r}
+
+load("data/outputs/dat3.Rda")
+head(dat3)
+
+# Make tadpole column
+dev <- dev %>% mutate(tadpole = paste0(pond, "_0", clutch, "_", indiv, "_", treatment))
+
+# Read dates as dates
+dev <- dev %>% mutate(photo.date = mdy(photo.date))
+
+# Check error
+checks <- dev %>% filter(!is.na(stage.verify))
+nrow(checks)
+
+checks <- checks %>% mutate(diff = stage - stage.verify)
+
+checks %>% ggplot(aes(x = diff, fill = person, col = person))+
+  geom_density(alpha = 0.5) # this is a good sign! We can quantify the error rate later.
+
+checks %>% ggplot(aes(x = svl.mm - svl.mm.verify, fill = person, col = person))+
+  geom_density(alpha = 0.5) # oof
+
+checks %>% ggplot(aes(x = totl.mm - totl.mm.verify, fill = person, col = person))+
+  geom_density(alpha = 0.5) # big oof
+```
+
+# Visualize
+## Rough dev graphs
+```{r}
+head(dev)
+dev %>% filter(!is.na(pond), !is.na(stage)) %>%
+  ggplot(aes(x = photo.date, y = stage, col = treatment, group = tadpole))+
+  geom_point(size = 0.5)+
+  geom_line(lwd = 0.5, alpha = 0.1)+
+  theme_minimal()+
+  guides(color = guide_legend(override.aes = list(size=5)))+
+  xlab("Date")+
+  ylab("Gosner stage")
+
+dev %>% filter(!is.na(pond), !is.na(svl.mm)) %>%
+  ggplot(aes(x = photo.date, y = svl.mm, col = treatment, group = tadpole))+
+  geom_point(size = 0.5)+
+  geom_line(lwd = 0.5, alpha = 0.1)+
+  theme_minimal()+
+  guides(color = guide_legend(override.aes = list(size=5)))+
+  xlab("Date")+
+  ylab("SVL (mm)")
+
+dev %>% filter(!is.na(pond), !is.na(totl.mm)) %>%
+  ggplot(aes(x = photo.date, y = totl.mm, col = treatment, group = tadpole))+
+  geom_point(size = 0.5)+
+  geom_line(lwd = 0.5, alpha = 0.1)+
+  theme_minimal()+
+  guides(color = guide_legend(override.aes = list(size=5)))+
+  xlab("Date")+
+  ylab("Total length (mm)")
+
+# Summarize means by pond
+pondmeans <- dev %>% 
+  group_by(treatment, pond, photo.date) %>% 
+  summarize(mstage = mean(stage, na.rm = T),
+            sd.stage = sd(stage, na.rm = T),
+            msvl = mean(svl.mm, na.rm = T),
+            sd.svl = sd(svl.mm, na.rm = T),
+            mtotl = mean(totl.mm, na.rm = T),
+            sd.totl = sd(totl.mm, na.rm = T))
+head(pondmeans)
+
+pondmeans %>% filter(!is.na(pond)) %>% 
+  ggplot(aes(x = photo.date, y = mstage, col = pond, group = interaction(treatment, pond)))+
+  geom_point()+
+  geom_line()+
+  geom_errorbar(aes(ymin = mstage - sd.stage, ymax = mstage + sd.stage))+
+  theme_minimal()
+
+pondmeans %>% filter(!is.na(pond)) %>% 
+  ggplot(aes(x = photo.date, y = msvl, col = pond, group = interaction(treatment, pond)))+
+  geom_point()+
+  geom_line()+
+  geom_errorbar(aes(ymin = msvl - sd.svl, ymax = msvl + sd.svl))+
+  theme_minimal()
+
+pondmeans %>% filter(!is.na(pond)) %>% 
+  ggplot(aes(x = photo.date, y = mtotl, col = pond, group = interaction(treatment, pond)))+
+  geom_point()+
+  geom_line()+
+  geom_errorbar(aes(ymin = mtotl - sd.totl, ymax = mtotl + sd.totl))+
+  theme_minimal()
+```
+
