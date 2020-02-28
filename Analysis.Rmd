@@ -363,6 +363,7 @@ plasticity <- indiv_means %>% select(-c(clutch_mean_speed)) %>% rename(D = indiv
 head(plasticity)
 plasticity <- plasticity %>% mutate(clutch_only = factor(str_extract(clutch, pattern = "(?<= )[[:digit:]](?=$)")))
 
+# Plasticity model: predict D by pond and clutch
 pls_mod <- lmer(D ~ pond + (1|clutch), data = plasticity)
 summary(pls_mod)
 
