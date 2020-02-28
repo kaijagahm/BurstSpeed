@@ -295,14 +295,21 @@ stats_fast1 <- stats %>% group_by(tadpole) %>% filter(!is.na(sline_speed_m_s)) %
 ### Fastest 3 trials
 ```{r}
 stats_fast3 <- stats %>% filter(!is.na(sline_speed_m_s)) %>% group_by(tadpole) %>% arrange(desc(sline_speed_m_s), .by_group = T) %>% slice(1:3) 
-
-stats_fast3_avg <- stats_fast3 %>% select(-c(trial, T_initial)) %>% summarize_if(.predicate = is.numeric, .funs = mean)
 ```
 
 ## Output
 ```{r}
 save(stats_fast1, file = "data/outputs/stats_fast1.Rda")
 save(stats_fast3, file = "data/outputs/stats_fast3.Rda")
-save(stats_fast3_avg, file = "data/outputs/stats_fast3_avg.Rda") 
+```
+
+## Check for camera differences
+```{r}
+stats_fast3 %>% ggplot(aes(x = camera, y = sline_speed_m_s))+
+  geom_violin()
+
+stats_fast3 %>% ggplot(aes(x = T_initial, y = sline_speed_m_s, col = camera))+
+  geom_point()+
+  geom_smooth(method = "lm")
 ```
 
