@@ -16,10 +16,11 @@ source("libraries.R")
 
 # Load data
 ```{r}
-load("data/outputs/dat3.Rda")
+load("data/outputs/stats_fast3.Rda")
 ```
 
-# Code random effects explicitly
+# Further data cleaning
+## Code random effects explicitly
 We should have used different letters for the individuals in the two temperature treatments, because strictly speaking we should have labeled the individuals before choosing which ones to put into which temperature treatment. We did select those randomly, but the naming scheme that we chose does not reflect that.
 
 We don't want to change the letters on the tadpoles because that would make the data be out of sync with all of the labels on everything up to this point. Instead, we're going to stick with our scheme of appending "high" or "low" to the names to distinguish e.g. CPS_01_A in high/low treatments (since that is NOT the same individual.)
@@ -32,13 +33,13 @@ locate.nas(stats_fast3)
 
 ## Select relevant columns and change data types
 ```{r}
-dat3 <- stats_fast3 %>% select(tadpole, trial, indiv, treatment, sline_speed_m_s, PC1, PC2, pond, size, clutch, mass, gs, T_initial) %>% ungroup() %>% mutate(treatment = factor(treatment),
+dat3 <- stats_fast3 %>% select(tadpole, trial, indiv, treatment, sline_speed_m_s, PC1, PC2, pond, size, clutch, mass, gs, T_initial, camera) %>% ungroup() %>% mutate(treatment = factor(treatment),
                      pond = factor(pond),
                      clutch = factor(clutch)) %>%
   filter(treatment %in% c("High", "Low"), !is.na(PC1)) %>% droplevels()
 
 # wild tadpoles are separate
-wild <- stats_fast3 %>% select(tadpole, trial, treatment, sline_speed_m_s, PC1, PC2, pond, size, mass, gs, T_initial) %>% ungroup() %>% mutate(treatment = factor(treatment),
+wild <- stats_fast3 %>% select(tadpole, trial, treatment, sline_speed_m_s, PC1, PC2, pond, size, mass, gs, T_initial, camera) %>% ungroup() %>% mutate(treatment = factor(treatment),
                      pond = factor(pond)) %>% 
   filter(treatment == "Wild") %>% droplevels()
 
