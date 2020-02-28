@@ -23,4 +23,5 @@ library(car) # for the vif function
 library(sjPlot) # to visualize effect sizes.
 library(mgcv)
 library(nlme) # for variance structure
+library(ggridges) # for ridgeline plot of variance
 
