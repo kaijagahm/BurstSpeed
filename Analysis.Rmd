@@ -230,59 +230,55 @@ iccc_clutch
 
 ## Bootstrap CI's for ICCC
 ```{r}
-calc_iccc_indiv <- function(model){
-  mod_smy <- summary(model) # get the model summary
-  df <- mod_smy$varcor %>% as.data.frame() # extract info about the random variables
-  random_var <- sum(df$vcov) # total random variance
-  iccc <- df$vcov[1]/random_var # variance of the chosen variable divided by total random variance
-}
-
-calc_iccc_clutch <- function(model){
-  mod_smy <- summary(model) # get the model summary
-  df <- mod_smy$varcor %>% as.data.frame() # extract info about the random variables
-  random_var <- sum(df$vcov) # total random variance
-  iccc <- df$vcov[2]/random_var # variance of the chosen variable divided by total random variance
-}
-
-calc_iccc_resid <- function(model){
-  mod_smy <- summary(model) # get the model summary
-  df <- mod_smy$varcor %>% as.data.frame() # extract info about the random variables
-  random_var <- sum(df$vcov) # total random variance
-  iccc <- df$vcov[3]/random_var # variance of the chosen variable divided by total random variance
-}
-
-# Bootstrapping for individual iccc
-boot_iccc_indiv <- bootMer(consensus_mod, calc_iccc_indiv, nsim = 1000, .progress = "txt")
-boot_iccc_clutch <- bootMer(consensus_mod, calc_iccc_clutch, nsim = 1000, .progress = "txt")
-boot_iccc_resid <- bootMer(consensus_mod, calc_iccc_resid, nsim = 1000, .progress = "txt")
-
-iccc_indiv_vec <- boot_iccc_indiv$t
-iccc_clutch_vec <- boot_iccc_clutch$t
-iccc_resid_vec <- boot_iccc_resid$t
-
-# Make a data frame for visualization
-iccc <- data.frame(level = c(rep("clutch", 1000), rep("indiv", 1000), rep("resid", 1000)),
-                   iccc_estimate = c(iccc_clutch_vec, iccc_indiv_vec, iccc_resid_vec))
+# calc_iccc_indiv <- function(model){
+#   mod_smy <- summary(model) # get the model summary
+#   df <- mod_smy$varcor %>% as.data.frame() # extract info about the random variables
+#   random_var <- sum(df$vcov) # total random variance
+#   iccc <- df$vcov[1]/random_var # variance of the chosen variable divided by total random variance
+# }
+# 
+# calc_iccc_clutch <- function(model){
+#   mod_smy <- summary(model) # get the model summary
+#   df <- mod_smy$varcor %>% as.data.frame() # extract info about the random variables
+#   random_var <- sum(df$vcov) # total random variance
+#   iccc <- df$vcov[2]/random_var # variance of the chosen variable divided by total random variance
+# }
+# 
+# calc_iccc_resid <- function(model){
+#   mod_smy <- summary(model) # get the model summary
+#   df <- mod_smy$varcor %>% as.data.frame() # extract info about the random variables
+#   random_var <- sum(df$vcov) # total random variance
+#   iccc <- df$vcov[3]/random_var # variance of the chosen variable divided by total random variance
+# }
+# 
+# # Bootstrapping for individual iccc
+# boot_iccc_indiv <- bootMer(consensus_mod, calc_iccc_indiv, nsim = 1000, .progress = "txt")
+# boot_iccc_clutch <- bootMer(consensus_mod, calc_iccc_clutch, nsim = 1000, .progress = "txt")
+# boot_iccc_resid <- bootMer(consensus_mod, calc_iccc_resid, nsim = 1000, .progress = "txt")
+# 
+# iccc_indiv_vec <- boot_iccc_indiv$t
+# iccc_clutch_vec <- boot_iccc_clutch$t
+# iccc_resid_vec <- boot_iccc_resid$t
+# 
+# # Make a data frame for visualization
+# iccc <- data.frame(level = c(rep("clutch", 1000), rep("indiv", 1000), rep("resid", 1000)),
+#                    iccc_estimate = c(iccc_clutch_vec, iccc_indiv_vec, iccc_resid_vec))
 ```
-Look back into literature: ICCC paper. 
-
-
-
 
 ## Visualize 
 ```{r}
-iccc %>% ggplot(aes(x = level, y = iccc_estimate))+
-  theme_minimal()+
-  geom_boxplot()+
-  ylab("ICCC")+
-  xlab("Random variable")
+# iccc %>% ggplot(aes(x = level, y = iccc_estimate))+
+#   theme_minimal()+
+#   geom_boxplot()+
+#   ylab("ICCC")+
+#   xlab("Random variable")
 ```
 
 # Plasticity
 ## Differences in means
 ### Individual means
 ```{r}
-indiv_means <- dat3_nonas %>% group_by(indiv) %>% 
+indiv_means <- dat3 %>% group_by(indiv) %>% 
   summarize(indiv_mean_speed = mean(sline_speed_m_s),
             clutch = clutch[1],
             treatment = treatment[1],
@@ -440,8 +436,13 @@ wild_nonas %>%
   geom_point(aes(col = pond))+
   scale_color_viridis(discrete = TRUE)
 
-wild_nonas %>% ggplot(aes(x = pond, y = sline_speed_m_s))+
-  geom_violin()
+# Initial water temp
+wild_nonas %>%
+  ggplot(aes(x = T_initial, y = sline_speed_m_s))+
+  geom_smooth(aes(col = pond), method = "lm", se = F)+
+  geom_smooth(method = "lm", se = F, col = "darkgrey", lty = 2)+
+  geom_point(aes(col = pond))+
+  scale_color_viridis(discrete = TRUE)
 ```
 
 ### Make same model as for lab tadpoles
@@ -451,5 +452,60 @@ formula(consensus_mod)
 wild_mod <- lmer(sline_speed_m_s ~ mass + gs + T_initial + (1 | tadpole), data = wild_nonas, REML = F,
                  na.action = "na.fail")
 summary(wild_mod)
+vif(wild_mod) # all variance inflation factors look okay.
+```
+
+### Try other models for wild tadpoles
+```{r}
+# Remove individual random effect
+wm2 <- lm(sline_speed_m_s ~ mass + gs + T_initial, data = wild_nonas,
+            na.action = "na.fail")
+summary(wm2) # not significant
+
+# look at pond differences
+wild_nonas %>% ggplot(aes(x = pond, y = sline_speed_m_s))+
+  geom_boxplot() # suggests more pond differences than in lab populations.
+
+# Based on the above, try a pond random effect with individual
+wm3 <- lmer(sline_speed_m_s ~ mass + gs + T_initial + (1 | pond/tadpole),
+            data = wild_nonas,
+            REML = FALSE,
+            na.action = "na.fail")
+summary(wm3) # not significant
+
+# Pond random effect without T_initial, and using size instead of mass
+wm4 <- lmer(sline_speed_m_s ~ size + gs + (1 | pond/tadpole),
+            data = wild_nonas,
+            REML = FALSE,
+            na.action = "na.fail")
+summary(wm4) # not significant
+
+# Same without gosner stage
+wm5 <- lmer(sline_speed_m_s ~ size + (1 | pond/tadpole),
+            data = wild_nonas,
+            REML = FALSE,
+            na.action = "na.fail")
+summary(wm5) # that's a little better.
+
+# Basic linear model: pond and size
+wm5lm <- lm(sline_speed_m_s ~ size + pond,
+            data = wild_nonas,
+            na.action = "na.fail")
+summary(wm5lm)
+
+# Examine VIF's
+full <- lmer(sline_speed_m_s ~ size + mass + gs + T_initial + (1 | pond/tadpole),
+             data = wild_nonas,
+             REML = FALSE,
+             na.action = "na.fail")
+vif(full)
+
+# Remove mass
+full_1 <- lmer(sline_speed_m_s ~ size + gs + T_initial + (1 | pond/tadpole),
+             data = wild_nonas,
+             REML = FALSE,
+             na.action = "na.fail")
+vif(full_1)
+summary(full_1)
 ```
 
