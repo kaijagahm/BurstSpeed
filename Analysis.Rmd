@@ -37,22 +37,26 @@ dat3 <- stats_fast3 %>% select(tadpole, trial, indiv, treatment, sline_speed_m_s
                      clutch = factor(clutch)) %>%
   filter(treatment %in% c("High", "Low"), !is.na(PC1)) %>% droplevels()
 
+# wild tadpoles are separate
 wild <- stats_fast3 %>% select(tadpole, trial, treatment, sline_speed_m_s, PC1, PC2, pond, size, mass, gs, T_initial) %>% ungroup() %>% mutate(treatment = factor(treatment),
                      pond = factor(pond)) %>% 
   filter(treatment == "Wild") %>% droplevels()
+
+# fix NA's for pond
+wild %>% filter(is.na(pond))
+wild$pond[is.na(wild$pond)] <- str_extract(wild$tadpole[is.na(wild$pond)], pattern = "(?<=^)[[:upper:]]{2,3}(?=\\_)")
 ```
 
 ## Export the data for modeling in model_selection.Rmd
 ```{r}
 save(dat3, file = "data/outputs/dat3.Rda")
+save(wild, file = "data/outputs/wild.Rda")
 ```
 
 # Load consensus model
 ```{r}
 load("data/outputs/consensus_mod.Rda")
 ```
-
-
 
 # ICCC 
 ## Calculate ICCC
@@ -101,19 +105,38 @@ resids <- rbind(overall, indiv, clutch, pond, wild_overall, wild_indiv, wild_pon
 
 resids$level <- factor(resids$level, levels = c("overall", "pond", "clutch", "indiv"))
 
+# Density plot
 resids %>% ggplot(aes(x = resid, col = treatment, fill = treatment))+
   geom_density(alpha = 0.4, adjust = 2)+
-  facet_grid(rows = vars(level), cols = vars(treatment))+
-  theme_minimal()
-```
+  facet_grid(rows = vars(level), cols = vars(treatment))
+
+# Ridge plot
+resids %>% ggplot(aes(x = resid, fill = level))+
+  geom_density_ridges(aes(y = level),
+                      scale = 3,
+                      bandwidth = 0.006)+
+  facet_wrap(~treatment)+
+  scale_y_discrete(expand = expand_scale(mult = c(0.01, 0.8)))+
+  theme(legend.position = "none")
+
+# get just the variance of the resids
+var_resids <- resids %>% 
+  group_by(treatment, level) %>%
+  summarize(var = var(resid)) %>% ungroup
+
+var_resids <- rbind(var_resids, c("Wild", "clutch", NA)) %>% mutate(var = as.numeric(var))
+
+# Line plot
+var_resids %>% ggplot(aes(x = level, y = var, col = treatment, group = treatment))+
+  geom_line()+
+  geom_point(data = var_resids %>% filter(treatment == "Wild", level == "indiv"))
+``` 
 
 #### Retaining the individual speeds and comparing them to different things
 ```{r}
 overallsmall <- overall %>% select(treatment, mean, resid, level)
-head(overallsmall)
 
 indivsmall <- indiv %>% select(treatment, mean, resid, level)
-head(indivsmall)
 
 clutch <- indiv %>% 
   select(treatment, pond, clutch, tadpole, mean) %>% 
@@ -126,7 +149,6 @@ clutch <- indiv %>%
   rename(mean = clutch_mean) %>% ungroup() %>%
   mutate(level = "clutch")
 clutchsmall <- clutch %>% select(treatment, mean, resid, level)
-head(clutchsmall)
 
 pond <- clutch %>% select(-resid) %>%
   distinct() %>%
@@ -138,30 +160,65 @@ pond <- clutch %>% select(-resid) %>%
   rename(mean = pond_mean) %>% ungroup() %>%
   mutate(level = "pond")
 pondsmall <- pond %>% select(treatment, mean, resid, level)
-head(pondsmall)
 
-head(wild_overall)
 wild_overallsmall <- wild_overall %>% select(treatment, mean, resid, level)
 
+wild_indiv <- wild_overall %>% select(treatment, pond, tadpole, sline_speed_m_s) %>%
+  group_by(tadpole) %>% 
+  mutate(indiv_mean = mean(sline_speed_m_s),
+         resid = sline_speed_m_s - indiv_mean) %>%
+  rename(mean = indiv_mean) %>% ungroup() %>%
+  mutate(level = "indiv")
+wild_indivsmall <- wild_indiv %>% select(treatment, mean, resid, level)
 
+wild_pond <- wild_indiv %>% select(-resid) %>%
+  distinct() %>%
+  rename(indiv_mean = mean) %>%
+  group_by(treatment, pond) %>%
+  mutate(pond_mean = mean(indiv_mean),
+         resid = indiv_mean - pond_mean) %>%
+  select(-c(indiv_mean)) %>%
+  rename(mean = pond_mean) %>% ungroup() %>%
+  mutate(level = "pond")
+wild_pondsmall <- wild_pond %>% select(treatment, mean, resid, level)
 
-
-resids_cumulative <- bind_rows(overallsmall, indivsmall, clutchsmall, pondsmall)
+resids_cumulative <- bind_rows(overallsmall, indivsmall, clutchsmall, pondsmall, wild_overallsmall, wild_indivsmall, wild_pondsmall)
 resids_cumulative$level <- factor(resids_cumulative$level, levels = c("overall", "pond", "clutch", "indiv"))
 
-head(resids_cumulative)
-
+# Density plot
 resids_cumulative %>% ggplot(aes(x = resid, col = treatment, fill = treatment))+
   geom_density(alpha = 0.4, adjust = 2)+
   facet_grid(rows = vars(level), cols = vars(treatment))
+
+# Ridge plot
+resids_cumulative %>% ggplot(aes(x = resid, fill = level))+
+  geom_density_ridges(aes(y = level),
+                      scale = 3,
+                      bandwidth = 0.006)+
+  facet_wrap(~treatment)+
+  scale_y_discrete(expand = expand_scale(mult = c(0.01, 0.8)))+
+  theme(legend.position = "none")
+
+# get just the variance of the resids
+var_resids_cumulative <- resids_cumulative %>% 
+  group_by(treatment, level) %>%
+  summarize(var = var(resid)) %>% ungroup
+
+var_resids_cumulative <- rbind(var_resids_cumulative, c("Wild", "clutch", NA)) %>% mutate(var = as.numeric(var))
+
+# Line plot
+var_resids_cumulative %>% ggplot(aes(x = level, y = var, col = treatment, group = treatment))+
+  geom_line()+
+  geom_point(data = var_resids_cumulative %>% filter(treatment == "Wild", level == "indiv"))
 ```
 
 ```{r}
 load("data/outputs/consensus_mod.Rda")
-summary(consensus_mod)
-indiv_variance <- 1322e-04
-clutch_variance <- 7.998e-12
-resid_variance <- 1.182e-04
+sds <- summary(consensus_mod)$varcor %>% as.data.frame()
+
+indiv_variance <- sds$vcov[sds$grp == "indiv:clutch"]
+clutch_variance <- sds$vcov[sds$grp == "clutch"]
+resid_variance <- sds$vcov[sds$grp == "Residual"]
 
 tot_rand_variance <- indiv_variance + clutch_variance + resid_variance
 iccc_indiv <- indiv_variance/tot_rand_variance
@@ -181,23 +238,23 @@ calc_iccc_indiv <- function(model){
 }
 
 calc_iccc_clutch <- function(model){
-  mod_smy <- summary(mod_gs) # get the model summary
+  mod_smy <- summary(model) # get the model summary
   df <- mod_smy$varcor %>% as.data.frame() # extract info about the random variables
   random_var <- sum(df$vcov) # total random variance
   iccc <- df$vcov[2]/random_var # variance of the chosen variable divided by total random variance
 }
 
 calc_iccc_resid <- function(model){
-  mod_smy <- summary(mod_gs) # get the model summary
+  mod_smy <- summary(model) # get the model summary
   df <- mod_smy$varcor %>% as.data.frame() # extract info about the random variables
   random_var <- sum(df$vcov) # total random variance
   iccc <- df$vcov[3]/random_var # variance of the chosen variable divided by total random variance
 }
 
 # Bootstrapping for individual iccc
-boot_iccc_indiv <- bootMer(mod_gs, calc_iccc_indiv, nsim = 1000, .progress = "txt")
-boot_iccc_clutch <- bootMer(mod_gs, calc_iccc_clutch, nsim = 1000, .progress = "txt")
-boot_iccc_resid <- bootMer(mod_gs, calc_iccc_resid, nsim = 1000, .progress = "txt")
+boot_iccc_indiv <- bootMer(consensus_mod, calc_iccc_indiv, nsim = 1000, .progress = "txt")
+boot_iccc_clutch <- bootMer(consensus_mod, calc_iccc_clutch, nsim = 1000, .progress = "txt")
+boot_iccc_resid <- bootMer(consensus_mod, calc_iccc_resid, nsim = 1000, .progress = "txt")
 
 iccc_indiv_vec <- boot_iccc_indiv$t
 iccc_clutch_vec <- boot_iccc_clutch$t
@@ -318,7 +375,7 @@ sjPlot::plot_model(pls_mod, type = "eff")
 plasticity %>% ggplot(aes(x = pond, y = D))+
   geom_violin()+
   geom_jitter(aes(col = clutch_only), width = 0.1)+
-  scale_color_viridis(discrete = T)
+  scale_color_viridis(discrete = T) # no patterns by pond _or_ clutch within pond. Yikes!
 ```
 
 
