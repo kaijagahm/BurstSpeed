@@ -113,8 +113,8 @@ resids %>% ggplot(aes(x = resid, col = treatment, fill = treatment))+
 # Ridge plot
 resids %>% ggplot(aes(x = resid, fill = level))+
   geom_density_ridges(aes(y = level),
-                      scale = 3,
-                      bandwidth = 0.006)+
+                      scale = 3)+
+                      #bandwidth = 0.006)+
   facet_wrap(~treatment)+
   scale_y_discrete(expand = expand_scale(mult = c(0.01, 0.8)))+
   theme(legend.position = "none")
@@ -383,129 +383,72 @@ plasticity %>% ggplot(aes(x = pond, y = D))+
 # Morphology vs. Burst Speed
 Does morphology help to explain burst speed? And does this relationship hold in wild populations?
 
-## Model for lab tadpoles
-### Subset data
-```{r}
-head(dat3_nonas)
-
-morpho_nonas <- dat3_nonas %>% select(tadpole, pond, clutch, indiv, treatment, trial, sline_speed_m_s, PC1, PC2, size, mass, gs, size_pc1)
-
-# morpho_nonas %>% select(PC1, PC2, size, mass, gs, treatment, size_pc1) %>% ggpairs() # take a look at the variables
-
-morpho_nonas_small <- morpho_nonas %>% select(PC1, PC2, size_pc1, treatment, indiv, clutch, pond, tadpole, sline_speed_m_s)
-```
-
-### Full model
-Keeping the random effect structure from mod_gs
-```{r}
-summary(mod_gs)
-
-full_morpho_mod <-lmer(sline_speed_m_s ~ PC1*PC2*size_pc1*treatment + (1|clutch/indiv), data = morpho_nonas_small, na.action = "na.fail", REML = FALSE) 
-```
-
-### Dredge
-```{r}
-dr <- dredge(full_morpho_mod)
-```
-
-### Fit best model
-```{r}
-dr[1:5,] # Look at the top of the dredge table
-
-# Best model from that table, re-fit with REML = TRUE
-morpho_mod <- lmer(sline_speed_m_s ~ PC1*treatment + size_pc1*treatment + (1|clutch/indiv), data = morpho_nonas_small, REML = TRUE, na.action = "na.fail")
-summary(morpho_mod)
-```
-
-### Examine residuals
-```{r}
-morpho_resid <- resid(morpho_mod)
-hist(morpho_resid)
-qqnorm(morpho_resid)
-```
-
 ## Wild tadpoles
 ### Clean wild data
 ```{r}
 head(wild)
 wild_nonas <- wild[complete.cases(wild),] # remove NA's
-
-# Create PC variable for size
-size_pca <- prcomp(wild_nonas %>% select(gs, size, mass))
-wild_nonas$size_pc1 <- size_pca$x[,1]# put the size principal component into the data frame
-
-wild_nonas <- wild_nonas %>% mutate_at(.vars = c("PC1", "PC2", "mass", "size", "gs", "size_pc1", "T_initial"), standardize)
-
-wild_nonas <- wild_nonas %>% mutate(tcat = cut(T_initial, seq(-3, 3, 1), right = FALSE, labels = c(1:6)))
-
-head(wild_nonas)
 ```
 
 ### Explore wild data
 ```{r}
 # Any differences by pond?
-wild_nonas %>% ggplot(aes(x = size_pc1, y = sline_speed_m_s, col = T_initial))+
+wild_nonas %>% ggplot(aes(x = mass, y = sline_speed_m_s, col = T_initial))+
   geom_smooth(method = "lm", col = "gray", se = F)+
   geom_point()+
   facet_wrap(~pond)+
   scale_color_viridis()
 
-# Size_pc1
-wild_nonas %>% 
-  ggplot(aes(x = size_pc1, y = sline_speed_m_s, col = pond))+
-  geom_smooth(method = "lm", se = F)+
-  geom_point()+
-  scale_color_viridis(discrete = TRUE)
-
 # Size
 wild_nonas %>% 
-  ggplot(aes(x = size, y = sline_speed_m_s, col = pond))+
-  geom_smooth(method = "lm", se = F)+
-  geom_point()+
+  ggplot(aes(x = size, y = sline_speed_m_s))+
+  geom_smooth(aes(col = pond), method = "lm", se = F)+
+  geom_smooth(method = "lm", se = F, col = "darkgrey", lty = 2)+
+  geom_point(aes(col = pond))+
   scale_color_viridis(discrete = TRUE)
 
 # Gosner stage
 wild_nonas %>% 
-  ggplot(aes(x = gs, y = sline_speed_m_s, col = pond))+
-  geom_smooth(method = "lm", se = F)+
-  geom_point()+
+  ggplot(aes(x = gs, y = sline_speed_m_s))+
+  geom_smooth(aes(col = pond), method = "lm", se = F)+
+  geom_smooth(method = "lm", se = F, col = "darkgrey", lty = 2)+
+  geom_point(aes(col = pond))+
   scale_color_viridis(discrete = TRUE)
 
 # Mass
 wild_nonas %>% 
-  ggplot(aes(x = mass, y = sline_speed_m_s, col = pond))+
-  geom_smooth(method = "lm", se = F)+
-  geom_point()+
+  ggplot(aes(x = mass, y = sline_speed_m_s))+
+  geom_smooth(aes(col = pond), method = "lm", se = F)+
+  geom_smooth(method = "lm", se = F, col = "darkgrey", lty = 2)+
+  geom_point(aes(col = pond))+
   scale_color_viridis(discrete = TRUE)
 
 # Shape PC1
 wild_nonas %>% 
-  ggplot(aes(x = PC1, y = sline_speed_m_s, col = pond))+
-  geom_smooth(method = "lm", se = F)+
-  geom_point()+
+  ggplot(aes(x = PC1, y = sline_speed_m_s))+
+  geom_smooth(aes(col = pond), method = "lm", se = F)+
+  geom_smooth(method = "lm", se = F, col = "darkgrey", lty = 2)+
+  geom_point(aes(col = pond))+
   scale_color_viridis(discrete = TRUE)
 
 # Shape PC2
 wild_nonas %>% 
-  ggplot(aes(x = PC2, y = sline_speed_m_s, col = pond))+
-  geom_smooth(method = "lm", se = F)+
-  geom_point()+
+  ggplot(aes(x = PC2, y = sline_speed_m_s))+
+  geom_smooth(aes(col = pond), method = "lm", se = F)+
+  geom_smooth(method = "lm", se = F, col = "darkgrey", lty = 2)+
+  geom_point(aes(col = pond))+
   scale_color_viridis(discrete = TRUE)
+
+wild_nonas %>% ggplot(aes(x = pond, y = sline_speed_m_s))+
+  geom_violin()
 ```
 
-
-
-
-### Testing wild models
+### Make same model as for lab tadpoles
 ```{r}
-morpho_wild_1 <- lmer(sline_speed_m_s ~ size_pc1*T_initial + (1|pond), data = wild_nonas)
-summary(morpho_wild_1)
-
-wild_nonas %>% ggplot(aes(x = size_pc1, y = sline_speed_m_s, col = T_initial))+
-  geom_point()+
-  theme_minimal()+
-  scale_color_viridis()
-
-morpho_wild_2 <- lmer(sline_speed_m_s ~ size_pc1*tcat + (1|pond), data = wild_nonas)
+load("data/outputs/consensus_mod.Rda")
+formula(consensus_mod)
+wild_mod <- lmer(sline_speed_m_s ~ mass + gs + T_initial + (1 | tadpole), data = wild_nonas, REML = F,
+                 na.action = "na.fail")
+summary(wild_mod)
 ```
 
