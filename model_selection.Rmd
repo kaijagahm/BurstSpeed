@@ -140,28 +140,30 @@ m5 <- lmer(sline_speed_m_s ~ mass*treatment + gs*mass + PC2 + T_initial +
 # all of these have singular fits! Is that a problem?
 ```
 
-### Create new df
+### Create new df of means
 ```{r}
-newdf <- dat3_nonas %>% select(treatment, clutch, indiv)
-newdf_means <- dat3_nonas %>% summarize(mass = mean(mass),
+newdf <- dat3_nonas %>% select(treatment, clutch, indiv) # select grouping cols
+newdf_means <- dat3_nonas %>% summarize(mass = mean(mass), # take mean of each
                                         gs = mean(gs),
                                         T_initial = mean(T_initial),
                                         PC2 = mean(PC2))
-newdf[,4:7] <- newdf_means
-newdf <- newdf %>% mutate(model1 = predict(m1, newdf),
+newdf[,4:7] <- newdf_means # bind grouping cols to means
+newdf <- newdf %>% mutate(model1 = predict(m1, newdf), # predict on means with each model
                           model2 = predict(m2, newdf),
                           model3 = predict(m3, newdf),
                           model4 = predict(m4, newdf),
                           model5 = predict(m5, newdf))
 
 df_preds <- newdf %>% select(treatment, model1, model2, model3, model4, model5) %>% 
-  pivot_longer(cols = c(model1, model2, model3, model4, model5), 
+  pivot_longer(cols = c(model1, model2, model3, model4, model5), # put into long format
                names_to = "model",
                values_to = "predicted_speed")
 
+# Boxplot of predictions on means
 df_preds %>% ggplot(aes(x = treatment, y = predicted_speed, fill = treatment))+
   geom_boxplot()+
-  facet_wrap(~model)
+  facet_wrap(~model)+
+  ggtitle("Comparison of top 5 models, predicted on means of data")
 ```
 
 ## Select a model
@@ -231,11 +233,12 @@ mod_varconstpower <- lme(sline_speed_m_s ~ mass*treatment + gs + T_initial,
 summary(mod_varconstpower)
 
 
-anova(mod_nostruct, mod_varfixed, mod_varident, mod_varexp, mod_varconstpower) # varident seems to be the best...
+anova(mod_nostruct, mod_varfixed, mod_varident, mod_varexp, mod_varconstpower) # var_nostruct actually wins
 ```
 
+# Save model with structure
 ```{r}
-consensus_mod_varident <- mod_varident
-save(consensus_mod_varident, file = "data/outputs/consensus_mod_varident")
+# consensus_mod_varident <- mod_varident
+# save(consensus_mod_varident, file = "data/outputs/consensus_mod_varident")
 ```
 
