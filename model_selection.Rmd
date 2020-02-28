@@ -19,13 +19,47 @@ source("libraries.R")
 load("data/outputs/dat3.Rda")
 ```
 
+# Code random effects explicitly
+We should have used different letters for the individuals in the two temperature treatments, because strictly speaking we should have labeled the individuals before choosing which ones to put into which temperature treatment. We did select those randomly, but the naming scheme that we chose does not reflect that.
+
+We don't want to change the letters on the tadpoles because that would make the data be out of sync with all of the labels on everything up to this point. Instead, we're going to stick with our scheme of appending "high" or "low" to the names to distinguish e.g. CPS_01_A in high/low treatments (since that is NOT the same individual.)
+```{r}
+stats_fast3 <- stats_fast3 %>% # remove tadpole column
+  mutate(clutch = factor(paste(pond, clutch)), # code clutches explicitly
+         indiv = factor(paste(clutch, indiv, treatment))) # code individuals explicitly
+locate.nas(stats_fast3)
+```
+
+## Select relevant columns and change data types
+```{r}
+dat3 <- stats_fast3 %>% select(tadpole, trial, indiv, treatment, sline_speed_m_s, PC1, PC2, pond, size, clutch, mass, gs, T_initial) %>% ungroup() %>% mutate(treatment = factor(treatment),
+                     pond = factor(pond),
+                     clutch = factor(clutch)) %>%
+  filter(treatment %in% c("High", "Low"), !is.na(PC1)) %>% droplevels()
+
+# wild tadpoles are separate
+wild <- stats_fast3 %>% select(tadpole, trial, treatment, sline_speed_m_s, PC1, PC2, pond, size, mass, gs, T_initial) %>% ungroup() %>% mutate(treatment = factor(treatment),
+                     pond = factor(pond)) %>% 
+  filter(treatment == "Wild") %>% droplevels()
+
+# fix NA's for pond
+wild %>% filter(is.na(pond))
+wild$pond[is.na(wild$pond)] <- str_extract(wild$tadpole[is.na(wild$pond)], pattern = "(?<=^)[[:upper:]]{2,3}(?=\\_)")
+```
+
+## Export the data for modeling in model_selection.Rmd
+```{r}
+save(dat3, file = "data/outputs/dat3.Rda")
+save(wild, file = "data/outputs/wild.Rda")
+```
+
 # Mixed modeling
 Hierarchical mixed model, incorporating pond within clutch and accounting for multiple trials per individual
 Dat3: fastest 3 trials per tadpole
 
 ## Establish random effect structure
 ```{r}
-mod1 <- lmer(sline_speed_m_s ~ treatment * mass + (1|pond/clutch) + (1|indiv), data = dat3)
+mod1 <- lmer(sline_speed_m_s ~ treatment * mass + (1|pond/clutch) + (1|indiv) + (1|camera), data = dat3)
 summary(mod1)
 
 # removing the pond random effect, because it doesn't tell us anything. In fact, we need to do this to get a non-singular fit.
