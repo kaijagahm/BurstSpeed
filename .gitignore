@@ -18,6 +18,7 @@
 *.csv
 *.Rda
 *.xlsx
+*.txt
 
 # Ignore Adobe Premiere stuff
 *.prfpset
