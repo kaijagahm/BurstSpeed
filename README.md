@@ -10,6 +10,21 @@ Over the summer of 2019, I measured burst swimming speed (how fast the tadpoles 
 
 I test the hypothesis that if there is a tradeoff between developmental rate and swimming performance, then slower-developing tadpoles (cold temperature treatment) will show faster burst swimming speeds than their fast-developing counterparts.
 
+# Workflow
+## Data cleaning
+* Raw data is contained in `data/inputs/`
+* Data cleaning steps are as follows:
+    * Step1_Process_Coordinates.Rmd
+    * Step2_Coords_to_Trajectories.Rmd
+    * Step3_Trajectories_to_Speeds.Rmd
+    * Step4_Find_Burst_Beginnings.Rmd
+    * Step5_Edit_Bursts.Rmd
+    * Morphometrics.Rmd
+    * Analysis_prep.Rmd
+    * model_selection.Rmd
+    * Analysis.Rmd
+* Each data cleaning step loads intermediate exports from previous steps, which are stored in `data/outputs/`, and exports its own outputs to `data/outputs/` if applicable.
+
 # Project Structure
 The following is a tree diagram of this project's folders, with brief explanations of contents.
 
