@@ -1,0 +1,30 @@
+---
+title: "manuscript"
+author: "Kaija Gahm"
+date: "2/28/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Abstract
+# Introduction
+
+# Methods
+## Laboratory methods
+### Study site and egg collection
+### Temperature incubators
+### Feeding and care
+
+## Video and photo processing
+## Data cleaning
+## Analysis
+
+
+# Results
+# Discussion
+# Conclusion
+
+
