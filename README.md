@@ -14,15 +14,15 @@ I test the hypothesis that if there is a tradeoff between developmental rate and
 ## Data cleaning
 * Raw data is contained in `data/inputs/`
 * Data cleaning steps are as follows:
-    * Step1_Process_Coordinates.Rmd
-    * Step2_Coords_to_Trajectories.Rmd
-    * Step3_Trajectories_to_Speeds.Rmd
-    * Step4_Find_Burst_Beginnings.Rmd
-    * Step5_Edit_Bursts.Rmd
-    * Morphometrics.Rmd
-    * Analysis_prep.Rmd
-    * model_selection.Rmd
-    * Analysis.Rmd
+    1. Step1_Process_Coordinates.Rmd
+    2. Step2_Coords_to_Trajectories.Rmd
+    3. Step3_Trajectories_to_Speeds.Rmd
+    4. Step4_Find_Burst_Beginnings.Rmd
+    5. Step5_Edit_Bursts.Rmd
+    6. Morphometrics.Rmd
+    7. Analysis_prep.Rmd
+    8. model_selection.Rmd
+    9. Analysis.Rmd
 * Each data cleaning step loads intermediate exports from previous steps, which are stored in `data/outputs/`, and exports its own outputs to `data/outputs/` if applicable.
 
 # Project Structure
