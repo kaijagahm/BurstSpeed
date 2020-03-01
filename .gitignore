@@ -14,6 +14,11 @@
 *.png
 *.PNG
 
+# Ignore data
+*.csv
+*.Rda
+*.xlsx
+
 # Ignore Adobe Premiere stuff
 *.prfpset
 *.prproj
