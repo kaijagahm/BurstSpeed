@@ -13,6 +13,7 @@ I test the hypothesis that if there is a tradeoff between developmental rate and
 # Project Structure
 The following is a tree diagram of this project's folders, with brief explanations of contents.
 
+```
 ├── 2019_PostResp_photos    # photos of tadpoles after experimentation
 │   └── Exposure_Edit     # edited photos
 ├── Analysis.Rmd    # final analysis code
@@ -67,6 +68,7 @@ The following is a tree diagram of this project's folders, with brief explanatio
 └── tests
     ├── test_tracking_idtracker
     └── test_tracking_matlab
+```
 
 # Contributors
 Kaija Gahm (kaija.gahm@yale.edu)
