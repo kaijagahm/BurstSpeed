@@ -24,4 +24,5 @@ library(sjPlot) # to visualize effect sizes.
 library(mgcv)
 library(nlme) # for variance structure
 library(ggridges) # for ridgeline plot of variance
-
+library(forecast)
+library(scales)
