@@ -10,8 +10,9 @@ knitr::opts_chunk$set(echo = TRUE)
 ```
 
 # Load libraries
-```{r}
+```{r, include = F}
 source("libraries.R")
+source("process_coordinates_funs.R")
 ```
 
 # Read data
@@ -21,32 +22,56 @@ dev <- read.csv("data/inputs/dev_measurements_kaija_andis.csv", as.is = T)
 
 # Clean data
 ```{r}
-
 load("data/outputs/dat3.Rda")
 head(dat3)
 
 # Make tadpole column
 dev <- dev %>% mutate(tadpole = paste0(pond, "_0", clutch, "_", indiv, "_", treatment))
 
+
+head(dev)
 # Read dates as dates
 dev <- dev %>% mutate(photo.date = mdy(photo.date))
+
+dev <- dev %>% mutate(person = paste0(person, "_orig"),
+                      person_verify = paste0(person_verify, "_verify")) 
+
+# clean ponds
+table(dev$pond)
+dev$pond[dev$pond == "DB"] <- "PB" # assuming it's PB, not DE?
 
 # Check error
 checks <- dev %>% filter(!is.na(stage.verify))
 nrow(checks)
 
-checks <- checks %>% mutate(diff = stage - stage.verify)
+checks <- checks %>% mutate(stagediff = stage - stage.verify)
 
-checks %>% ggplot(aes(x = diff, fill = person, col = person))+
-  geom_density(alpha = 0.5) # this is a good sign! We can quantify the error rate later.
+checks %>% ggplot(aes(x = stagediff))+
+  geom_density(fill = "darkgrey")+ # this is a good sign! We can quantify the error rate later.
+  ggtitle("Difference in stages")+
+  facet_grid(rows = vars(person), cols = vars(person_verify))
 
-checks %>% ggplot(aes(x = svl.mm - svl.mm.verify, fill = person, col = person))+
-  geom_density(alpha = 0.5) # oof
+# SVL
+checks %>% ggplot(aes(x = svl.mm - svl.mm.verify))+
+  geom_density(fill = "darkgrey")+ # oof 
+  ggtitle("Difference in SVL")+
+  facet_grid(rows = vars(person), cols = vars(person_verify))
 
-checks %>% ggplot(aes(x = totl.mm - totl.mm.verify, fill = person, col = person))+
-  geom_density(alpha = 0.5) # big oof
+checks %>% ggplot(aes(x = svl.mm - svl.mm.verify))+
+  geom_density(aes(fill = person_verify, col = person_verify), alpha = 0.5)+
+  ggtitle("Difference in SVL")+
+  facet_wrap(~person)
 
-table(checks$person)
+# Total length
+checks %>% ggplot(aes(x = totl.mm - totl.mm.verify))+
+  geom_density(fill = "darkgrey")+ # oof 
+  ggtitle("Difference in total length")+
+  facet_grid(rows = vars(person), cols = vars(person_verify))
+
+checks %>% ggplot(aes(x = totl.mm - totl.mm.verify))+
+  geom_density(aes(fill = person_verify, col = person_verify), alpha = 0.5)+
+  ggtitle("Difference in total length")+
+  facet_wrap(~person)
 ```
 
 # Visualize
@@ -113,6 +138,280 @@ pondmeans %>% filter(!is.na(pond)) %>%
   theme_minimal()
 ```
 
-Add embryo stages and final stages.
+# Add embryo stages
+```{r}
+emb <- read.csv("data/inputs/2019_Metabolic_HatchDates.csv", as.is = TRUE)
 
-Make graphs of pond temperature vs. incubator temperature.
+# clean hatch data
+emb <- emb %>% mutate(coll.date = dmy(Coll.Date),
+                          treatment = capwords(tolower(Treat))) %>%
+  rename(pond = Pond,
+         clutch = Clutch)
+
+# subset for joining
+emb_tojoin <- emb %>% select(pond, clutch, treatment, coll.date) %>%
+  mutate(photo.date = coll.date - 1,
+         stage = 1) %>%
+  select(-coll.date)
+
+# prepare for join to dev
+tads <- dev %>% # create new rows for each tadpole
+  select(treatment, pond, clutch, indiv, tadpole) %>% 
+  distinct() %>%
+  left_join(hatch_tojoin, by = c("pond", "clutch", "treatment")) %>% distinct()
+
+# join tads to dev
+dev <- bind_rows(dev, tads)
+tail(dev) # examine the new data we added
+```
+
+## Plot with embryo stages added
+```{r}
+dev %>% filter(!is.na(pond), !is.na(stage)) %>%
+  ggplot(aes(x = photo.date, y = stage, col = treatment, group = tadpole))+
+  geom_point(size = 0.5)+
+  geom_line(lwd = 0.5, alpha = 0.1)+
+  theme_minimal()+
+  guides(color = guide_legend(override.aes = list(size=5)))+
+  xlab("Date")+
+  ylab("Gosner stage")
+```
+
+# Add final stages
+```{r}
+load("data/outputs/stats_fast3.Rda")
+head(stats_fast3)
+final_tojoin <- stats_fast3 %>% 
+  select(gs, tadpole, photo_date, pond, clutch, indiv, treatment) %>% 
+  mutate(photo.date = ymd(photo_date)) %>% 
+  rename(stage = gs) %>%
+  filter(treatment %in% c("High", "Low"))
+
+final_tojoin %>% filter(!(tadpole %in% dev$tadpole)) # for some reason we don't have developmental data for this one tadpole, although we do have a photo at the end. What??
+dev %>% filter(pond == "CPS", clutch == 6, treatment == "High")
+
+# Join to dev
+dev2 <- bind_rows(dev, final_tojoin)
+
+tail(dev2)
+```
+
+## Plot with final stages added
+```{r}
+dev2 %>% filter(!is.na(pond), !is.na(stage)) %>%
+  ggplot(aes(x = photo.date, y = stage, col = treatment, group = tadpole))+
+  geom_point(size = 0.5)+
+  geom_line(lwd = 0.5, alpha = 0.1)+
+  theme_minimal()+
+  guides(color = guide_legend(override.aes = list(size=5)))+
+  xlab("Date")+
+  ylab("Gosner stage")
+```
+
+# Add wild ones
+## Get oviposition dates by pond
+```{r}
+# Make table of oviposition dates for each pond
+# Verify that all larvae from each pond were collected on the same day
+with(hatch, table(pond, Coll.Date))
+
+# convert from doy to date
+dates <- as.Date("2019-01-01") + 0:365 # create sequence of dates
+wild_info <- wild_info %>% mutate(resp_date = dates[wild_info$Resp.DOY])
+
+# make the df
+ovip_dates <- hatch %>% 
+  select(pond, coll.date) %>% 
+  distinct() %>%
+  mutate(ovip.date = coll.date - 1) %>%
+  select(-coll.date)
+ovip_dates
+```
+
+## Join wild tadpole information
+```{r}
+# Get wild tapole info
+wild_info <- read.csv("data/inputs/wild_info.csv", as.is = T)
+
+wild <- wild_info %>% select(Treat, Pond, Indiv, ID, Resp.DOY, GS)
+wild <- wild %>% rename(treatment = Treat,
+                        pond = Pond,
+                        indiv = Indiv,
+                        tadpole = ID,
+                        resp.doy = Resp.DOY,
+                        stage = GS) %>%
+  mutate(treatment = capwords(tolower(treatment)),
+         photo.date = dates[resp.doy]) %>% # call this the "photo date" in preparation for join
+  select(-resp.doy) %>%
+  mutate(indiv = as.character(indiv))
+
+wild <- wild %>% left_join(ovip_dates, by = "pond") # join oviposition dates
+
+wild_final_tojoin <- wild %>% select(treatment, pond, indiv, tadpole, photo.date, stage)
+
+dev3 <- bind_rows(dev2, wild_final_tojoin)
+
+wild_initial_tojoin <- wild %>% 
+  select(treatment, pond, indiv, tadpole, ovip.date, stage) %>%
+  rename(photo.date = ovip.date) %>% # call the oviposition date the "photo date" for purposes of joining
+  mutate(stage = 1) # set stage to 1 on the oviposition date
+
+dev4 <- bind_rows(dev3, wild_initial_tojoin)
+```
+
+## Plot with wild tadpoles added
+```{r}
+dev4 %>% filter(!is.na(pond), !is.na(stage)) %>%
+  ggplot(aes(x = photo.date, y = stage, col = treatment, group = tadpole))+
+  geom_point(size = 0.5)+
+  geom_line(lwd = 0.5, alpha = 0.1)+
+  theme_minimal()+
+  guides(color = guide_legend(override.aes = list(size=5)))+
+  xlab("Date")+
+  ylab("Gosner stage")
+
+dev4 %>% filter(!is.na(pond), !is.na(stage)) %>%
+  ggplot(aes(x = photo.date, y = stage, col = treatment, group = tadpole))+
+  #geom_point(size = 0.5)+
+  geom_smooth(se = F, method = "lm", lwd = 0.05)+
+  theme_minimal()+
+  guides(color = guide_legend(override.aes = list(size=5)))+
+  xlab("Date")+
+  ylab("Gosner stage")
+```
+
+# Pond temperatures
+## Load and clean temp data
+```{r}
+ponds <- list.files("data/inputs/temp_logger_data_2019/", full.names = T)
+templist <- lapply(ponds, read.csv, skip = 2, header = F, as.is = T)
+
+# Set pond names
+pondnames <- c("BS", "BO", "CPS", "DT", "DE", "E1", "GB", "LO", "MI", "PB")
+names(templist) <- pondnames
+
+# select columns we want
+templist <- lapply(templist, select, V2, V3) # I can't believe that worked!
+
+# make names vector
+namesvec <- c("datetime", "temp_c")
+
+# set names
+templist <- lapply(templist, setNames, nm = namesvec)
+
+# parse dates and times
+templist <- map(templist, mutate, datetime = parse_date_time(datetime, orders = c("mdy HM", "mdy HMS")))
+```
+
+## Bind together
+```{r}
+temps <- rbindlist(templist, use.names = T, idcol = TRUE) %>%
+  rename(pond = .id)
+head(temps)
+```
+
+## Crop
+### Prepare logger deploy data
+```{r}
+deploy <- read.csv("data/inputs/logger_deploy_data.csv", as.is = T, na.strings = c("", " "))
+head(deploy)
+
+deploy <- deploy %>% 
+  mutate(datetime_in = paste(date_in, time_in),
+         datetime_out = paste(date_out, time_out)) %>%
+  select(datetime_in, datetime_out, pond_abbr) %>%
+  filter(!is.na(pond_abbr)) %>%
+  mutate(datetime_in = mdy_hm(datetime_in),
+         datetime_out = mdy_hm(datetime_out))
+
+head(deploy)
+```
+
+### Join logger deploy data
+```{r}
+temps <- temps %>% left_join(deploy, by = c("pond" = "pond_abbr"))
+```
+
+### Crop by deploy data
+```{r}
+temps <- temps %>% 
+  group_by(pond) %>%
+  filter(datetime >= datetime_in & datetime < datetime_out)
+```
+
+## Aggregate by day
+```{r}
+temps <- temps %>%
+  mutate(date = substr(datetime, 1, 10))
+
+head(temps)
+
+temps <- temps %>%
+  group_by(date, pond) %>%
+  mutate(mean_daily_temp_c = mean(temp_c))
+
+tempsdown <- temps %>% 
+  select(-c(datetime, temp_c, datetime_in, datetime_out)) %>% 
+  distinct() %>%
+  ungroup() %>%
+  mutate(date = ymd(date))
+```
+
+## Visualize
+```{r}
+tempsdown %>% ggplot(aes(x = date, y = mean_daily_temp_c, col = pond))+
+  geom_line(lwd = 1.3)+
+  scale_color_viridis_d()+
+  theme_minimal()+
+  ylab("Temperature (ºC)")+
+  xlab("Date")
+
+head(tempsdown)
+```
+
+# Incubator temperatures
+## Prepare data
+```{r}
+# Load data
+incs <- read.csv("data/inputs/incubator_temps.csv", as.is = T) 
+
+# Convert to date format
+incs <- incs %>% 
+  mutate(date = dmy(paste0(Date, "-2019"))) %>%
+  select(-c(Date, X, X.1))
+
+# Pivot to long
+incs_long <- incs %>% pivot_longer(cols = c(high, low, mean), names_to = "pond", values_to = "temp_c")
+```
+
+## Visualize
+```{r}
+incs_long %>% ggplot(aes(x = date, y = temp_c, col = pond))+
+  geom_line(lwd = 1.5)
+```
+
+# Incubator and temp logger together
+## Join
+```{r}
+loggers_tojoin <- tempsdown %>% 
+  select(pond, date, mean_daily_temp_c) %>%
+  rename(temp_c = mean_daily_temp_c) %>%
+  mutate(date = as.POSIXct(date))
+
+incs_long <- incs_long %>%
+  mutate(date = as.POSIXct(date))
+
+alltemps <- bind_rows(loggers_tojoin, incs_long)
+```
+
+## Visualize
+```{r}
+loggers_tojoin %>% ggplot(aes(x = date, y = temp_c, group = pond))+
+  geom_line()+
+  geom_line(data = incs_long %>% filter(pond %in% c("high", "low")), 
+            aes(x = date, y = temp_c, col = pond), lwd = 1.5)+
+  scale_color_manual(values = c("red", "blue"))+
+  xlab("Date")+
+  ylab("Temperature (ºC)")
+```
+
