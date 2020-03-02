@@ -48,7 +48,7 @@ wild %>% filter(is.na(pond))
 wild$pond[is.na(wild$pond)] <- str_extract(wild$tadpole[is.na(wild$pond)], pattern = "(?<=^)[[:upper:]]{2,3}(?=\\_)")
 ```
 
-## Export the data for modeling in model_selection.Rmd
+## Export the data for modeling
 ```{r}
 save(dat3, file = "data/outputs/dat3.Rda")
 save(wild, file = "data/outputs/wild.Rda")
