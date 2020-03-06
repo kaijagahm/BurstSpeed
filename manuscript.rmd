@@ -15,11 +15,34 @@ knitr::opts_chunk$set(echo = TRUE)
 # Methods
 ## Laboratory methods
 ### Study site and egg collection
+Wood frog eggs were collected from ten ponds in Yale-Myers Forest (YMF), approximately [time] after laying. A portion of each of five egg masses (clutches) was collected. In the lab, the egg masses were divided in half and reared to hatching. Eight larvae from each clutch were separated into individual glass jars, of which four were placed in each temperature incubator.
 ### Temperature incubators
+We reared larvae under two different temperature treatments, controlled in two incubators. The temperature of each incubator was raised methodically over the course of larval development, representing pond temperature trajectories at the upper and lower limits of the temperatures wood frog larvae experience in wild ponds in YMF.
+Each temperature incubator was stocked with [number] larvae: four from each of five clutches from each of ten ponds, plus [number] extra.
+[information about the shelving arrangement and random rotation]
 ### Feeding and care
+### Burst speed setup
+We conducted burst speed trials in a custom-built setup. We filled two [tray dimensions] white, shallow trays with [ion-balanced] water to 1-2 cm depth in order to confine tadpoles to a horizontal swimming plane, following Arendt (2003). The trays were illuminated using LED light strips and overhead lamps, and a camera was fixed above each one. A steady flow of cool water was piped over the metal surface under the trays to regulate their temperature. The water in the trays was the same as that used to house the tadpoles in the incubators. When necessary to control the temperature of the water in the trays, ice cubes were added and allowed to melt and fully homogenize before beginning the burst speed trials. 
+### Burst speed trials
+To measure a tadpole’s burst swimming speed, we transferred it from its glass jar to one of the trays and began the overhead video recording. We placed a translucent plastic cylinder over the tadpole in order to confine it to the center of the tray, and we allowed it to acclimate to the tray for 45 seconds, plus an additional 15 seconds during which the tadpole was watched to make sure it did not move. If it did, the 15-second count was restarted. After the tadpole had been still for 15 seconds, we carefully lifted the cylinder. If the tadpole bolted, it was returned to the center of the tray and allowed to rest for an additional 30 seconds. Following the rest period, or immediately if it did not initially bolt, we tapped the tadpole’s tail from behind with a blunt probe to simulate a predator attack and induce a startle response (Arendt 2010). Once the tadpole reached the side of the tray or stopped swimming, we recaptured it in the cylinder and returned it to the center of the tray. The tadpole was again allowed to rest for 15 seconds (restarting the count if it moved during that time) before the next burst trial was initiated. 
+We conducted at least three trials per tadpole. Occasionally, the tadpole reacted minimally to the probe, moving much more slowly than in its other trials. If this was the case, the tadpole was returned to the center of the tray and we conducted an additional trial.
+For each tadpole, the temperature of the water in the tray was recorded using an infrared probe at the beginning of the sequence of trials.
+We recorded all videos using a GoPro Hero 4 camera at 1080p, 60 frames per second, and a narrow field of view.
+### Measurement
+Tadpoles were massed within 24 hours after their burst speed trials. Following the burst speed trials and metabolic rate measurements (Andis Arietta et al., in prep.), tadpoles were euthanized in 10% ethanol [details] and photographed using [camera setup]. At this time, we also recorded their developmental stage (following Gosner 1960) and measured body length (SVL), tail depth, and total length (head to tail tip) using calipers.
+
+All procedures were conducted with IACUC approval from Yale University [permit number?]
+
 
 ## Video and photo processing
+### Video processing
+We imported video recordings of the burst speed trials from the GoPro cameras into Adobe Premiere Pro and edited the videos to separate the trials from the rest periods. Using the [names of tools], and [using scaling methods to ground-truth the adjustments?] we adjusted the video clips to correct for lens distortion from the GoPro cameras that might otherwise have affected measurements of distance and speed.
+Using a custom script in MATLAB, we identified the tadpole’s coordinate position in each video frame and tracked its trajectory through each burst trial clip. 
+
 ## Data cleaning
+### Coordinates/speeds
+In R, we cleaned the tadpole coordinate data obtained using the MATLAB script and scaled distances from pixels to millimeters, using the known width of the tray for a reference. We used speed measurements, as well as data about the tadpole’s body position and angle obtained from the MATLAB analysis, to identify the first frame of motion in each burst, thereby aligning the burst trials. For the ~ 30% of burst trials for which different methods produced discrepancies in the predicted start frame, we identified the start frame manually.
+We cropped all bursts to include only the first second, since by that time tadpoles had reached the edge of the tray or stopped swimming. Consistent with Arendt (2003), tadpoles showed clear signs of slowing after the first half-second of swimming (paired Welch t-test between the first and second half-second, t2288.9 = 56.855, p < 0.01). Therefore, we retained the first half-second of the burst and estimated speed from the straight-line distance between the starting position and the position at 0.5 seconds. We computed burst speed for each trial and retained the three fastest trials for each tadpole.
 ## Analysis
 
 
