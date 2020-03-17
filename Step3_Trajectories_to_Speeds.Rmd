@@ -39,34 +39,43 @@ speeds <- lapply(alltrajs, getSpeedDFs)
 
 ## Get speeds (try catch loop)
 ```{r, eval = FALSE}
-speeds <- vector("list", length(alltrajs)) # this would be the non-lapply version of this function, as above.
-names(speeds) <- names(alltrajs)
-for(i in 1:length(alltrajs)){
-  tryCatch(
-    expr = {
-      speedDFs <- getSpeedDFs(alltrajs[[i]])
-      speeds[[i]] <- speedDFs
-      message("Iteration ", i, " successful.")
-    },
-    error = function(e){ 
-      message("* Caught an error on iteration", i)
-      print(e)
-    }
-  )
-}
+# speeds <- vector("list", length(alltrajs)) # this would be the non-lapply version of this function, as above.
+# names(speeds) <- names(alltrajs)
+# for(i in 1:length(alltrajs)){
+#   tryCatch(
+#     expr = {
+#       speedDFs <- getSpeedDFs(alltrajs[[i]])
+#       speeds[[i]] <- speedDFs
+#       message("Iteration ", i, " successful.")
+#     },
+#     error = function(e){ 
+#       message("* Caught an error on iteration", i)
+#       print(e)
+#     }
+#   )
+# }
 
+```
+
+## Get accelerations (lapply)
+```{r}
+# Get speeds for each trial, keeping it as a nested list
+accelerations <- lapply(alltrajs, getAccelDFs)
 ```
 
 ## Clean and append info
 ```{r}
 # Assign trial numbers and bind individual data frames into one for each tadpole
 speeds <- lapply(speeds, rbindlist, idcol = "trial")
+accelerations <- lapply(accelerations, rbindlist, idcol = "trial")
 
 # Bind all tadpoles together into one data frame
 speedsDF <- rbindlist(speeds, idcol = "fullname", use.names = T)
+accelerationsDF <- rbindlist(accelerations, idcol = "fullname", use.names = T)
 
 # Join more info from vidinfo
 speedsDF <- left_join(speedsDF, vidinfo, by = "fullname") # the vidinfo data frame is useful!
+accelerationsDF <- left_join(accelerationsDF, vidinfo, by = "fullname")
 ```
 
 ## Smooth
@@ -74,6 +83,9 @@ speedsDF <- left_join(speedsDF, vidinfo, by = "fullname") # the vidinfo data fra
 # Take moving averages of the speeds
 speedsDF <- speedsDF %>% group_by(fullname, trial) %>% 
   mutate(speedma5 = rollapplyr(speed, 5, mean, fill = NA))
+
+accelerationsDF <- accelerationsDF %>% group_by(fullname, trial) %>%
+  mutate(accelma5 = rollapplyr(acceleration, 5, mean, fill = NA))
 ```
 
 # Coords
@@ -92,6 +104,7 @@ scaled_coords_df <- left_join(scaled_coords_df, vidinfo, by = "fullname")
 # Output
 ```{r}
 save(speedsDF, file = "data/outputs/speedsDF.Rda")
+save(accelerationsDF, file = "data/outputs/accelerationsDF.Rda")
 save(scaled_coords_df, file = "data/outputs/scaled_coords_df.Rda")
 ```
 
