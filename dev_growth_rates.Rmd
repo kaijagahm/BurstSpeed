@@ -158,7 +158,7 @@ emb_tojoin <- emb %>% select(pond, clutch, treatment, coll.date) %>%
 tads <- dev %>% # create new rows for each tadpole
   select(treatment, pond, clutch, indiv, tadpole) %>% 
   distinct() %>%
-  left_join(hatch_tojoin, by = c("pond", "clutch", "treatment")) %>% distinct()
+  left_join(emb_tojoin, by = c("pond", "clutch", "treatment")) %>% distinct()
 
 # join tads to dev
 dev <- bind_rows(dev, tads)
@@ -213,14 +213,17 @@ dev2 %>% filter(!is.na(pond), !is.na(stage)) %>%
 ```{r}
 # Make table of oviposition dates for each pond
 # Verify that all larvae from each pond were collected on the same day
-with(hatch, table(pond, Coll.Date))
+with(emb, table(pond, Coll.Date))
+
+# Load wild data
+wild_info <- read.csv("data/inputs/wild_info.csv", as.is = TRUE)
 
 # convert from doy to date
 dates <- as.Date("2019-01-01") + 0:365 # create sequence of dates
 wild_info <- wild_info %>% mutate(resp_date = dates[wild_info$Resp.DOY])
 
 # make the df
-ovip_dates <- hatch %>% 
+ovip_dates <- emb %>% 
   select(pond, coll.date) %>% 
   distinct() %>%
   mutate(ovip.date = coll.date - 1) %>%
@@ -230,9 +233,6 @@ ovip_dates
 
 ## Join wild tadpole information
 ```{r}
-# Get wild tapole info
-wild_info <- read.csv("data/inputs/wild_info.csv", as.is = T)
-
 wild <- wild_info %>% select(Treat, Pond, Indiv, ID, Resp.DOY, GS)
 wild <- wild %>% rename(treatment = Treat,
                         pond = Pond,
@@ -258,6 +258,12 @@ wild_initial_tojoin <- wild %>%
 
 dev4 <- bind_rows(dev3, wild_initial_tojoin)
 ```
+
+## Save data
+```{r}
+save(dev4, file = "data/outputs/dev4.Rda")
+```
+
 
 ## Plot with wild tadpoles added
 ```{r}
