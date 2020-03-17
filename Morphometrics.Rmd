@@ -18,9 +18,11 @@ source("libraries.R")
 ## Load data
 ```{r}
 load("data/outputs/burst_stats.Rda")
-read.csv("data/inputs/Combined_2019RespData_20190729.csv") # manual morphometrics
+manual_morphometrics <- read.csv("data/inputs/Combined_2019RespData_20190729.csv") # manual morphometrics
 tpsfiles <- list.files("2019_PostResp_photos/Exposure_Edit/for_landmarks/", pattern = "*[[:digit:]].tps", full.names = T)
 tpslist <- lapply(tpsfiles, readland.tps, specID = "imageID") # geometric landmarks
+
+?readland.tps
 
 # Extract photo names
 all_photonames <- c()
