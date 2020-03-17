@@ -23,6 +23,7 @@ load("data/outputs/wild.Rda")
 # Load consensus model
 ```{r}
 load("data/outputs/consensus_mod.Rda")
+summary(consensus_mod)
 ```
 
 # ICCC 
@@ -315,12 +316,12 @@ indiv_means <- indiv_means %>%
                                            treatment == "Low" ~ indiv_mean_speed - opposite_clutch_mean))
 ```
 
-### Simplify data
+#### Simplify data
 ```{r}
 plasticity <- indiv_means %>% select(-c(clutch_mean_speed)) %>% rename(D = indiv_opp_clutch_diff)
 ```
 
-### Fit model predicting difference by pond
+#### Fit model predicting difference by pond
 ```{r}
 head(plasticity)
 plasticity <- plasticity %>% mutate(clutch_only = factor(str_extract(clutch, pattern = "(?<= )[[:digit:]](?=$)")))
@@ -341,6 +342,35 @@ plasticity %>% ggplot(aes(x = pond, y = D))+
   scale_color_viridis(discrete = T) # no patterns by pond _or_ clutch within pond. Yikes!
 ```
 
+### Clutch mean differences
+```{r}
+clutch_means
+clutch_mean_diffs <- clutch_means %>% 
+  group_by(clutch) %>%
+  filter(treatment == "Low") %>%
+  summarize(D = clutch_mean_speed - opposite_clutch_mean) %>% # subtract low - high
+  mutate(pond = str_extract(clutch, "(?<=^)[[:alnum:]]+(?= )"))
+
+head(clutch_mean_diffs)
+```
+
+#### Fit model predicting difference by pond
+```{r}
+# Plasticity model: predict D by pond and clutch
+pls_mod_means <- lm(D ~ pond, data = clutch_mean_diffs)
+summary(pls_mod_means)
+
+plot(pls_mod_means) # plot residuals: they look good.
+
+# Plot effect sizes
+sjPlot::plot_model(pls_mod_means, type = "eff", title = "Predicted values of D, means")
+sjPlot::plot_model(pls_mod, type = "eff", title = "Predicted values of D, individuals")
+
+# Plot all D points
+clutch_mean_diffs %>% ggplot(aes(x = pond, y = D))+
+  geom_violin()+
+  geom_jitter(width = 0.1)
+```
 
 
 # Morphology vs. Burst Speed
@@ -426,7 +456,7 @@ vif(wild_mod) # all variance inflation factors look okay.
 # Remove individual random effect
 wm2 <- lm(sline_speed_m_s ~ mass + gs + T_initial, data = wild_nonas,
             na.action = "na.fail")
-summary(wm2) # not significant
+summary(wm2) # not significant, and not a good fit
 
 # look at pond differences
 wild_nonas %>% ggplot(aes(x = pond, y = sline_speed_m_s))+
@@ -437,7 +467,7 @@ wm3 <- lmer(sline_speed_m_s ~ mass + gs + T_initial + (1 | pond/tadpole),
             data = wild_nonas,
             REML = FALSE,
             na.action = "na.fail")
-summary(wm3) # not significant
+summary(wm3) # not significant, and pretty small effects.
 
 # Pond random effect without T_initial, and using size instead of mass
 wm4 <- lmer(sline_speed_m_s ~ size + gs + (1 | pond/tadpole),
@@ -453,25 +483,76 @@ wm5 <- lmer(sline_speed_m_s ~ size + (1 | pond/tadpole),
             na.action = "na.fail")
 summary(wm5) # that's a little better.
 
-# Basic linear model: pond and size
-wm5lm <- lm(sline_speed_m_s ~ size + pond,
+# Basic linear model: pond and mass
+wm5lm <- lm(sline_speed_m_s ~ mass + pond,
             data = wild_nonas,
             na.action = "na.fail")
 summary(wm5lm)
 
-# Examine VIF's
-full <- lmer(sline_speed_m_s ~ size + mass + gs + T_initial + (1 | pond/tadpole),
-             data = wild_nonas,
-             REML = FALSE,
-             na.action = "na.fail")
-vif(full)
+# Fit full model
+full <- lmer(sline_speed_m_s ~ PC2*mass*gs + T_initial + (1 | pond/tadpole),
+             data = wild_nonas, 
+             na.action = "na.fail", 
+             REML = F)
 
-# Remove mass
-full_1 <- lmer(sline_speed_m_s ~ size + gs + T_initial + (1 | pond/tadpole),
-             data = wild_nonas,
-             REML = FALSE,
-             na.action = "na.fail")
-vif(full_1)
-summary(full_1)
+# Dredge full model
+wild_full_dredge <- dredge(full)
+head(wild_full_dredge)
+vif(full) # check variance inflation factors: super high, of course.
+
+# Select reduced model: best AIC
+reduced_model <- lmer(sline_speed_m_s ~ mass + (1 | pond/tadpole),
+                data = wild_nonas,
+                na.action = "na.fail",
+                REML = F)
+summary(reduced_model)
+
+# This reduced model basically comes down to the same thing as the above linear model with pond and size. Only difference is whether we want to treat pond as a random effect or not. 
+summary(reduced_model)
+summary(wm5lm)
+
+# Look at a plot of the linear model
+sjPlot::plot_model(wm5lm, type = "eff", title = "Predicted speed")
+sjPlot::plot_model(reduced_model, type = "eff", title = "Predicted speed") # this one doesn't show the ponds: visual representation of what we already know to be true--we care about the pond-wise differences! 
+
+# We'll go with the linear model on this one then. 
+consensus_mod_wild <- wm5lm
+plot_model(consensus_mod_wild, type = "std", title = "Coefficients for wild tadpoles: BO as reference")
+
+# Still trying to figure out which plots I want here.
+```
+
+### Fit same model to lab tads
+```{r}
+lab <- lm(sline_speed_m_s ~ size + pond,
+            data = dat3_nonas,
+            na.action = "na.fail")
+summary(lab)
+plot_model(lab, type = "eff")
+```
+
+# Comparison between lab-reared and wild for the same pond. 
+## Combine datasets
+```{r}
+names(wild_nonas)
+names(dat3_nonas)
+
+all <- bind_rows(wild_nonas, dat3_nonas) %>%
+  select(-c(predicted_speed, predicted_speed_withresids))
+
+indiv_means <- all %>% 
+  group_by(pond, treatment, tadpole) %>%
+  summarize(speed = mean(sline_speed_m_s),
+            mass = mass[1])
+head(indiv_means)
+```
+
+## Plot
+```{r}
+indiv_means %>%
+  ggplot(aes(x = mass, y = speed, col = treatment))+
+  geom_smooth(method = "lm")+
+  facet_wrap(~pond)+
+  theme_minimal()
 ```
 
