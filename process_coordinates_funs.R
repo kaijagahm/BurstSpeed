@@ -55,6 +55,23 @@ getSpeedDFs <- function(onetadpole_trials_list){
   return(speedDFs)
 }
 
+# Function to get acceleration DF's
+getAccelDFs <- function(onetadpole_trials_list){
+  ntrials <- length(onetadpole_trials_list)
+  speedDFs <- vector("list", ntrials)
+  for(i in 1:ntrials){
+    derivs <- TrajDerivatives(onetadpole_trials_list[[i]])
+    s <- data.frame(
+      time = c(0, 0, derivs$accelerationTimes),
+      acceleration = c(NA, NA, derivs$acceleration),
+      angle = onetadpole_trials_list[[i]]$angle,
+      px = onetadpole_trials_list[[i]]$px
+    )
+    speedDFs[[i]] <- s
+  }
+  return(speedDFs)
+}
+
 # Function to name the frames df's
 renameFrames <- function(df){
   names(df) <- c("frame", "trial")
