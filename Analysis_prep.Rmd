@@ -19,8 +19,7 @@ source("process_coordinates_funs.R")
 ## Load data
 ```{r}
 load("data/outputs/bursts_allcrops.Rda")
-
-bursts_allcrops %$% table(pond)
+load("data/outputs/accels_allcrops.Rda")
 load("data/outputs/allmorpho.Rda")
 load("data/outputs/scoords_allcrops.Rda")
 ```
@@ -38,6 +37,19 @@ burst_stats <- bursts_allcrops %>%
 burst_info <- bursts_allcrops %>% select(tadpole, trial, pond, clutch, indiv, treatment, year, month, day, camera, crop) %>% distinct()
 
 burst_stats <- left_join(burst_stats, burst_info, by = c("tadpole", "trial", "crop"))
+```
+
+### Calculate acceleration stats
+```{r}
+accel_stats <- accels_allcrops %>% 
+  group_by(tadpole, trial, crop) %>%
+  summarize(maxaccel = max(acceleration, na.rm = T),
+            maxaccelma5 = max(accelma5, na.rm = T)) %>%
+  as.data.frame()
+
+accel_info <- accels_allcrops %>% select(tadpole, trial, pond, clutch, indiv, treatment, year, month, day, camera, crop) %>% distinct()
+
+accel_stats <- left_join(accel_stats, accel_info, by = c("tadpole", "trial", "crop"))
 ```
 
 ### Add straight line distance from coords
@@ -143,6 +155,28 @@ problemtadpoles %in% allmorpho$tadpole # we just don't have morpho data for thes
 problemtadpoles
 ```
 
+## Join accel to morpho data
+```{r}
+# Cleaning
+#First, fix that one space.
+accel_stats$tadpole[accel_stats$tadpole == "LO_W_09 2_Wild"] <- "LO_W_09_2_Wild"
+
+# Join stats to morpho data
+accel_stats <- accel_stats %>% select(-c(pond, clutch)) %>% 
+  left_join(allmorpho, by = c("tadpole", "treatment")) %>%
+         rename(burst_year = "year",
+         burst_month = "month",
+         burst_day = "day",
+         photo_date = "date") %>% select(-c(indiv.y, id, treat)) %>% rename(indiv = indiv.x)
+
+locate.nas(accel_stats) # weirdness.
+problems <- accel_stats %>% filter(is.na(PC1)) %>% select(tadpole, trial, crop, treatment) %>% distinct()
+problemtadpoles <- unique(problems$tadpole)
+problemtadpoles
+problemtadpoles %in% allmorpho$tadpole # we just don't have morpho data for these tadpoles; it's not a faulty join.
+problemtadpoles
+```
+
 ## Exploratory plotting
 ```{r}
 tadpoles <- unique(bursts_allcrops$tadpole)
@@ -152,6 +186,20 @@ bursts_allcrops %>% filter(tadpole == tadpoles[100], crop == "First half second"
   geom_line()+
   xlab("Frame")+
   ylab("Speed (5-frame moving average)")
+
+accels_allcrops %>% filter(tadpole == tadpoles[100], crop == "First half second") %>%
+  ggplot(aes(x = frame_burst, y = accelma5, col = factor(trial)))+
+  geom_line()+
+  xlab("Frame")+
+  ylab("Acceleration (5-frame moving average)")
+```
+
+### Exploring acceleration
+```{r}
+accel_stats %>% 
+  filter(crop == "Full burst") %>%
+  ggplot(aes(x = pond, y = log(maxaccelma5)))+
+  geom_boxplot()
 ```
 
 ```{r}
@@ -214,6 +262,12 @@ stats %>% filter(!is.na(gs), crop == "First half second") %>%
   facet_wrap(~treatment)+
   geom_point() +
   geom_smooth(method = "lm")
+
+accel_stats %>% filter(!is.na(gs), crop == "First half second") %>%
+  ggplot(aes(x = jitter(gs), y = log(maxaccelma5), col = treatment))+
+  facet_wrap(~treatment)+
+  geom_point()+
+  geom_smooth(method = "lm") # acceleration isn't really telling us anything new, and it's easier to just keep using straight line speed, I think...
 ```
 
 #### Speed vs. shape
@@ -312,4 +366,39 @@ stats_fast3 %>% ggplot(aes(x = T_initial, y = sline_speed_m_s, col = camera))+
   geom_point()+
   geom_smooth(method = "lm")
 ```
+
+## Summary of individuals
+```{r}
+length(unique(wild_nonas$tadpole)) + length(unique(dat3_nonas$tadpole))
+
+wild_nonas %$% table(pond)
+dat3_nonas <- dat3_nonas %>%
+  mutate(clutch_only = str_extract(clutch, "(?<= )[[:digit:]]{1}"))
+dat3_nonas %$% table(pond, clutch_only)
+
+clutch_n <- dat3_nonas %>%
+  group_by(clutch) %>%
+  summarize(n = n())
+
+clutch_n %>% summarize(mean = mean(n),
+                       max = max(n),
+                       min = min(n))
+
+pond_n <- dat3_nonas %>%
+  group_by(pond) %>%
+  summarize(n = n())
+
+pond_n %>% summarize(mean = mean(n),
+                     max = max(n),
+                     min = min(n))
+
+wild_pond_n <- wild_nonas %>%
+  group_by(pond) %>%
+  summarize(n = n())
+
+wild_pond_n %>% summarize(mean = mean(n),
+                          max = max(n),
+                          min = min(n))
+```
+
 
