@@ -20,14 +20,18 @@ source("process_coordinates_funs.R")
 ## Load data
 ```{r}
 load("data/outputs/speedsDF.Rda")
+load("data/outputs/accelerationsDF.Rda")
 load("data/outputs/trial_start_frames.Rda")
 load("data/outputs/scaled_coords_df.Rda")
 ```
 
-## Assign frame numbers to speedsDF and scaled_coords_df
+## Assign frame numbers to speedsDF, accelerationsDF, and scaled_coords_df
 ```{r}
 speedsDF <- speedsDF %>% mutate(unique_trial = paste(fullname, trial)) %>% as.data.frame()
 speedsDF <- tally_by_group(speedsDF, group_col = "unique_trial")
+
+accelerationsDF <- accelerationsDF %>% mutate(unique_trial = paste(fullname, trial)) %>% as.data.frame()
+accelerationsDF <- tally_by_group(accelerationsDF, group_col = "unique_trial")
 
 scaled_coords_df <- scaled_coords_df %>% mutate(unique_trial = paste(fullname, trial)) %>% as.data.frame()
 scaled_coords_df <- tally_by_group(scaled_coords_df, group_col = "unique_trial")
@@ -39,6 +43,7 @@ scaled_coords_df <- tally_by_group(scaled_coords_df, group_col = "unique_trial")
 trial_start_frames <- trial_start_frames %>% mutate(unique_trial = paste(fullname, trial))
 
 speedsDF <- left_join(speedsDF, trial_start_frames, by = c("fullname", "trial", "unique_trial"))
+accelerationsDF <- left_join(accelerationsDF, trial_start_frames, by = c("fullname", "trial", "unique_trial"))
 scaled_coords_df <- left_join(scaled_coords_df, trial_start_frames, by = c("fullname", "trial", "unique_trial"))
 ```
 
@@ -46,12 +51,16 @@ scaled_coords_df <- left_join(scaled_coords_df, trial_start_frames, by = c("full
 ```{r}
 # We want to allow one extra frame before the start of the trial for padding, so we can set the speed to 0 right before the trial starts.
 speedsDF <- speedsDF %>% mutate(frame_init = frame_start - 1)
-
+accelerationsDF <- accelerationsDF %>% mutate(frame_init = frame_start - 1)
 scaled_coords_df <- scaled_coords_df %>% mutate(frame_init = frame_start - 1)
 
 # Set speed to 0 for the initial frame (speedsDF)
 speedsDF$speedma5[speedsDF$frame == speedsDF$frame_init] <- 0
 speedsDF$speed[speedsDF$frame == speedsDF$frame_init] <- 0
+
+# Set acceleration to 0 for the initial frame (accelerationsDF)
+accelerationsDF$accelma5[accelerationsDF$frame == accelerationsDF$frame_init] <- 0
+accelerationsDF$acceleration[accelerationsDF$frame == accelerationsDF$frame_init] <- 0
 
 # Set displacement to 0 for the initial frame (scaled_coords_df)
 scaled_coords_df$displacement[scaled_coords_df$frame == scaled_coords_df$frame_init] <- 0
@@ -61,6 +70,7 @@ scaled_coords_df$displacement[scaled_coords_df$frame == scaled_coords_df$frame_i
 ### Remove frames before initial frame
 ```{r}
 speedsDF <- speedsDF %>% filter(frame >= frame_init)
+accelerationsDF <- accelerationsDF %>% filter(frame >= frame_init)
 scaled_coords_df <- scaled_coords_df %>% filter(frame >= frame_init)
 ```
 
@@ -68,6 +78,9 @@ scaled_coords_df <- scaled_coords_df %>% filter(frame >= frame_init)
 ```{r}
 speedsDF <- speedsDF %>% rename(frame_trial = frame)
 speedsDF <- tally_by_group(speedsDF, group_col = "unique_trial") %>% rename(frame_burst = frame)
+
+accelerationsDF <- accelerationsDF %>% rename(frame_trial = frame)
+accelerationsDF <- tally_by_group(accelerationsDF, group_col = "unique_trial") %>% rename(frame_burst = frame)
 
 scaled_coords_df <- scaled_coords_df %>% rename(frame_trial = frame)
 scaled_coords_df <- tally_by_group(scaled_coords_df, group_col = "unique_trial") %>% rename(frame_burst = frame)
@@ -109,6 +122,17 @@ bursts_secondhalfsec <- bursts %>% filter(frame_burst <= 60 & frame_burst > 30) 
 bursts_allcrops <- rbind(bursts, bursts_sec, bursts_halfsec, bursts_secondhalfsec)
 ```
 
+### Trim accelerations
+```{r}
+todrop <- c("time", "angle", "px", "date", "frame_trial", "frame_start", "unique_trial")
+
+accels <- accelerationsDF %>% select(-todrop) %>% mutate(crop = "Full burst")
+accels_sec <- accels %>% filter(frame_burst <= 60) %>% mutate(crop = "First second")
+accels_halfsec <- accels %>% filter(frame_burst <= 30) %>% mutate(crop = "First half second")
+accels_secondhalfsec <- accels %>% filter(frame_burst <= 60 & frame_burst > 30) %>% mutate(crop = "Second half second")
+accels_allcrops <- rbind(accels, accels_sec, accels_halfsec, accels_secondhalfsec)
+```
+
 ### Trim scaled coords
 ```{r}
 todrop <- c("time", "angle", "px", "date", "frame_trial", "frame_start", "unique_trial")
@@ -124,9 +148,13 @@ scoords_allcrops <- rbind(scoords, scoords_sec, scoords_halfsec, scoords_secondh
 ```{r}
 # Look at where the NA's in speed are
 bursts_allcrops[is.na(bursts_allcrops$speed),] #All of them have frame_burst as 1, so let's set the speed to 0. 
+accels_allcrops[is.na(accels_allcrops$acceleration),] # All have frame_burst as 1 or 2, so set the acceleration to 0 for those.
 
 # Set speed to 0
 bursts_allcrops$speed[is.na(bursts_allcrops$speed)] <- 0
+
+# Set acceleration to 0
+accels_allcrops$acceleration[is.na(accels_allcrops$acceleration)] <- 0
 ```
 
 ## Add try numbers and edit full names
@@ -134,10 +162,12 @@ bursts_allcrops$speed[is.na(bursts_allcrops$speed)] <- 0
 trynums <- str_extract(string = bursts_allcrops$fullname, pattern = "(?<=\\_)[[:digit:]]{1}(?=\\_2019)") # get try numbers
 
 bursts_allcrops$trynum <- trynums # edit try numbers
+accels_allcrops$trynum <- trynums
 scoords_allcrops$trynum <- trynums # edit try numbers
 
 # Set only tries to 1
 bursts_allcrops$trynum[is.na(bursts_allcrops$trynum)] <- "1"
+accels_allcrops$trynum[is.na(accels_allcrops$trynum)] <- "1"
 scoords_allcrops$trynum[is.na(scoords_allcrops$trynum)] <- "1"
 ```
 
@@ -146,6 +176,7 @@ scoords_allcrops$trynum[is.na(scoords_allcrops$trynum)] <- "1"
 newfullnames <- str_replace(string = bursts_allcrops$fullname, pattern = "\\_[[:digit:]]{1}(?=\\_2019)", replacement = "") # get new full names (note pattern includes the _)
 
 bursts_allcrops$fullname <- newfullnames # edit full names
+accels_allcrops$fullname <- newfullnames # edit full names
 scoords_allcrops$fullname <- newfullnames # edit full names
 ```
 
@@ -154,6 +185,10 @@ scoords_allcrops$fullname <- newfullnames # edit full names
 bursts_allcrops <- bursts_allcrops %>% mutate(tadpole = str_extract(fullname, pattern = "(?<=^).*(?=\\_[[:digit:]]{8}\\_.*$)"))
 # The above line doesn't quite work to get the names for the wild tadpoles, so we have to add "Wild" on.
 bursts_allcrops$tadpole[bursts_allcrops$treatment == "Wild"] <- paste0(bursts_allcrops$tadpole[bursts_allcrops$treatment == "Wild"], "_Wild")
+
+accels_allcrops <- accels_allcrops %>% mutate(tadpole = str_extract(fullname, pattern = "(?<=^).*(?=\\_[[:digit:]]{8}\\_.*$)"))
+# The above line doesn't quite work to get the names for the wild tadpoles, so we have to add "Wild" on.
+accels_allcrops$tadpole[accels_allcrops$treatment == "Wild"] <- paste0(accels_allcrops$tadpole[accels_allcrops$treatment == "Wild"], "_Wild")
 
 scoords_allcrops <- scoords_allcrops %>% mutate(tadpole = str_extract(fullname, pattern = "(?<=^).*(?=\\_[[:digit:]]{8}\\_.*$)"))
 # The above line doesn't quite work to get the names for the wild tadpoles, so we have to add "Wild" on.
@@ -170,6 +205,17 @@ tries <- bursts_allcrops %>% group_by(tadpole) %>% mutate(ntries = length(unique
 tries_numbered <- tries %>% tally_by_group(group_col = "tadpole") %>% rename(trynum_new = frame) %>% select(fullname, trynum_new)
 
 bursts_allcrops <- bursts_allcrops %>% left_join(tries_numbered, by = "fullname") %>% mutate(trynum = NULL) %>% rename(trynum = trynum_new) # got rid of the old try numbers and added the new ones.
+
+
+#~~~~~~~~~~~~~~~
+# Same for accelerations
+accels_allcrops <- accels_allcrops %>% mutate(fulldate = str_extract(fullname, "[[:digit:]]{8}"))
+
+tries <- accels_allcrops %>% group_by(tadpole) %>% mutate(ntries = length(unique(fulldate))) %>% group_by(tadpole, fulldate) %>% slice(1) %>% as.data.frame()
+
+tries_numbered <- tries %>% tally_by_group(group_col = "tadpole") %>% rename(trynum_new = frame) %>% select(fullname, trynum_new)
+
+accels_allcrops <- accels_allcrops %>% left_join(tries_numbered, by = "fullname") %>% mutate(trynum = NULL) %>% rename(trynum = trynum_new) # got rid of the old try numbers and added the new ones.
 
 
 #~~~~~~~~~~~~~~~
@@ -193,6 +239,14 @@ test <- bursts_allcrops %>% group_by(tadpole) %>% summarize(ntries = length(uniq
 table(test$ntries, exclude = NULL)
 
 # ~~~~~~~~
+# now the same for accelerations
+accels_allcrops <- accels_allcrops %>% group_by(tadpole) %>% filter(trynum == max(trynum)) %>% as.data.frame()
+
+# Double check that we only have one try per tadpole.
+test <- accels_allcrops %>% group_by(tadpole) %>% summarize(ntries = length(unique(trynum)))
+table(test$ntries, exclude = NULL)
+
+# ~~~~~~~~
 # now the same for scoords
 scoords_allcrops <- scoords_allcrops %>% group_by(tadpole) %>% filter(trynum == max(trynum)) %>% as.data.frame()
 
@@ -204,6 +258,7 @@ table(test$ntries, exclude = NULL)
 ## Output
 ```{r}
 save(bursts_allcrops, file = "data/outputs/bursts_allcrops.Rda")
+save(accels_allcrops, file = "data/outputs/accels_allcrops.Rda")
 save(scoords_allcrops, file = "data/outputs/scoords_allcrops.Rda")
 ```
 
