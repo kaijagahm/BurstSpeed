@@ -9,16 +9,89 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
-# Figure 2: speed by mass and temp treatment
+# Color, shape, and line type palettes
+```{r}
+col_hilo <- c("orange", "dodgerblue2")
+col_hilowi <- c(col_hilo, "black")
+shape_hilo <- c(20, 4)
+linetype_hilo <- c("solid", "dashed")
+linetype_hilowi <- c(linetype_hilo, "dotted")
+```
+
+# Incubators and pond temp loggers
+```{r}
+load("data/outputs/loggers_tojoin.Rda")
+load("data/outputs/incs_long.Rda")
+
+# Color
+loggers_tojoin %>% ggplot(aes(x = date, y = mean_daily_temp_c, group = pond))+
+  geom_line(alpha = 0.4)+
+  geom_line(data = incs_long %>% filter(pond %in% c("high", "low")), 
+            aes(x = date, y = temp_c, col = pond), lwd = 1.5)+
+  xlab("Date")+
+  ylab("Temperature (ºC)")+
+  scale_color_manual(name = "Temperature treatment incubator", values = col_hilo, labels = c("High", "Low"))+
+  theme(legend.position = "bottom")
+```
+
+
+# Speed by mass and temperature treatment
 ```{r}
 load("data/outputs/dat3_nonas.Rda")
+
+# Color
 dat3_nonas %>% ggplot(aes(x = mass, y = sline_speed_m_s, col = treatment))+
   geom_point()+
   geom_smooth(method = "lm")+
   ylab("Burst speed (m/s)")+
   xlab("Mass (g)")+
   theme_minimal()+
-  guides(color = guide_legend(title = "Temperature \n treatment"))
+  scale_color_manual(name = "Temperature treatment", values = col_hilo)+
+  theme(legend.position = "bottom")
+
+# Black and white
+dat3_nonas %>% ggplot(aes(x = mass, y = sline_speed_m_s))+
+  geom_point(aes(shape = treatment), alpha = 0.6)+
+  geom_smooth(aes(lty = treatment), method = "lm", col = "black", lwd = 0.7)+
+  ylab("Burst speed (m/s)")+
+  xlab("Mass (g)")+
+  theme_minimal()+
+  scale_shape_manual(values = shape_hilo)+
+  scale_linetype_manual(values = linetype_hilo)+
+  guides(shape = guide_legend(title = "", override.aes = list(alpha = 1)))+
+  guides(lty = guide_legend(title = "Temperature \n treatment"))+
+  theme(legend.position = "bottom")
+```
+
+# Development rate over time
+```{r}
+load("data/outputs/dev4.Rda")
+
+# Color
+dev4 %>% filter(!is.na(pond), !is.na(stage)) %>%
+  ggplot(aes(x = photo.date, y = stage, col = treatment, group = tadpole))+
+  #geom_point(size = 0.5)+
+  geom_smooth(se = F, method = "lm", lwd = 0.05)+
+  theme_minimal()+
+  scale_color_manual(values = col_hilowi, name = "Temperature treatment")+
+  guides(color = guide_legend(override.aes = list(size=5)))+
+  xlab("Date")+
+  ylab("Gosner stage")+
+  theme(legend.position = "bottom")
+
+# Black and white
+
+dev4 %>% filter(!is.na(pond), !is.na(stage)) %>%
+  ggplot(aes(x = photo.date, y = stage, group = treatment))+
+  #geom_point(size = 0.5)+
+  geom_smooth(method = "lm", se = FALSE, aes(lty = treatment), col = "black")+
+  scale_linetype_manual(values = linetype_hilowi)+
+  theme_minimal()+
+  xlab("Date")+
+  ylab("Gosner stage")+
+  guides(lty = guide_legend(title = "Temperature \n treatment"))+
+  theme(legend.position = "bottom")
+
 ```
 
 
