@@ -20,7 +20,8 @@ source("process_coordinates_funs.R")
 dev <- read.csv("data/inputs/dev_measurements_kaija_andis.csv", as.is = T)
 ```
 
-# Clean data
+# Data prep
+## Clean data
 ```{r}
 load("data/outputs/dat3.Rda")
 head(dat3)
@@ -28,8 +29,6 @@ head(dat3)
 # Make tadpole column
 dev <- dev %>% mutate(tadpole = paste0(pond, "_0", clutch, "_", indiv, "_", treatment))
 
-
-head(dev)
 # Read dates as dates
 dev <- dev %>% mutate(photo.date = mdy(photo.date))
 
@@ -39,15 +38,16 @@ dev <- dev %>% mutate(person = paste0(person, "_orig"),
 # clean ponds
 table(dev$pond)
 dev$pond[dev$pond == "DB"] <- "PB" # assuming it's PB, not DE?
+```
 
+## Check between-person agreement
+```{r}
 # Check error
-checks <- dev %>% filter(!is.na(stage.verify))
-nrow(checks)
-
+checks <- dev %>% filter(!is.na(stage.verify)) # get only the ones that were staged a second time
 checks <- checks %>% mutate(stagediff = stage - stage.verify)
 
 checks %>% ggplot(aes(x = stagediff))+
-  geom_density(fill = "darkgrey")+ # this is a good sign! We can quantify the error rate later.
+  geom_density(fill = "darkgrey")+ 
   ggtitle("Difference in stages")+
   facet_grid(rows = vars(person), cols = vars(person_verify))
 
@@ -71,6 +71,29 @@ checks %>% ggplot(aes(x = totl.mm - totl.mm.verify))+
 checks %>% ggplot(aes(x = totl.mm - totl.mm.verify))+
   geom_density(aes(fill = person_verify, col = person_verify), alpha = 0.5)+
   ggtitle("Difference in total length")+
+  facet_wrap(~person)
+```
+
+## Align Andis/Kaija
+```{r}
+# Subtract 0.25 from Kaija's SVL measurements
+dev <- dev %>%
+  mutate(svl.mm = case_when(person == "kaija_orig" ~ svl.mm - 0.25,
+                            TRUE ~ svl.mm),
+         aligned = case_when(person == "kaija_orig" ~ TRUE,
+                             TRUE ~ FALSE))
+
+# Do the same to Checks
+checks <- checks %>%
+  mutate(svl.mm = case_when(person == "kaija_orig" ~ svl.mm - 0.25,
+                            TRUE ~ svl.mm),
+         aligned = case_when(person == "kaija_orig" ~ TRUE,
+                             TRUE ~ FALSE))
+
+# re-do the above plot. 
+checks %>% ggplot(aes(x = svl.mm - svl.mm.verify))+
+  geom_density(aes(fill = person_verify, col = person_verify), alpha = 0.5)+
+  ggtitle("Difference in SVL")+
   facet_wrap(~person)
 ```
 
@@ -324,14 +347,13 @@ head(deploy)
 
 deploy <- deploy %>% 
   mutate(datetime_in = paste(date_in, time_in),
-         datetime_out = paste(date_out, time_out)) %>%
+         datetime_out = paste(date_out, na.omit(time_out))) %>%
   select(datetime_in, datetime_out, pond_abbr) %>%
   filter(!is.na(pond_abbr)) %>%
   mutate(datetime_in = mdy_hm(datetime_in),
          datetime_out = mdy_hm(datetime_out))
-
-head(deploy)
 ```
+
 
 ### Join logger deploy data
 ```{r}
@@ -343,37 +365,87 @@ temps <- temps %>% left_join(deploy, by = c("pond" = "pond_abbr"))
 temps <- temps %>% 
   group_by(pond) %>%
   filter(datetime >= datetime_in & datetime < datetime_out)
-```
-
-## Aggregate by day
-```{r}
-temps <- temps %>%
-  mutate(date = substr(datetime, 1, 10))
 
 head(temps)
 
-temps <- temps %>%
-  group_by(date, pond) %>%
-  mutate(mean_daily_temp_c = mean(temp_c))
+## Fix deploy times for PB and GB
+temps <- temps %>% filter(!(pond == "PB" & datetime < "2019-03-31 16:00:00")) # fix PB deploy time
+temps <- temps %>% filter(!(pond == "GB" & datetime < "2019-03-25 10:30:00")) # fix GB deploy time
+```
 
-tempsdown <- temps %>% 
-  select(-c(datetime, temp_c, datetime_in, datetime_out)) %>% 
-  distinct() %>%
+## Add aggregators
+```{r}
+temps <- temps %>%
+  mutate(date = substr(datetime, 1, 10),
+         date_hour = substr(datetime, 1, 13)) %>%
+  mutate(date = ymd(date),
+         date_hour = ymd_h(date_hour))
+
+temps <- temps %>%
+  group_by(date, pond) %>% # group by day
+  mutate(mean_daily_temp_c = mean(temp_c)) %>% # mean daily temp
   ungroup() %>%
-  mutate(date = ymd(date))
+  group_by(date_hour, pond) %>% # group by hour
+  mutate(mean_hourly_temp_c = mean(temp_c)) # mean hourly temp
 ```
 
 ## Visualize
 ```{r}
-tempsdown %>% ggplot(aes(x = date, y = mean_daily_temp_c, col = pond))+
+temps %>% ggplot(aes(x = date, y = mean_daily_temp_c, col = pond))+
   geom_line(lwd = 1.3)+
   scale_color_viridis_d()+
   theme_minimal()+
   ylab("Temperature (ºC)")+
   xlab("Date")
-
-head(tempsdown)
 ```
+
+# Get temps over the dev period
+```{r}
+# Embryo collection dates for each pond
+collection_dates <- emb %>% 
+  select(pond, Coll.Date) %>% 
+  distinct() %>%
+  rename(emb_collection_date = Coll.Date)
+
+# Info about when the wild tads were collected
+wild_tads <- read.csv("data/inputs/wild_info.csv", as.is = T)
+wild_tads <- wild_tads %>% select(ID, Coll.DOY, Pond)
+
+wild_tads <- wild_tads %>% 
+  mutate(coll.date = as.Date(Coll.DOY, origin = "2019-01-01")) %>%
+  rename(tadpole = ID,
+         pond = Pond)
+
+# Join embryo collection dates to wild tadpole collection dates
+wild_tads <- wild_tads %>%
+  left_join(collection_dates, by = "pond") %>%
+  mutate(emb_collection_date = dmy(emb_collection_date))
+
+# Get unique pond-interval combos
+unique_combos <- wild_tads %>% 
+  select(pond, emb_collection_date, coll.date) %>%
+  distinct()
+nrow(unique_combos)
+
+# Get average temp
+for(i in 1:nrow(unique_combos)){
+  tempsvec <- temps %>% 
+    filter(pond == unique_combos$pond[i], 
+           date >= unique_combos$emb_collection_date[i], 
+           date <= unique_combos$coll.date[i]) %>% pull(temp_c)
+  avg_temp <- mean(tempsvec, na.rm = T)
+  
+  unique_combos$avg_pond_temp[i] <- avg_temp
+  print(paste("iteration", i, "of", nrow(unique_combos), "complete"))
+}
+
+wild_tad_temps <- left_join(wild_tads, unique_combos, by = c("pond", "emb_collection_date", "coll.date"))
+wild_tad_temps <- wild_tad_temps %>%
+  mutate(tadpole = paste0(tadpole, "_Wild"))
+
+save(wild_tad_temps, file = "data/outputs/wild_tad_temps.Rda")
+```
+
 
 # Incubator temperatures
 ## Prepare data
@@ -399,21 +471,21 @@ incs_long %>% ggplot(aes(x = date, y = temp_c, col = pond))+
 # Incubator and temp logger together
 ## Join
 ```{r}
-loggers_tojoin <- tempsdown %>% 
-  select(pond, date, mean_daily_temp_c) %>%
-  rename(temp_c = mean_daily_temp_c) %>%
+loggers_tojoin <- temps %>% 
+  select(pond, date, mean_daily_temp_c, mean_hourly_temp_c) %>%
   mutate(date = as.POSIXct(date))
 
 incs_long <- incs_long %>%
   mutate(date = as.POSIXct(date))
 
-alltemps <- bind_rows(loggers_tojoin, incs_long)
+save(loggers_tojoin, file = "data/outputs/loggers_tojoin.Rda")
+save(incs_long, file = "data/outputs/incs_long.Rda")
 ```
 
 ## Visualize
 ```{r}
-loggers_tojoin %>% ggplot(aes(x = date, y = temp_c, group = pond))+
-  geom_line()+
+loggers_tojoin %>% ggplot(aes(x = date, y = mean_daily_temp_c, group = pond))+
+  geom_line(alpha = 0.4)+
   geom_line(data = incs_long %>% filter(pond %in% c("high", "low")), 
             aes(x = date, y = temp_c, col = pond), lwd = 1.5)+
   scale_color_manual(values = c("red", "blue"))+
