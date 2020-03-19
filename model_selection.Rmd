@@ -395,3 +395,19 @@ wild_df_preds %>% ggplot(aes(y = predicted_speed))+
   facet_wrap(~model)+
   ggtitle("Comparison of top 5 models, predicted on means of data")
 ```
+
+### Select top model
+```{r}
+# Select reduced model: best AIC
+reduced_model <- lmer(sline_speed_m_s ~ mass + (1 | tadpole),
+                data = wild_nonas,
+                na.action = "na.fail",
+                REML = F)
+summary(reduced_model)
+
+wild_nonas %>% ggplot(aes(x = mass, y = sline_speed_m_s))+
+  geom_point(alpha = 0.4)+
+  geom_smooth(method = "lm", col = "black")+
+  xlab("Mass")+
+  ylab("Burst speed (m/s)")
+```
