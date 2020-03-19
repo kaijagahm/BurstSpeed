@@ -9,3 +9,37 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+# Figure 2: speed by mass and temp treatment
+```{r}
+load("data/outputs/dat3_nonas.Rda")
+dat3_nonas %>% ggplot(aes(x = mass, y = sline_speed_m_s, col = treatment))+
+  geom_point()+
+  geom_smooth(method = "lm")+
+  ylab("Burst speed (m/s)")+
+  xlab("Mass (g)")+
+  theme_minimal()+
+  guides(color = guide_legend(title = "Temperature \n treatment"))
+```
+
+# Figure 3: cumulative variance partitioning
+```{r}
+load("data/outputs/resids_cumulative.Rda")
+
+y_labels <- c("Overall", "Pond", "Clutch", "Individual")
+
+resids_cumulative %>% ggplot(aes(x = resid, fill = level))+
+  geom_density_ridges(aes(y = level),
+                      scale = 3,
+                      bandwidth = 0.006,
+                      col = "white")+
+  facet_wrap(~treatment)+
+  scale_y_discrete(expand = expand_scale(mult = c(0.01, 0.8)))+
+  theme(legend.position = "none")+
+  #theme_minimal()+
+  xlab("Residual")+
+  ylab("") +
+  guides(fill = guide_legend(title = "Level of \n hierarchy"))+
+  scale_y_discrete(labels = y_labels)+
+  theme(legend.position = "none")
+```
+
