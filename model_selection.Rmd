@@ -78,7 +78,7 @@ summary(modpond2)
 ?lmer
 
 # removing the pond and camera random effects, because they don't tell us much. In fact, we need to remove the pond effect to get a non-singular fit.
-mod3 <- lmer(sline_speed_m_s ~ treatment * mass + (1|clutch/indiv), data = dat3) # use this syntax, but remember that clutch already accounts for being nested within pond. 
+mod3 <- lmer(sline_speed_m_s ~ treatment * mass + (1|clutch/indiv), data = dat3) # use this syntax, but remember that clutch already accounts for being nested thin pond. 
 # note that if we add camera to this model, it doesn't converge.
 
 # : specifies that clutch is nested within pond, but without first fitting pond (since we discovered we don't need to)
@@ -291,3 +291,107 @@ anova(mod_nostruct, mod_varfixed, mod_varident, mod_varexp, mod_varconstpower) #
 # save(consensus_mod_varident, file = "data/outputs/consensus_mod_varident")
 ```
 
+# Wild tadpoles
+## Load data
+```{r}
+load("data/outputs/wild_nonas.Rda")
+```
+
+## Add pond temps
+```{r}
+load("data/outputs/wild_tad_temps.Rda") # Load wild tadpole pond temperatures
+head(wild_tad_temps)
+wild_tad_temps_tojoin <- wild_tad_temps %>% select(tadpole, avg_pond_temp)
+locate.nas(wild_tad_temps_tojoin) # check for NA's: looks good
+
+wild_nonas <- wild_nonas %>% left_join(wild_tad_temps_tojoin, by = "tadpole")
+```
+
+## Model selection
+### Variable standardization
+```{r}
+# Function to calculate z scores
+standardize <- function(vector){
+  mu <- mean(vector)
+  sd <- sd(vector)
+  z_vector <- (vector-mu)/sd
+  return(z_vector)
+}
+
+wild_nonas <- wild_nonas %>% mutate_at(.vars = c("PC1", "PC2", "mass", "size", "gs", "T_initial", "avg_pond_temp"), standardize)
+```
+
+### Re-create consensus model: does it work for wild tads?
+```{r}
+load("data/outputs/consensus_mod.Rda")
+formula(consensus_mod)
+wild_mod <- lmer(sline_speed_m_s ~ mass * avg_pond_temp + gs + T_initial + (1 | tadpole), 
+                 data = wild_nonas, REML = F,
+                 na.action = "na.fail")
+summary(wild_mod)
+vif(wild_mod) # Variance inflation factors look okay.
+```
+
+### Dredging
+```{r}
+# Full model, with no pond effect
+full <- lmer(sline_speed_m_s ~ PC2*mass*gs*avg_pond_temp + T_initial + (1 | tadpole),
+             data = wild_nonas, 
+             na.action = "na.fail", 
+             REML = F)
+# Do the same mean-based analysis on this one as I did for the lab-reared tadpoles. 
+# What impact does the lab experiment have in the wild? Significance. 
+
+# Dredge full model
+#wild_full_dredge <- dredge(full)
+#save(wild_full_dredge, file = "data/outputs/wild_full_dredge.Rda")
+```
+
+### Fit top five models
+```{r}
+load("data/outputs/wild_full_dredge.Rda")
+wild_full_dredge[1:5,] # take a look at the top five models
+
+m1 <- lmer(sline_speed_m_s ~ mass + (1 | tadpole), data = wild_nonas, REML = F, 
+           na.action = "na.fail")
+
+m2 <- lmer(sline_speed_m_s ~ mass + avg_pond_temp + (1 | tadpole), data = wild_nonas, REML = F, 
+           na.action = "na.fail")
+
+m3 <- lmer(sline_speed_m_s ~ mass + PC2 + (1 | tadpole), data = wild_nonas, REML = F, 
+           na.action = "na.fail")
+
+m4 <- lmer(sline_speed_m_s ~ gs + (1 | tadpole), data = wild_nonas, REML = F, 
+           na.action = "na.fail")
+
+m5 <- lmer(sline_speed_m_s ~ mass + T_initial + (1 | tadpole), data = wild_nonas, REML = F, 
+           na.action = "na.fail")
+```
+
+### Create new df of means
+```{r}
+wild_newdf <- wild_nonas %>% select(tadpole) # select grouping cols
+newdf_means <- wild_nonas %>% summarize(mass = mean(mass), # take mean of each
+                                      gs = mean(gs),
+                                      T_initial = mean(T_initial),
+                                      PC2 = mean(PC2),
+                                      avg_pond_temp = mean(avg_pond_temp))
+
+wild_newdf[,2:6] <- newdf_means # bind grouping cols to means
+wild_newdf <- wild_newdf %>% mutate(model1 = predict(m1, wild_newdf), # predict on means with each model
+                          model2 = predict(m2, wild_newdf),
+                          model3 = predict(m3, wild_newdf),
+                          model4 = predict(m4, wild_newdf),
+                          model5 = predict(m5, wild_newdf))
+
+wild_df_preds <- wild_newdf %>% select(model1, model2, model3, model4, model5) %>% 
+  pivot_longer(cols = c(model1, model2, model3, model4, model5), # put into long format
+               names_to = "model",
+               values_to = "predicted_speed")
+
+# Boxplot of predictions on means
+wild_df_preds %>% ggplot(aes(y = predicted_speed))+
+  geom_boxplot()+
+  facet_wrap(~model)+
+  ggtitle("Comparison of top 5 models, predicted on means of data")
+```
