@@ -404,6 +404,8 @@ reduced_model <- lmer(sline_speed_m_s ~ mass + (1 | tadpole),
                 na.action = "na.fail",
                 REML = F)
 summary(reduced_model)
+consensus_mod_wild <- reduced_model
+save(consensus_mod_wild, file = "data/outputs/consensus_mod_wild.Rda")
 
 wild_nonas %>% ggplot(aes(x = mass, y = sline_speed_m_s))+
   geom_point(alpha = 0.4)+
