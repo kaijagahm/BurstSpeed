@@ -25,12 +25,25 @@ load("data/outputs/incs_long.Rda")
 
 # Color
 loggers_tojoin %>% ggplot(aes(x = date, y = mean_daily_temp_c, group = pond))+
-  geom_line(alpha = 0.4)+
+  geom_line(alpha = 0.2)+
   geom_line(data = incs_long %>% filter(pond %in% c("high", "low")), 
             aes(x = date, y = temp_c, col = pond), lwd = 1.5)+
+  theme_minimal()+
   xlab("Date")+
   ylab("Temperature (ºC)")+
   scale_color_manual(name = "Temperature treatment incubator", values = col_hilo, labels = c("High", "Low"))+
+  theme(legend.position = "bottom")
+
+# Black and white
+loggers_tojoin %>% ggplot(aes(x = date, y = mean_daily_temp_c, group = pond))+
+  geom_line(alpha = 0.2)+
+  geom_line(data = incs_long %>% filter(pond %in% c("high", "low")), 
+            aes(x = date, y = temp_c, lty = pond), lwd = 1)+
+  theme_minimal()+
+  xlab("Date")+
+  ylab("Temperature (ºC)")+
+  scale_linetype_manual(name = "Temperature treatment incubator", values = linetype_hilo, labels = c("High", "Low"))+
+  guides(linetype = guide_legend(override.aes = list(lwd = 0.5)))+
   theme(legend.position = "bottom")
 ```
 
@@ -90,8 +103,23 @@ dev4 %>% filter(!is.na(pond), !is.na(stage)) %>%
   xlab("Date")+
   ylab("Gosner stage")+
   guides(lty = guide_legend(title = "Temperature \n treatment"))+
+  guides(lty = guide_legend(override.aes = list(lwd = 0.5)))+
   theme(legend.position = "bottom")
-
 ```
 
+# Wild tadpoles: final model
+```{r}
+load("data/outputs/wild_nonas.Rda")
+load("data/outputs/consensus_mod_wild.Rda")
+# How do we plot this model properly?
+
+wild_nonas %>% ggplot(aes(x = mass, y = sline_speed_m_s))+
+  geom_point(alpha = 0.4)+
+  geom_smooth(method = "lm", col = "black")+
+  xlab("Mass")+
+  ylab("Burst speed (m/s)")+
+  theme_minimal()
+
+# Should add the regular tadpole data along with wild and plot the two together.
+```
 
