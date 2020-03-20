@@ -504,6 +504,7 @@ indiv_means <- all %>%
   summarize(speed = mean(sline_speed_mm_s),
             mass = mass[1])
 head(indiv_means)
+save(indiv_means, file = "data/outputs/indiv_means.Rda")
 ```
 
 ## Plot
