@@ -33,34 +33,44 @@ save(wild_nonas, file = "data/outputs/wild_nonas.Rda")
 ```{r}
 length(unique(wild_nonas$tadpole)) + length(unique(dat3_nonas$tadpole))
 
-wild_nonas %$% table(pond)
-dat3_nonas <- dat3_nonas %>%
+dat3_nonas_forsummary <- dat3_nonas %>%
+  select(-c(trial, sline_speed_mm_s, T_initial, camera, predicted_speed, predicted_speed_withresids)) %>%
+  distinct() %>%
   mutate(clutch_only = str_extract(clutch, "(?<= )[[:digit:]]{1}"))
-dat3_nonas %$% table(pond, clutch_only)
 
-clutch_n <- dat3_nonas %>%
-  group_by(clutch) %>%
+# Low treatment
+dat3_nonas_forsummary %>%
+  filter(treatment == "Low") %$% 
+  table(pond, clutch_only)
+
+# High treatment
+dat3_nonas_forsummary %>%
+  filter(treatment == "High") %$%
+  table(pond, clutch_only)
+
+clutch_n <- dat3_nonas_forsummary %>%
+  group_by(treatment, clutch) %>%
   summarize(n = n())
 
-clutch_n %>% summarize(mean = mean(n),
+clutch_n %>% summarize(median = median(n),
                        max = max(n),
                        min = min(n))
 
-pond_n <- dat3_nonas %>%
-  group_by(pond) %>%
+# Lab-reared by pond
+pond_n <- dat3_nonas_forsummary %>%
+  group_by(treatment, pond) %>%
   summarize(n = n())
+pond_n
 
-pond_n %>% summarize(mean = mean(n),
-                     max = max(n),
-                     min = min(n))
 
-wild_pond_n <- wild_nonas %>%
-  group_by(pond) %>%
-  summarize(n = n())
-
-wild_pond_n %>% summarize(mean = mean(n),
-                          max = max(n),
-                          min = min(n))
+# Wild tadpoles
+wild_pond_n <- wild_nonas %>% 
+  select(-c(trial, sline_speed_mm_s, T_initial, camera)) %>%
+  distinct() %$% 
+  table(pond)
+median(wild_pond_n)
+max(wild_pond_n)
+min(wild_pond_n)
 ```
 
 
@@ -74,41 +84,41 @@ summary(consensus_mod)
 ### Manual calculation of residuals
 #### Retaining the individual speeds and comparing them to different things
 ```{r}
-overall <- dat3 %>% select(treatment, pond, clutch, tadpole, trial, sline_speed_m_s) %>% 
+overall <- dat3 %>% select(treatment, pond, clutch, tadpole, trial, sline_speed_mm_s) %>% 
   group_by(treatment) %>%
-  mutate(mean = mean(sline_speed_m_s),
-                resid = sline_speed_m_s - mean) %>%
+  mutate(mean = mean(sline_speed_mm_s),
+                resid = sline_speed_mm_s - mean) %>%
   mutate(level = "overall")
 
 indiv <- overall %>% group_by(treatment, tadpole) %>% 
-  mutate(mean = mean(sline_speed_m_s),
-         resid = sline_speed_m_s - mean) %>%
+  mutate(mean = mean(sline_speed_mm_s),
+         resid = sline_speed_mm_s - mean) %>%
   mutate(level = "indiv")
 
 clutch <- overall %>% group_by(treatment, clutch) %>%
-  mutate(mean = mean(sline_speed_m_s),
-         resid = sline_speed_m_s - mean) %>%
+  mutate(mean = mean(sline_speed_mm_s),
+         resid = sline_speed_mm_s - mean) %>%
   mutate(level = "clutch")
 
 pond <- overall %>% group_by(treatment, pond) %>%
-  mutate(mean = mean(sline_speed_m_s),
-         resid = sline_speed_m_s - mean) %>%
+  mutate(mean = mean(sline_speed_mm_s),
+         resid = sline_speed_mm_s - mean) %>%
   mutate(level = "pond")
 
-wild_overall <- wild %>% select(treatment, pond, tadpole, trial, sline_speed_m_s) %>%
+wild_overall <- wild %>% select(treatment, pond, tadpole, trial, sline_speed_mm_s) %>%
   group_by(treatment) %>%
-  mutate(mean = mean(sline_speed_m_s),
-         resid = sline_speed_m_s - mean) %>%
+  mutate(mean = mean(sline_speed_mm_s),
+         resid = sline_speed_mm_s - mean) %>%
   mutate(level = "overall")
 
 wild_indiv <- wild_overall %>% group_by(treatment, tadpole) %>%
-  mutate(mean = mean(sline_speed_m_s),
-         resid = sline_speed_m_s - mean) %>%
+  mutate(mean = mean(sline_speed_mm_s),
+         resid = sline_speed_mm_s - mean) %>%
   mutate(level = "indiv")
 
 wild_pond <- wild_overall %>% group_by(treatment, pond) %>%
-  mutate(mean = mean(sline_speed_m_s),
-         resid = sline_speed_m_s - mean) %>%
+  mutate(mean = mean(sline_speed_mm_s),
+         resid = sline_speed_mm_s - mean) %>%
   mutate(level = "pond")
 
 resids <- rbind(overall, indiv, clutch, pond, wild_overall, wild_indiv, wild_pond) # put them all together
@@ -173,10 +183,10 @@ pondsmall <- pond %>% select(treatment, mean, resid, level)
 
 wild_overallsmall <- wild_overall %>% select(treatment, mean, resid, level)
 
-wild_indiv <- wild_overall %>% select(treatment, pond, tadpole, sline_speed_m_s) %>%
+wild_indiv <- wild_overall %>% select(treatment, pond, tadpole, sline_speed_mm_s) %>%
   group_by(tadpole) %>% 
-  mutate(indiv_mean = mean(sline_speed_m_s),
-         resid = sline_speed_m_s - indiv_mean) %>%
+  mutate(indiv_mean = mean(sline_speed_mm_s),
+         resid = sline_speed_mm_s - indiv_mean) %>%
   rename(mean = indiv_mean) %>% ungroup() %>%
   mutate(level = "indiv")
 wild_indivsmall <- wild_indiv %>% select(treatment, mean, resid, level)
@@ -248,7 +258,7 @@ iccc_clutch
 ### Individual means
 ```{r}
 indiv_means <- dat3 %>% group_by(indiv) %>% 
-  summarize(indiv_mean_speed = mean(sline_speed_m_s),
+  summarize(indiv_mean_speed = mean(sline_speed_mm_s),
             clutch = clutch[1],
             treatment = treatment[1],
             pond = pond[1]) 
@@ -263,7 +273,7 @@ clutch_means <- indiv_means %>%
   summarize(clutch_mean_speed = mean(indiv_mean_speed))
 
 clutch_means %>% arrange(clutch)
-clutch_means %$% table(clutch) #ADD THIS TO THE TUTORIAL!!!
+clutch_means %$% table(clutch)
 ```
 
 #### Remove clutches not in both treatments
@@ -327,6 +337,7 @@ plasticity <- indiv_means %>% select(-c(clutch_mean_speed)) %>% rename(D = indiv
 ```{r}
 head(plasticity)
 plasticity <- plasticity %>% mutate(clutch_only = factor(str_extract(clutch, pattern = "(?<= )[[:digit:]](?=$)")))
+save(plasticity, file = "data/outputs/plasticity.Rda")
 
 # Plasticity model: predict D by pond and clutch
 pls_mod <- lmer(D ~ pond + (1|clutch), data = plasticity)
@@ -344,14 +355,46 @@ plasticity %>% ggplot(aes(x = pond, y = D))+
   geom_jitter(aes(col = clutch_only), width = 0.1)+
   scale_color_viridis(discrete = T) # no patterns by pond _or_ clutch within pond. Yikes!
 
-# Re-order from highest to lowest within each pond, then order from mean highest to mean lowest by pond. Remove the axis ticks. Alternate gray and light backgrounds.  
-plasticity %>% filter(!is.na(clutch_only)) %>% ggplot(aes(x = clutch_only, y = D))+
-  geom_boxplot()+
-  facet_grid(cols = vars(pond))
+# Get order of ponds by mean plasticity
+mean_pond_order <- plasticity %>% 
+  group_by(pond) %>% 
+  summarize(mean = mean(D, na.rm = T)) %>%
+  arrange(-mean) %>%
+  pull(pond) %>%
+  as.character()
 
-# Maybe don't even bother with graphing the coefficients. Make a table with the model output. 
-# Change the units to cm/sec maybe? Get whole units. 
-  
+# Make plot
+## Define helper functions
+reorder_within <- function(x, by, within, fun = mean, sep = "___", ...) {
+  new_x <- paste(x, within, sep = sep)
+  stats::reorder(new_x, by, FUN = fun)
+}
+
+scale_x_reordered <- function(..., sep = "___") {
+  reg <- paste0(sep, ".+$")
+  ggplot2::scale_x_discrete(labels = function(x) gsub(reg, "", x), ...)
+}
+
+## make the plot
+plasticity %>%
+  mutate(pond = fct_relevel(pond, mean_pond_order)) %>%
+  filter(!is.na(clutch_only)) %>%
+  ggplot(aes(x = reorder_within(clutch_only, -D, pond, mean), y = D))+
+  geom_rect(aes(fill = pond),
+            xmin = -Inf, xmax = Inf,
+            ymin = -Inf, ymax = Inf, 
+            alpha = 0.3)+
+  scale_fill_manual(values = rep(c("lightskyblue1", "skyblue2"), 5))+
+  geom_boxplot()+
+  scale_x_reordered()+
+  facet_grid(cols = vars(pond), scales = "free_x")+
+  theme(
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank(),
+    legend.position = "none"
+  )+
+  ylab("Scope of plastic response (low temp - high temp)")+
+  xlab("Pond")
 ```
 
 ### Clutch mean differences
@@ -392,7 +435,7 @@ Does morphology help to explain burst speed? And does this relationship hold in 
 ### Explore wild data
 ```{r}
 # Any differences by pond?
-wild_nonas %>% ggplot(aes(x = mass, y = sline_speed_m_s, col = T_initial))+
+wild_nonas %>% ggplot(aes(x = mass, y = sline_speed_mm_s, col = T_initial))+
   geom_smooth(method = "lm", col = "gray", se = F)+
   geom_point()+
   facet_wrap(~pond)+
@@ -400,7 +443,7 @@ wild_nonas %>% ggplot(aes(x = mass, y = sline_speed_m_s, col = T_initial))+
 
 # Size
 wild_nonas %>% 
-  ggplot(aes(x = size, y = sline_speed_m_s))+
+  ggplot(aes(x = size, y = sline_speed_mm_s))+
   geom_smooth(aes(col = pond), method = "lm", se = F)+
   geom_smooth(method = "lm", se = F, col = "darkgrey", lty = 2)+
   geom_point(aes(col = pond))+
@@ -408,7 +451,7 @@ wild_nonas %>%
 
 # Gosner stage
 wild_nonas %>% 
-  ggplot(aes(x = gs, y = sline_speed_m_s))+
+  ggplot(aes(x = gs, y = sline_speed_mm_s))+
   geom_smooth(aes(col = pond), method = "lm", se = F)+
   geom_smooth(method = "lm", se = F, col = "darkgrey", lty = 2)+
   geom_point(aes(col = pond))+
@@ -416,7 +459,7 @@ wild_nonas %>%
 
 # Mass
 wild_nonas %>% 
-  ggplot(aes(x = mass, y = sline_speed_m_s))+
+  ggplot(aes(x = mass, y = sline_speed_mm_s))+
   geom_smooth(aes(col = pond), method = "lm", se = F)+
   geom_smooth(method = "lm", se = F, col = "darkgrey", lty = 2)+
   geom_point(aes(col = pond))+
@@ -424,7 +467,7 @@ wild_nonas %>%
 
 # Shape PC1
 wild_nonas %>% 
-  ggplot(aes(x = PC1, y = sline_speed_m_s))+
+  ggplot(aes(x = PC1, y = sline_speed_mm_s))+
   geom_smooth(aes(col = pond), method = "lm", se = F)+
   geom_smooth(method = "lm", se = F, col = "darkgrey", lty = 2)+
   geom_point(aes(col = pond))+
@@ -432,7 +475,7 @@ wild_nonas %>%
 
 # Shape PC2
 wild_nonas %>% 
-  ggplot(aes(x = PC2, y = sline_speed_m_s))+
+  ggplot(aes(x = PC2, y = sline_speed_mm_s))+
   geom_smooth(aes(col = pond), method = "lm", se = F)+
   geom_smooth(method = "lm", se = F, col = "darkgrey", lty = 2)+
   geom_point(aes(col = pond))+
@@ -440,7 +483,7 @@ wild_nonas %>%
 
 # Initial water temp
 wild_nonas %>%
-  ggplot(aes(x = T_initial, y = sline_speed_m_s))+
+  ggplot(aes(x = T_initial, y = sline_speed_mm_s))+
   geom_smooth(aes(col = pond), method = "lm", se = F)+
   geom_smooth(method = "lm", se = F, col = "darkgrey", lty = 2)+
   geom_point(aes(col = pond))+
@@ -458,7 +501,7 @@ all <- bind_rows(wild_nonas, dat3_nonas) %>%
 
 indiv_means <- all %>% 
   group_by(pond, treatment, tadpole) %>%
-  summarize(speed = mean(sline_speed_m_s),
+  summarize(speed = mean(sline_speed_mm_s),
             mass = mass[1])
 head(indiv_means)
 ```
