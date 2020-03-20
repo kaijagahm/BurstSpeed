@@ -9,9 +9,14 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+# Load libraries
+```{r}
+source("libraries.R")
+```
+
 # Color, shape, and line type palettes
 ```{r}
-col_hilo <- c("orange", "dodgerblue2")
+col_hilo <- c("orange", "dodgerblue3")
 col_hilowi <- c(col_hilo, "black")
 shape_hilo <- c(20, 4)
 linetype_hilo <- c("solid", "dashed")
@@ -53,20 +58,20 @@ loggers_tojoin %>% ggplot(aes(x = date, y = mean_daily_temp_c, group = pond))+
 load("data/outputs/dat3_nonas.Rda")
 
 # Color
-dat3_nonas %>% ggplot(aes(x = mass, y = sline_speed_m_s, col = treatment))+
+dat3_nonas %>% ggplot(aes(x = mass, y = sline_speed_mm_s, col = treatment))+
   geom_point()+
   geom_smooth(method = "lm")+
-  ylab("Burst speed (m/s)")+
+  ylab("Burst speed (mm/s)")+
   xlab("Mass (g)")+
   theme_minimal()+
   scale_color_manual(name = "Temperature treatment", values = col_hilo)+
   theme(legend.position = "bottom")
 
 # Black and white
-dat3_nonas %>% ggplot(aes(x = mass, y = sline_speed_m_s))+
-  geom_point(aes(shape = treatment), alpha = 0.6)+
+dat3_nonas %>% ggplot(aes(x = mass, y = sline_speed_mm_s))+
+  geom_point(aes(shape = treatment))+
   geom_smooth(aes(lty = treatment), method = "lm", col = "black", lwd = 0.7)+
-  ylab("Burst speed (m/s)")+
+  ylab("Burst speed (mm/s)")+
   xlab("Mass (g)")+
   theme_minimal()+
   scale_shape_manual(values = shape_hilo)+
@@ -102,9 +107,56 @@ dev4 %>% filter(!is.na(pond), !is.na(stage)) %>%
   theme_minimal()+
   xlab("Date")+
   ylab("Gosner stage")+
-  guides(lty = guide_legend(title = "Temperature \n treatment"))+
   guides(lty = guide_legend(override.aes = list(lwd = 0.5)))+
+  guides(lty = guide_legend(title = "Temperature \n treatment"))+
   theme(legend.position = "bottom")
+```
+
+# Plasticity by pond and clutch
+```{r}
+load("data/outputs/plasticity.Rda")
+
+# Get order of ponds by mean plasticity
+mean_pond_order <- plasticity %>% 
+  group_by(pond) %>% 
+  summarize(mean = mean(D, na.rm = T)) %>%
+  arrange(-mean) %>%
+  pull(pond) %>%
+  as.character()
+
+# Make plot
+## Define helper functions
+reorder_within <- function(x, by, within, fun = mean, sep = "___", ...) {
+  new_x <- paste(x, within, sep = sep)
+  stats::reorder(new_x, by, FUN = fun)
+}
+
+scale_x_reordered <- function(..., sep = "___") {
+  reg <- paste0(sep, ".+$")
+  ggplot2::scale_x_discrete(labels = function(x) gsub(reg, "", x), ...)
+}
+
+## make the plot
+plasticity %>%
+  mutate(pond = fct_relevel(pond, mean_pond_order)) %>%
+  filter(!is.na(clutch_only)) %>%
+  ggplot(aes(x = reorder_within(clutch_only, -D, pond, mean), y = D))+
+  theme_minimal()+
+  geom_rect(aes(fill = pond),
+            xmin = -Inf, xmax = Inf,
+            ymin = -Inf, ymax = Inf, 
+            alpha = 0.3)+
+  scale_fill_manual(values = rep(c("grey95", "grey78"), 5))+
+  geom_boxplot()+
+  scale_x_reordered()+
+  facet_grid(cols = vars(pond), scales = "free_x")+
+  theme(
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank(),
+    legend.position = "none"
+  )+
+  ylab("Scope of plastic response (low temp - high temp)")+
+  xlab("Pond")
 ```
 
 # Wild tadpoles: final model
@@ -113,13 +165,112 @@ load("data/outputs/wild_nonas.Rda")
 load("data/outputs/consensus_mod_wild.Rda")
 # How do we plot this model properly?
 
-wild_nonas %>% ggplot(aes(x = mass, y = sline_speed_m_s))+
+wild_nonas %>% ggplot(aes(x = mass, y = sline_speed_mm_s))+
   geom_point(alpha = 0.4)+
   geom_smooth(method = "lm", col = "black")+
   xlab("Mass")+
-  ylab("Burst speed (m/s)")+
+  ylab("Burst speed (mm/s)")+
   theme_minimal()
 
 # Should add the regular tadpole data along with wild and plot the two together.
+```
+
+# Comparison of high, low, and wild tadpoles in the same ponds
+```{r}
+load("data/outputs/indiv_means.Rda")
+
+# Helper function to shift the legend
+library(gtable)
+library(cowplot)
+library(grid)
+
+shift_legend <- function(p){
+
+  # check if p is a valid object
+  if(!"gtable" %in% class(p)){
+    if("ggplot" %in% class(p)){
+      gp <- ggplotGrob(p) # convert to grob
+    } else {
+      message("This is neither a ggplot object nor a grob generated from ggplotGrob. Returning original plot.")
+      return(p)
+    }
+  } else {
+    gp <- p
+  }
+
+  # check for unfilled facet panels
+  facet.panels <- grep("^panel", gp[["layout"]][["name"]])
+  empty.facet.panels <- sapply(facet.panels, function(i) "zeroGrob" %in% class(gp[["grobs"]][[i]]))
+  empty.facet.panels <- facet.panels[empty.facet.panels]
+  if(length(empty.facet.panels) == 0){
+    message("There are no unfilled facet panels to shift legend into. Returning original plot.")
+    return(p)
+  }
+
+  # establish extent of unfilled facet panels (including any axis cells in between)
+  empty.facet.panels <- gp[["layout"]][empty.facet.panels, ]
+  empty.facet.panels <- list(min(empty.facet.panels[["t"]]), min(empty.facet.panels[["l"]]),
+                             max(empty.facet.panels[["b"]]), max(empty.facet.panels[["r"]]))
+  names(empty.facet.panels) <- c("t", "l", "b", "r")
+
+  # extract legend & copy over to location of unfilled facet panels
+  guide.grob <- which(gp[["layout"]][["name"]] == "guide-box")
+  if(length(guide.grob) == 0){
+    message("There is no legend present. Returning original plot.")
+    return(p)
+  }
+  gp <- gtable_add_grob(x = gp,
+                        grobs = gp[["grobs"]][[guide.grob]],
+                        t = empty.facet.panels[["t"]],
+                        l = empty.facet.panels[["l"]],
+                        b = empty.facet.panels[["b"]],
+                        r = empty.facet.panels[["r"]],
+                        name = "new-guide-box")
+
+  # squash the original guide box's row / column (whichever applicable)
+  # & empty its cell
+  guide.grob <- gp[["layout"]][guide.grob, ]
+  if(guide.grob[["l"]] == guide.grob[["r"]]){
+    gp <- gtable_squash_cols(gp, cols = guide.grob[["l"]])
+  }
+  if(guide.grob[["t"]] == guide.grob[["b"]]){
+    gp <- gtable_squash_rows(gp, rows = guide.grob[["t"]])
+  }
+  gp <- gtable_remove_grobs(gp, "guide-box")
+
+  return(gp)
+}
+
+
+# Color
+pc <- indiv_means %>%
+  ggplot(aes(x = mass, y = speed, col = treatment))+
+  geom_smooth(method = "lm", alpha = 0.2)+
+  facet_wrap(~pond)+
+  theme_minimal()+
+  scale_color_manual(name = "Temperature \n treatment", values = col_hilowi)+
+  theme(legend.position = "bottom")+
+  ylab("Burst speed (mm/s)")+
+  xlab("Mass (g)")
+
+grid.draw(shift_legend(pc)) # have to run this in the console for some reason.
+
+# Black and white
+pbw <- indiv_means %>%
+  ggplot(aes(x = mass, y = speed))+
+  geom_smooth(method = "lm", 
+              col = "black", 
+              alpha = 0.2,
+              lwd = 0.7,
+              aes(lty = treatment))+
+  facet_wrap(~pond)+
+  theme_minimal()+
+  scale_linetype_manual(name = "Temperature \n treatment", values = linetype_hilowi)+
+  theme(legend.position = "bottom")+
+  xlab("Mass (g)")+
+  ylab("Burst speed (mm/s)")
+
+grid.draw(shift_legend(pbw)) # have to run this in the console for some reason
+
 ```
 
