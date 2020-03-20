@@ -65,12 +65,12 @@ coords_stats <- scoords_allcrops %>%
             ydiff = yfin-yinit,
             slinedist = sqrt(xdiff^2 + ydiff^2),
             time = frame_burst[n()]/60,
-            sline_speed_m_s = slinedist/time) %>% select(tadpole, trial, crop, slinedist, time, sline_speed_m_s)
+            sline_speed_mm_s = (slinedist/time)*1000) %>% select(tadpole, trial, crop, slinedist, time, sline_speed_mm_s)
 
 burst_stats <- left_join(burst_stats, coords_stats, by = c("tadpole", "trial", "crop"))
 
 # Sanity check on speeds: We're seeing speeds ranging from 0 to 15 centimeters/sec, which makes sense.
-burst_stats %>% ggplot(aes(x = sline_speed_m_s, col = crop, fill = crop))+
+burst_stats %>% ggplot(aes(x = sline_speed_mm_s, col = crop, fill = crop))+
   geom_density(alpha = 0.4)
 ```
 
@@ -89,7 +89,7 @@ test <- burst_stats %>% filter(crop %in% c("First half second", "Second half sec
 problems <- test %>% group_by(tadpole, trial) %>% summarize(freq = n()) %>% filter(freq < 2) # identify problems
 
 # Remove problems
-test <- test %>% filter(!(paste(tadpole, trial) %in% paste(problems$tadpole, problems$trial))) %>% mutate(unique = paste(tadpole, trial)) %>% select(unique, crop, avgspeed, sline_speed_m_s)
+test <- test %>% filter(!(paste(tadpole, trial) %in% paste(problems$tadpole, problems$trial))) %>% mutate(unique = paste(tadpole, trial)) %>% select(unique, crop, avgspeed, sline_speed_mm_s)
 
 # Run paired t-test
 t.test(avgspeed ~ crop, paired = T, data = test) # I'm confused about which direction this is going.
@@ -103,10 +103,10 @@ Interestingly, the t-test does not reveal a significant difference in means. Tha
 ### Comparing straight line speed for first and second half seconds
 ```{r}
 # Run paired t-test
-t.test(sline_speed_m_s ~ crop, data = test) # alternative hypothesis that second half sec has a smaller mean than first half sec
+t.test(sline_speed_mm_s ~ crop, data = test) # alternative hypothesis that second half sec has a smaller mean than first half sec
 
 # Sanity check
-test %>% ggplot(aes(x = sline_speed_m_s, col = crop, fill = crop))+
+test %>% ggplot(aes(x = sline_speed_mm_s, col = crop, fill = crop))+
   geom_density(alpha = 0.4)
 ```
 We do see a difference in straight line speed between the first and second half sec
@@ -129,7 +129,7 @@ burst_stats_avg_tadpole <- burst_stats %>% filter(crop == "First half second") %
             camera = camera[1],
             avgslinedist = mean(slinedist),
             time = time[1],
-            avgslinespeed_ms = mean(sline_speed_m_s)) %>%
+            avgslinespeed_mms = mean(sline_speed_mm_s)) %>%
   as.data.frame()
 ```
 
@@ -207,32 +207,32 @@ head(stats)
 
 # Straight line speed by pond (averaging across trials for each tadpole)
 burst_stats_avg_tadpole %>% ggplot()+
-  geom_violin(aes(x = factor(pond), y = avgslinespeed_ms), fill = "lightblue")+
+  geom_violin(aes(x = factor(pond), y = avgslinespeed_mms), fill = "lightblue")+
   ggtitle("Burst speed by pond of origin")+
   xlab("Pond")+
-  ylab("Burst speed (m/s)") + theme_minimal()
+  ylab("Burst speed (mm/s)") + theme_minimal()
 
 # Straight line speed by treatment (averaging across trials for each tadpole)
 burst_stats_avg_tadpole %>% ggplot()+
-  geom_boxplot(aes(x = treatment, y = avgslinespeed_ms, fill = treatment))+
+  geom_boxplot(aes(x = treatment, y = avgslinespeed_mms, fill = treatment))+
   ggtitle("Burst speed by treatment")+
   xlab("Treatment")+
-  ylab("Speed (m/s)")+
+  ylab("Speed (mm/s)")+
   labs(fill = "Temperature \n treatment")
 
 burst_stats_avg_tadpole %>% ggplot()+
-  geom_violin(aes(x = treatment, y = avgslinespeed_ms, fill = treatment))+
+  geom_violin(aes(x = treatment, y = avgslinespeed_mms, fill = treatment))+
   ggtitle("Burst speed by treatment")+
   xlab("Treatment")+
-  ylab("Speed (m/s)")+
+  ylab("Speed (mm/s)")+
   labs(fill = "Temperature \n treatment")+ theme_minimal()
 ```
 
 
 ### Does speed decrease by trial number?
 ```{r}
-stats %>% filter(crop == "First half second", trial < 5, sline_speed_m_s < 0.2) %>%
-  ggplot(aes(x = jitter(trial), y = sline_speed_m_s, col = treatment))+
+stats %>% filter(crop == "First half second", trial < 5, sline_speed_mm_s < 200) %>%
+  ggplot(aes(x = jitter(trial), y = sline_speed_mm_s, col = treatment))+
   geom_point()+
   geom_smooth(method = 'lm', formula = y ~ x)+
   ggtitle("Straight line speed by trial number")+
@@ -241,13 +241,13 @@ stats %>% filter(crop == "First half second", trial < 5, sline_speed_m_s < 0.2) 
 ```
 ```{r}
 # Model the decrease in speed
-tiring_model <- lm(sline_speed_m_s ~ trial + treatment, data = stats)
+tiring_model <- lm(sline_speed_mm_s ~ trial + treatment, data = stats)
 summary(tiring_model)
 
 # There is an effect, but the effect is definitely small.
 
 # Limit it to under 5 trials
-tiring_model_under5 <- lm(sline_speed_m_s ~ trial + treatment, data = stats[stats$trial < 5,])
+tiring_model_under5 <- lm(sline_speed_mm_s ~ trial + treatment, data = stats[stats$trial < 5,])
 summary(tiring_model_under5)
 
 # Less of an effect with fewer trials.
@@ -258,7 +258,7 @@ summary(tiring_model_under5)
 ```{r}
 # Speed vs. gosner stage, by treatment
 stats %>% filter(!is.na(gs), crop == "First half second") %>% 
-  ggplot(aes(x = jitter(gs), y = sline_speed_m_s, col = treatment))+
+  ggplot(aes(x = jitter(gs), y = sline_speed_mm_s, col = treatment))+
   facet_wrap(~treatment)+
   geom_point() +
   geom_smooth(method = "lm")
@@ -274,7 +274,7 @@ accel_stats %>% filter(!is.na(gs), crop == "First half second") %>%
 ```{r}
 # Speed vs. PC1
 stats %>% filter(crop == "First half second") %>%
-  ggplot(aes(x = PC1, y = sline_speed_m_s, col = treatment))+
+  ggplot(aes(x = PC1, y = sline_speed_mm_s, col = treatment))+
   facet_wrap(~treatment)+
   geom_point()+
   geom_smooth(method = "lm")
@@ -282,7 +282,7 @@ stats %>% filter(crop == "First half second") %>%
 
 # Speed vs. PC2
 stats %>% filter(crop == "First half second") %>%
-  ggplot(aes(x = PC2, y = sline_speed_m_s, col = treatment))+
+  ggplot(aes(x = PC2, y = sline_speed_mm_s, col = treatment))+
   facet_wrap(~treatment)+
   geom_point()+
   geom_smooth(method = "lm")
@@ -329,7 +329,7 @@ stats <- stats %>% mutate(T_final = NULL) # remove T_final, since we don't have 
 
 ## Effects of water temp
 ```{r}
-stats %>% ggplot(aes(x = T_initial, y = sline_speed_m_s, col = treatment))+
+stats %>% ggplot(aes(x = T_initial, y = sline_speed_mm_s, col = treatment))+
   geom_point()+
   geom_smooth(method = "lm")
 ```
@@ -342,13 +342,13 @@ stats <- stats %>% filter(crop == "First half second")
 
 ### Fastest 1 trial
 ```{r}
-stats_fast1 <- stats %>% group_by(tadpole) %>% filter(!is.na(sline_speed_m_s)) %>%
-  filter(sline_speed_m_s == max(sline_speed_m_s))
+stats_fast1 <- stats %>% group_by(tadpole) %>% filter(!is.na(sline_speed_mm_s)) %>%
+  filter(sline_speed_mm_s == max(sline_speed_mm_s))
 ```
 
 ### Fastest 3 trials
 ```{r}
-stats_fast3 <- stats %>% filter(!is.na(sline_speed_m_s)) %>% group_by(tadpole) %>% arrange(desc(sline_speed_m_s), .by_group = T) %>% slice(1:3) 
+stats_fast3 <- stats %>% filter(!is.na(sline_speed_mm_s)) %>% group_by(tadpole) %>% arrange(desc(sline_speed_mm_s), .by_group = T) %>% slice(1:3) 
 ```
 
 ## Output
@@ -359,46 +359,14 @@ save(stats_fast3, file = "data/outputs/stats_fast3.Rda")
 
 ## Check for camera differences
 ```{r}
-stats_fast3 %>% ggplot(aes(x = camera, y = sline_speed_m_s))+
+stats_fast3 %>% ggplot(aes(x = camera, y = sline_speed_mm_s))+
   geom_violin()
 
-stats_fast3 %>% ggplot(aes(x = T_initial, y = sline_speed_m_s, col = camera))+
+stats_fast3 %>% ggplot(aes(x = T_initial, y = sline_speed_mm_s, col = camera))+
   geom_point()+
   geom_smooth(method = "lm")
 ```
 
-## Summary of individuals
-```{r}
-length(unique(wild_nonas$tadpole)) + length(unique(dat3_nonas$tadpole))
 
-wild_nonas %$% table(pond)
-dat3_nonas <- dat3_nonas %>%
-  mutate(clutch_only = str_extract(clutch, "(?<= )[[:digit:]]{1}"))
-dat3_nonas %$% table(pond, clutch_only)
-
-clutch_n <- dat3_nonas %>%
-  group_by(clutch) %>%
-  summarize(n = n())
-
-clutch_n %>% summarize(mean = mean(n),
-                       max = max(n),
-                       min = min(n))
-
-pond_n <- dat3_nonas %>%
-  group_by(pond) %>%
-  summarize(n = n())
-
-pond_n %>% summarize(mean = mean(n),
-                     max = max(n),
-                     min = min(n))
-
-wild_pond_n <- wild_nonas %>%
-  group_by(pond) %>%
-  summarize(n = n())
-
-wild_pond_n %>% summarize(mean = mean(n),
-                          max = max(n),
-                          min = min(n))
-```
 
 
