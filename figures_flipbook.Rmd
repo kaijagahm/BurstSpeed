@@ -97,8 +97,22 @@ dev4 %>% filter(!is.na(pond), !is.na(stage)) %>%
   ylab("Gosner stage")+
   theme(legend.position = "bottom")
 
-# Black and white
+# Color with points only for wild
+dev4 %>% filter(!is.na(pond), !is.na(stage)) %>%
+  filter(treatment %in% c("Low", "High")) %>%
+  ggplot(aes(x = photo.date, y = stage, col = treatment, group = tadpole))+
+  geom_smooth(se = F, method = "lm", lwd = 0.05)+
+  geom_point(data = dev4 %>% filter(!is.na(pond), !is.na(stage), treatment == "Wild", photo.date > "2019-05-01"), 
+             aes(x = photo.date, y = stage),
+             alpha = 0.3)+
+  theme_minimal()+
+  scale_color_manual(values = col_hilowi, name = "Temperature treatment")+
+  guides(color = guide_legend(override.aes = list(size = 5)))+
+  xlab("Date")+
+  ylab("Gosner stage")+
+  theme(legend.position = "bottom")
 
+# Black and white
 dev4 %>% filter(!is.na(pond), !is.na(stage)) %>%
   ggplot(aes(x = photo.date, y = stage, group = treatment))+
   #geom_point(size = 0.5)+
@@ -110,6 +124,9 @@ dev4 %>% filter(!is.na(pond), !is.na(stage)) %>%
   guides(lty = guide_legend(override.aes = list(lwd = 0.5)))+
   guides(lty = guide_legend(title = "Temperature \n treatment"))+
   theme(legend.position = "bottom")
+
+# Black and white with points only for wild
+# I can't figure out how to do this one!
 ```
 
 # Plasticity by pond and clutch
