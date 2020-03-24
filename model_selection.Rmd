@@ -219,8 +219,15 @@ df_preds %>% ggplot(aes(x = treatment, y = predicted_speed, fill = treatment))+
 Since all of the top 5 basically give the same results, we're going to choose model 1. 
 ```{r}
 consensus_mod <- m1
+
+# Get R-squared
 MuMIn::r.squaredGLMM(consensus_mod)
+
+# Confidence intervals for the coefficients
+#confint.merMod(consensus_mod, method = "boot", nsim = 1000, oldNames = FALSE)
+
 save(consensus_mod, file = "data/outputs/consensus_mod.Rda")
+summary(consensus_mod)
 ```
 
 ## Check residuals
@@ -406,7 +413,13 @@ reduced_model <- lmer(sline_speed_mm_s ~ mass + (1 | tadpole),
                 na.action = "na.fail",
                 REML = F)
 summary(reduced_model)
+
+# Get R-squared
 MuMIn::r.squaredGLMM(reduced_model)
+
+# Get confidence intervals for the coefficients
+#confint.merMod(reduced_model, method = "boot", nsim = 1000, oldNames = FALSE)
+
 consensus_mod_wild <- reduced_model
 save(consensus_mod_wild, file = "data/outputs/consensus_mod_wild.Rda")
 
