@@ -50,6 +50,14 @@ loggers_tojoin %>% ggplot(aes(x = date, y = mean_daily_temp_c, group = pond))+
   scale_linetype_manual(name = "Temperature treatment incubator", values = linetype_hilo, labels = c("High", "Low"))+
   guides(linetype = guide_legend(override.aes = list(lwd = 0.5)))+
   theme(legend.position = "bottom")
+
+#~~~~~~~~~~~~~ Temp boxplots
+load("data/outputs/fortempboxplots.Rda")
+
+fortempboxplots %>% ggplot(aes(x = pond, y = mean_daily_temp_c))+
+  geom_boxplot()+
+  xlab("Pond")+
+  ylab("Average daily temperature (ºC)")
 ```
 
 
@@ -60,7 +68,7 @@ load("data/outputs/dat3_nonas.Rda")
 # Color
 dat3_nonas %>% ggplot(aes(x = mass, y = sline_speed_mm_s, col = treatment))+
   geom_point()+
-  geom_smooth(method = "lm")+
+  geom_smooth(method = "lm", se = F)+
   ylab("Burst speed (mm/s)")+
   xlab("Mass (g)")+
   theme_minimal()+
@@ -70,7 +78,10 @@ dat3_nonas %>% ggplot(aes(x = mass, y = sline_speed_mm_s, col = treatment))+
 # Black and white
 dat3_nonas %>% ggplot(aes(x = mass, y = sline_speed_mm_s))+
   geom_point(aes(shape = treatment))+
-  geom_smooth(aes(lty = treatment), method = "lm", col = "black", lwd = 0.7)+
+  geom_smooth(aes(lty = treatment), method = "lm", 
+              col = "black", 
+              lwd = 0.7,
+              se = F)+
   ylab("Burst speed (mm/s)")+
   xlab("Mass (g)")+
   theme_minimal()+
@@ -84,6 +95,10 @@ dat3_nonas %>% ggplot(aes(x = mass, y = sline_speed_mm_s))+
 # Development rate over time
 ```{r}
 load("data/outputs/dev4.Rda")
+load("data/outputs/dat3_nonas.Rda")
+load("data/outputs/wild_nonas.Rda")
+
+dev4 <- dev4 %>% filter(tadpole %in% c(dat3_nonas$tadpole, wild_nonas$tadpole))
 
 # Color
 dev4 %>% filter(!is.na(pond), !is.na(stage)) %>%
@@ -112,6 +127,29 @@ dev4 %>% filter(!is.na(pond), !is.na(stage)) %>%
   ylab("Gosner stage")+
   theme(legend.position = "bottom")
 
+# Color with points for all
+finalpoints <- dev4 %>% # only the final photos for the high and low tadpoles.
+  filter(!is.na(pond), !is.na(stage), treatment != "Wild") %>% 
+  group_by(tadpole) %>%
+  slice(n())
+
+dev4 %>% filter(!is.na(pond), !is.na(stage)) %>%
+  filter(treatment != "Wild") %>%
+  ggplot(aes(x = photo.date, y = stage, col = treatment, group = tadpole))+
+  geom_smooth(se = F, method = "lm", lwd = 0.05)+
+  geom_point(data = dev4 %>% filter(!is.na(pond), !is.na(stage), treatment == "Wild", photo.date > "2019-05-01"), 
+             aes(x = photo.date, y = stage),
+             alpha = 0.3)+
+  geom_point(data = finalpoints %>% filter(photo.date > "2019-05-01"),
+             aes(x = photo.date, y = stage, col = treatment, group = tadpole),
+             alpha = 0.3)+
+  theme_minimal()+
+  scale_color_manual(values = col_hilowi, name = "Temperature treatment")+
+  guides(color = guide_legend(override.aes = list(size = 5)))+
+  xlab("Date")+
+  ylab("Gosner stage")+
+  theme(legend.position = "bottom")
+
 # Black and white
 dev4 %>% filter(!is.na(pond), !is.na(stage)) %>%
   ggplot(aes(x = photo.date, y = stage, group = treatment))+
@@ -127,6 +165,15 @@ dev4 %>% filter(!is.na(pond), !is.na(stage)) %>%
 
 # Black and white with points only for wild
 # I can't figure out how to do this one!
+
+
+# Linear models
+low <- lm(stage ~ photo.date, data = dev4 %>% filter(!is.na(pond), !is.na(stage), treatment == "Low"))
+summary(low)
+high <- lm(stage ~ photo.date, data = dev4 %>% filter(!is.na(pond), !is.na(stage), treatment == "High"))
+summary(high) 
+wild <- lm(stage ~ photo.date, data = dev4 %>% filter(!is.na(pond), !is.na(stage), treatment == "Wild"))
+summary(wild)
 ```
 
 # Plasticity by pond and clutch
@@ -290,4 +337,243 @@ pbw <- indiv_means %>%
 grid.draw(shift_legend(pbw)) # have to run this in the console for some reason
 
 ```
+
+# Average size and stage of tadpoles at time of trials
+```{r}
+load("data/outputs/dat3_nonas.Rda")
+dat3_nonas %>% select(tadpole) %>% distinct() %>% nrow()
+
+dat3_nonas %>% 
+  group_by(treatment) %>%
+  summarize(avg_stage = mean(gs, na.rm = T),
+            max_stage = max(gs, na.rm = T),
+            min_stage = min(gs, na.rm = T),
+            sd_stage = sd(gs, na.rm = T),
+            avg_mass = mean(mass, na.rm = T),
+            max_mass = max(mass, na.rm = T),
+            min_mass = min(mass, na.rm = T),
+            sd_mass = sd(mass, na.rm = T))
+
+load("data/outputs/wild_nonas.Rda")
+wild_nonas %>% 
+  summarize(avg_stage = mean(gs, na.rm = T),
+            max_stage = max(gs, na.rm = T),
+            min_stage = min(gs, na.rm = T),
+            sd_stage = sd(gs, na.rm = T),
+            avg_mass = mean(mass, na.rm = T),
+            max_mass = max(mass, na.rm = T),
+            min_mass = min(mass, na.rm = T),
+            sd_mass = sd(mass, na.rm = T))
+```
+
+# Model predictions (mass): lab-reared
+```{r}
+load("data/outputs/dat3_nonas.Rda")
+load("data/outputs/consensus_mod.Rda")
+
+# Function to calculate z scores
+standardize <- function(vector){
+  mu <- mean(vector)
+  sd <- sd(vector)
+  z_vector <- (vector-mu)/sd
+  return(z_vector)
+}
+
+dat3_nonas <- dat3_nonas %>% mutate_at(.vars = c("PC1", "PC2", "mass", "size", "gs", "T_initial"), standardize)
+
+preds <- dat3_nonas %>% 
+  select(-c(sline_speed_mm_s, trial, predicted_speed, predicted_speed_withresids)) %>% 
+  distinct() # create new df for predictions
+
+preds$pred <- predict(object = consensus_mod, newdata = preds) + summary(consensus_mod)$sigma # make predictions
+
+# Color
+preds %>% ggplot(aes(x = mass, y = pred, col = treatment))+
+  geom_point()+
+  geom_smooth(method = "lm", 
+              se = F)+
+  ylab("Burst speed (mm/s)")+
+  xlab("Mass (g)")+
+  theme_minimal()+
+  scale_color_manual(name = "Temperature treatment", values = col_hilo)+
+  theme(legend.position = "bottom")
+
+# Black and white
+preds %>% ggplot(aes(x = mass, y = pred))+
+  geom_point(aes(shape = treatment))+
+  geom_smooth(aes(lty = treatment), 
+              method = "lm", 
+              col = "black", 
+              lwd = 0.7,
+              se = F)+
+  ylab("Burst speed (mm/s)")+
+  xlab("Mass (g)")+
+  theme_minimal()+
+  scale_shape_manual(values = shape_hilo)+
+  scale_linetype_manual(values = linetype_hilo)+
+  guides(shape = guide_legend(title = "", override.aes = list(alpha = 1)))+
+  guides(lty = guide_legend(title = "Temperature \n treatment"))+
+  theme(legend.position = "bottom")
+```
+
+# Model predictions (gs): lab-reared
+```{r}
+# Color
+preds %>% ggplot(aes(x = jitter(gs), y = pred, col = treatment))+
+  geom_point()+
+  geom_smooth(method = "lm", 
+              se = F)+
+  ylab("Burst speed (mm/s)")+
+  xlab("Gosner stage")+
+  theme_minimal()+
+  scale_color_manual(name = "Temperature treatment", values = col_hilo)+
+  theme(legend.position = "bottom")
+
+# Black and white
+preds %>% ggplot(aes(x = jitter(gs), y = pred))+
+  geom_point(aes(shape = treatment))+
+  geom_smooth(aes(lty = treatment), 
+              method = "lm", 
+              col = "black", 
+              lwd = 0.7,
+              se = F)+
+  ylab("Burst speed (mm/s)")+
+  xlab("Gosner stage")+
+  theme_minimal()+
+  scale_shape_manual(values = shape_hilo)+
+  scale_linetype_manual(values = linetype_hilo)+
+  guides(shape = guide_legend(title = "", override.aes = list(alpha = 1)))+
+  guides(lty = guide_legend(title = "Temperature \n treatment"))+
+  theme(legend.position = "bottom")
+
+# Residual of mass on stage
+mass_stage_mod <- lm(mass ~ gs, data = preds)
+
+preds$mass_stage_resid <- resid(mass_stage_mod)
+
+# Color
+preds %>% ggplot(aes(x = mass_stage_resid, y = pred, col = treatment))+
+  geom_point()+
+  geom_smooth(method = "lm", 
+              se = F)+
+  ylab("Burst speed (mm/s)")+
+  xlab("Residual of mass at stage")+
+  theme_minimal()+
+  scale_color_manual(name = "Temperature treatment", values = col_hilo)+
+  theme(legend.position = "bottom")
+
+# Black and white
+preds %>% ggplot(aes(x = mass_stage_resid, y = pred))+
+  geom_point(aes(shape = treatment))+
+  geom_smooth(aes(lty = treatment), 
+              method = "lm", 
+              col = "black", 
+              lwd = 0.7,
+              se = F)+
+  ylab("Burst speed (mm/s)")+
+  xlab("Residual of mass at stage")+
+  theme_minimal()+
+  scale_shape_manual(values = shape_hilo)+
+  scale_linetype_manual(values = linetype_hilo)+
+  guides(shape = guide_legend(title = "", override.aes = list(alpha = 1)))+
+  guides(lty = guide_legend(title = "Temperature \n treatment"))+
+  theme(legend.position = "bottom")
+```
+
+# Model predictions: wild
+```{r}
+load("data/outputs/wild_nonas.Rda")
+head(wild_nonas)
+load("data/outputs/consensus_mod_wild.Rda")
+
+standardize <- function(vector){
+  mu <- mean(vector)
+  sd <- sd(vector)
+  z_vector <- (vector-mu)/sd
+  return(z_vector)
+}
+
+wild_nonas <- wild_nonas %>% mutate_at(.vars = c("PC1", "PC2", "mass", "size", "gs", "T_initial"), standardize)
+
+wild_preds <- wild_nonas %>% 
+  select(-c(sline_speed_mm_s, trial)) %>% 
+  distinct() %>% # create new df for predictions
+  select(mass, tadpole)
+
+wild_preds$pred <- predict(object = consensus_mod_wild, newdata = wild_preds, re.form = NULL) + summary(consensus_mod_wild)$sigma # make predictions
+
+wild_preds %>% ggplot(aes(x = mass, y = pred))+
+  geom_point(alpha = 0.4)+
+  geom_smooth(method = "lm", 
+              col = "black",
+              se = F)+
+  xlab("Mass")+
+  ylab("Burst speed (mm/s)")+
+  theme_minimal()
+```
+
+# Number of trials
+```{r}
+load("data/outputs/dat3_nonas.Rda")
+dat3_nonas %>% group_by(tadpole) %>% summarize(n = n()) %$% mean(n, na.rm = T) # average number of trials
+dat3_nonas %>% pull(tadpole) %>% unique() %>% length() # number of lab-reared tadpoles
+dat3_nonas %>% select(treatment, tadpole) %>% distinct() %$% table(treatment)
+
+
+load("data/outputs/wild_nonas.Rda")
+wild_nonas %>% group_by(tadpole) %>% summarize(n = n()) %$% mean(n, na.rm = T) # average number of trials
+wild_nonas %>% pull(tadpole) %>% unique() %>% length() # number of wild tadpoles
+
+
+
+wild_nonas %>% select(tadpole, trial) %>% rbind(dat3_nonas %>% select(tadpole, trial)) %>% group_by(tadpole) %>%
+  summarize(n = n()) %$% mean(n, na.rm = T) # average number of trials overall
+
+nrow(dat3_nonas) + nrow(wild_nonas)
+
+```
+
+# MAIN FIGURE: burst speed/mass, lab and wild
+```{r}
+load("data/outputs/dat3_nonas.Rda")
+load("data/outputs/consensus_mod.Rda")
+
+load("data/outputs/consensus_mod_wild.Rda")
+
+# Standardize variables
+# Function to calculate z scores
+standardize <- function(vector){
+  mu <- mean(vector)
+  sd <- sd(vector)
+  z_vector <- (vector-mu)/sd
+  return(z_vector)
+}
+
+dat3_nonas <- dat3_nonas %>% mutate_at(.vars = c("PC1", "PC2", "mass", "size", "gs", "T_initial"), standardize)
+
+# Get model predictions
+preds <- dat3_nonas %>% 
+  select(-c(sline_speed_mm_s, trial, predicted_speed, predicted_speed_withresids)) %>% 
+  distinct() # create new df for predictions
+
+preds$pred <- predict(object = consensus_mod, newdata = preds) + summary(consensus_mod)$sigma # make predictions
+
+summary(consensus_mod)$sigma
+summary(consensus_mod_wild)$sigma
+
+# Color figure
+preds %>% ggplot(aes(x = mass, y = pred, col = treatment))+
+  geom_point()+
+  geom_smooth(method = "lm", 
+              se = F)+
+  ylab("Burst speed (mm/s)")+
+  xlab("Mass (g)")+
+  theme_minimal()+
+  scale_color_manual(name = "Temperature treatment", values = col_hilo)+
+  theme(legend.position = "bottom")+
+  geom_abline(intercept = 59.876, 
+              slope = 4.276, 
+              lwd = 1)
+```
+
 
