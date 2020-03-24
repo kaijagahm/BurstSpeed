@@ -280,6 +280,9 @@ wild_initial_tojoin <- wild %>%
   mutate(stage = 1) # set stage to 1 on the oviposition date
 
 dev4 <- bind_rows(dev3, wild_initial_tojoin)
+
+dev4 <- dev4 %>% mutate(tadpole = case_when(treatment == "Wild" ~ paste0(tadpole, "_Wild"),
+                                            TRUE ~ tadpole))
 ```
 
 ## Save data
@@ -444,6 +447,31 @@ wild_tad_temps <- wild_tad_temps %>%
   mutate(tadpole = paste0(tadpole, "_Wild"))
 
 save(wild_tad_temps, file = "data/outputs/wild_tad_temps.Rda")
+```
+
+# Boxplots of daily temperatures during the dev. period
+```{r}
+head(unique_combos)
+pond_intervals <- unique_combos %>% 
+  group_by(pond) %>% 
+  filter(coll.date == max(coll.date)) %>% # get longest interval
+  select(-avg_pond_temp)
+
+fortempboxplots <- left_join(temps, pond_intervals, by = "pond") # join to ponds
+save(fortempboxplots, file = "data/outputs/fortempboxplots.Rda")
+
+# Crop to the developmental window and get just daily average temperatures
+fortempboxplots <- fortempboxplots %>% 
+  group_by(pond) %>% 
+  filter(date >= emb_collection_date & date <= coll.date) %>%
+  select(pond, date, mean_daily_temp_c, emb_collection_date, coll.date) %>%
+  distinct()
+
+# Make boxplots
+fortempboxplots %>% ggplot(aes(x = pond, y = mean_daily_temp_c))+
+  geom_boxplot()+
+  xlab("Pond")+
+  ylab("Average daily temperature")
 ```
 
 
