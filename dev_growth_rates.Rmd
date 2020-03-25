@@ -521,3 +521,28 @@ loggers_tojoin %>% ggplot(aes(x = date, y = mean_daily_temp_c, group = pond))+
   ylab("Temperature (ºC)")
 ```
 
+# Model dev rates
+```{r}
+standardize <- function(vector){
+  mu <- mean(vector)
+  sd <- sd(vector)
+  z_vector <- (vector-mu)/sd
+  return(z_vector)
+}
+
+head(dev4)
+
+formod <- dev4 %>% 
+  select(treatment, photo.date, tadpole, stage) %>%
+  mutate(treatment = factor(treatment),
+         tadpole = factor(tadpole),
+         photo.date = standardize(photo.date)) 
+head(formod)
+
+dev_mod <- lmer(stage ~ photo.date * treatment + (1 | tadpole), data = formod)
+summary(dev_mod)
+#stage predicted by photo.date * treatment, with a random effect for tadpole. Give a brief description of this and the linear method in the methods.
+
+dev4 %$% sd(photo.date)
+```
+
