@@ -128,6 +128,8 @@ pca.importance <- pca$pc.summary$importance %>% t() %>% as.data.frame() %>%
          pcnum = 1:nrow(.)) %>% 
   dplyr::rename(stdev = "Standard deviation", propvar = "Proportion of Variance", cumprop = "Cumulative Proportion")
 
+pca.importance
+
 # PC scores plot
 scores %>% ggplot(aes(x = PC1, y = PC2, col = treatment))+
   geom_point() + ggtitle("Tadpole morphometrics score plot") + stat_ellipse()
@@ -172,6 +174,7 @@ ref <- mshape(tadpole.gpa$coords) # mean coordinate values
 
 res <- plotTangentSpace(tadpole.gpa$coords, groups = treatments, verbose=TRUE)
 
+
 # Plot extremes of PC1
 parameters_PC1 <- gridPar(tar.pt.bg = "red", pt.size = 1, n.col.cell=50)
 
@@ -181,11 +184,14 @@ plotRefToTarget(M1 = ref, M2 = res$pc.shapes$PC1max, gridPars = parameters_PC1, 
 
 
 # Plot extremes of PC2
-parameters_PC2 <- gridPar(tar.pt.bg = "blue", pt.size = 1, n.col.cell=50)
+parameters_PC2 <- gridPar(tar.pt.bg = "black", 
+                          pt.size = 1, 
+                          n.col.cell = 20)
 
 plotRefToTarget(M1 = ref, M2 = res$pc.shapes$PC2min, gridPars = parameters_PC2, method = "TPS") #shape change along PC1 in the negative direction
 
 plotRefToTarget(M1 = ref, M2 = res$pc.shapes$PC2max, gridPars = parameters_PC2, method = "TPS") #shape change along PC1 in the positive direction
+
 ```
  
 So it seems that PC1 is basically a measurement of relative head/tail lengths, and PC2 is basically a measurement of length/depth ratio. Cool! Much more informative than linear measurements would have been.
