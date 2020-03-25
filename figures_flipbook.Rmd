@@ -516,33 +516,62 @@ nrow(dat3_nonas) + nrow(wild_nonas)
 
 # MAIN FIGURE: burst speed/mass, lab and wild
 ```{r}
-load("data/outputs/dat3_nonas_std.Rda")
-load("data/outputs/wild_nonas_std.Rda")
+load("data/outputs/newlab.mass.Rda")
+load("data/outputs/newwld.mass.Rda")
+load("data/outputs/newlab.gs.Rda")
+load("data/outputs/newwld.gs.Rda")
 
-load("data/outputs/consensus_mod.Rda")
-load("data/outputs/consensus_mod_wild.Rda")
+# Mass (with points)
+plot.mass <- newlab.mass %>%
+  ggplot(aes(x = mass, y = fit.re, col = treatment))+
+  geom_point()+ # lab points
+  geom_point(data = newwld.mass, col = "black")+
+  geom_smooth(method = "lm", se = F)+
+  geom_smooth(data = newwld.mass, aes(y = fit.nore),
+              method = "lm", se = F, col = "black")+
+  scale_color_manual(values = col_hilo)
+plot.mass
 
-# Get model predictions
-preds <- dat3_nonas_std %>% 
-  select(-c(sline_speed_mm_s, trial, predicted_speed, predicted_speed_withresids)) %>% 
-  distinct() # create new df for predictions
+# GS (with points)
+plot.gs <- newlab.gs %>%
+  ggplot(aes(x = gs, y = fit.re, col = treatment)) +
+  geom_point() +
+  geom_point(data = newwld.gs, col = "black") +
+  geom_smooth(data = newlab.gs, aes(y = fit.nore), 
+              method = 'lm', 
+              se = F) +
+  geom_smooth(data = newwld.gs, aes(y = fit.nore), 
+              method = 'lm', 
+              se = F, col = "black") +
+  scale_color_manual(values = col_hilo)
+plot.gs
 
-preds$pred <- predict(object = consensus_mod, newdata = preds) + summary(consensus_mod)$sigma # make predictions
+# Mass (with pond random effects)
+plot.mass.re <- newlab.mass %>%
+  ggplot(aes(x = mass, y = fit.re, col = treatment)) +
+  geom_smooth(aes(y = fit.re, group = interaction(pond, treatment)), 
+              method = 'lm', se = F, size = 0.5) +
+  geom_smooth(aes(y = fit.nore), 
+              method = 'lm', se = F, size = 2) +
+  geom_smooth(data = newwld.mass, aes(y = fit.re, group = pond), 
+              method = 'lm', se = F, col = 1, size = 0.5) +
+  geom_smooth(data = newwld.mass, aes(y = fit.nore), 
+              method = 'lm', se = F, col = 1, size = 2) +
+  scale_color_manual(values = col_hilo) 
+plot.mass.re
 
-# Color figure: mass
-preds %>% ggplot(aes(x = mass, y = pred, col = treatment))+
-  geom_point()+
-  geom_smooth(method = "lm", 
-              se = F)+
-  ylab("Burst speed (mm/s)")+
-  xlab("Mass (g)")+
-  theme_minimal()+
-  scale_color_manual(name = "Temperature treatment", values = col_hilo)+
-  theme(legend.position = "bottom")+
-  geom_abline(intercept = 59.7619, 
-              slope = 5.3765, 
-              lwd = 1)
-
+# GS (with pond random effects)
+plot.gs.re <- newlab.gs %>% ggplot(aes(x = gs, y = fit.re, col = treatment)) +
+  geom_smooth(data = newlab.gs, aes(y = fit.re, group = interaction(pond, treatment)), 
+              method = 'lm', se = F, size = 0.5) +
+  geom_smooth(data = newlab.gs, aes(y = fit.nore), 
+              method = 'lm', se = F, size = 2) +
+  geom_smooth(data = newwld.gs, aes(y = fit.re, group = pond), 
+              method = 'lm', se = F, col = 1, size = 0.5) +
+  geom_smooth(data = newwld.gs, aes(y = fit.nore), 
+              method = 'lm', se = F, col = 1, size = 2) +
+  scale_color_manual(values = col_hilo) 
+plot.gs.re
 
 ```
 
