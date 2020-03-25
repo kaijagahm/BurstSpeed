@@ -603,6 +603,15 @@ newwld.gs <- newwld.gs %>%
          fit.re = predict(replica_mod_wild, newdata = newwld.gs, re.form = NULL))
 ```
 
+#### Save datasets
+```{r}
+save(newlab.mass, file = "data/outputs/newlab.mass.Rda")
+save(newwld.mass, file = "data/outputs/newwld.mass.Rda")
+save(newlab.gs, file = "data/outputs/newlab.gs.Rda")
+save(newwld.gs, file = "data/outputs/newwld.gs.Rda")
+```
+
+
 #### Plot (GS)
 ```{r}
 plot.gs <- newlab.gs %>%
