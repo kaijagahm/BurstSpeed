@@ -16,7 +16,6 @@
 
 # Ignore data
 *.csv
-*.Rda
 *.xlsx
 *.txt
 
