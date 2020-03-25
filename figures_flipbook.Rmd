@@ -165,16 +165,6 @@ dev4 %>% filter(!is.na(pond), !is.na(stage)) %>%
 
 # Black and white with points only for wild
 # I can't figure out how to do this one!
-
-
-# CHANGE THESE TO MIXED MODELS
-# Linear models
-low <- lm(stage ~ photo.date, data = dev4 %>% filter(!is.na(pond), !is.na(stage), treatment == "Low"))
-summary(low)
-high <- lm(stage ~ photo.date, data = dev4 %>% filter(!is.na(pond), !is.na(stage), treatment == "High"))
-summary(high) 
-wild <- lm(stage ~ photo.date, data = dev4 %>% filter(!is.na(pond), !is.na(stage), treatment == "Wild"))
-summary(wild)
 ```
 
 # Plasticity by pond and clutch
@@ -563,11 +553,11 @@ plot.gs
 plot.mass.re <- newlab.mass %>%
   ggplot(aes(x = mass, y = fit.re, col = treatment)) +
   geom_smooth(aes(y = fit.re, group = interaction(pond, treatment)), 
-              method = 'lm', se = F, size = 0.5) +
+              method = 'lm', se = F, size = 0.2) +
   geom_smooth(aes(y = fit.nore), 
               method = 'lm', se = F, size = 2) +
   geom_smooth(data = newwld.mass, aes(y = fit.re, group = pond), 
-              method = 'lm', se = F, col = 1, size = 0.5) +
+              method = 'lm', se = F, col = 1, size = 0.2) +
   geom_smooth(data = newwld.mass, aes(y = fit.nore), 
               method = 'lm', se = F, col = 1, size = 2) +
   scale_color_manual(name = "Temperature treatment", values = col_hilo)+
@@ -579,11 +569,11 @@ plot.mass.re
 # GS (with pond random effects)
 plot.gs.re <- newlab.gs %>% ggplot(aes(x = gs, y = fit.re, col = treatment)) +
   geom_smooth(data = newlab.gs, aes(y = fit.re, group = interaction(pond, treatment)), 
-              method = 'lm', se = F, size = 0.5) +
+              method = 'lm', se = F, size = 0.2) +
   geom_smooth(data = newlab.gs, aes(y = fit.nore), 
               method = 'lm', se = F, size = 2) +
   geom_smooth(data = newwld.gs, aes(y = fit.re, group = pond), 
-              method = 'lm', se = F, col = 1, size = 0.5) +
+              method = 'lm', se = F, col = 1, size = 0.2) +
   geom_smooth(data = newwld.gs, aes(y = fit.nore), 
               method = 'lm', se = F, col = 1, size = 2) +
   scale_color_manual(name = "Temperature treatment", values = col_hilo)+
@@ -591,6 +581,8 @@ plot.gs.re <- newlab.gs %>% ggplot(aes(x = gs, y = fit.re, col = treatment)) +
   xlab("Gosner stage")+
   theme(legend.position = "bottom")
 plot.gs.re
+
+cowplot::plot_grid(plot.mass.re, plot.gs.re, align = "h")
 
 ```
 
