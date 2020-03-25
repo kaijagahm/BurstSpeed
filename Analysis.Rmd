@@ -571,12 +571,12 @@ plot.mass <- newlab.mass %>%
   ggplot(aes(x = mass, y = fit.re, col = treatment))+
   geom_point()+ # lab points
   geom_point(data = newwld.mass, col = "black")+
-  geom_smooth(method = "lm", se = F)+
+  geom_smooth(aes(y = fit.nore), 
+              method = "lm", se = F)+
   geom_smooth(data = newwld.mass, aes(y = fit.nore),
               method = "lm", se = F, col = "black")+
   scale_color_manual(values = c("orange", "dodgerblue3"))
 plot.mass
-# WHY ARE THE LAB-REARED FIT.RE AND THE WILD FIT.NORE?
 ```
 The wild tadpoles are about mid range of the lab tadpole treatments, at least in slope. But the variance in burst speed for the wild tadpoles is way greater.
 
