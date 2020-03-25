@@ -167,6 +167,7 @@ dev4 %>% filter(!is.na(pond), !is.na(stage)) %>%
 # I can't figure out how to do this one!
 
 
+# CHANGE THESE TO MIXED MODELS
 # Linear models
 low <- lm(stage ~ photo.date, data = dev4 %>% filter(!is.na(pond), !is.na(stage), treatment == "Low"))
 summary(low)
@@ -231,12 +232,10 @@ load("data/outputs/consensus_mod_wild.Rda")
 
 wild_nonas %>% ggplot(aes(x = mass, y = sline_speed_mm_s))+
   geom_point(alpha = 0.4)+
-  geom_smooth(method = "lm", col = "black")+
+  geom_smooth(method = "lm", col = "black", se = F)+
   xlab("Mass")+
   ylab("Burst speed (mm/s)")+
   theme_minimal()
-
-# Should add the regular tadpole data along with wild and plot the two together.
 ```
 
 # Comparison of high, low, and wild tadpoles in the same ponds
@@ -335,7 +334,6 @@ pbw <- indiv_means %>%
   ylab("Burst speed (mm/s)")
 
 grid.draw(shift_legend(pbw)) # have to run this in the console for some reason
-
 ```
 
 # Average size and stage of tadpoles at time of trials
@@ -368,21 +366,11 @@ wild_nonas %>%
 
 # Model predictions (mass): lab-reared
 ```{r}
-load("data/outputs/dat3_nonas.Rda")
+load("data/outputs/dat3_nonas_std.Rda")
 load("data/outputs/consensus_mod.Rda")
 
-# Function to calculate z scores
-standardize <- function(vector){
-  mu <- mean(vector)
-  sd <- sd(vector)
-  z_vector <- (vector-mu)/sd
-  return(z_vector)
-}
-
-dat3_nonas <- dat3_nonas %>% mutate_at(.vars = c("PC1", "PC2", "mass", "size", "gs", "T_initial"), standardize)
-
-preds <- dat3_nonas %>% 
-  select(-c(sline_speed_mm_s, trial, predicted_speed, predicted_speed_withresids)) %>% 
+preds <- dat3_nonas_std %>% 
+  select(-c(sline_speed_mm_s, trial)) %>% 
   distinct() # create new df for predictions
 
 preds$pred <- predict(object = consensus_mod, newdata = preds) + summary(consensus_mod)$sigma # make predictions
@@ -445,8 +433,11 @@ preds %>% ggplot(aes(x = jitter(gs), y = pred))+
   guides(shape = guide_legend(title = "", override.aes = list(alpha = 1)))+
   guides(lty = guide_legend(title = "Temperature \n treatment"))+
   theme(legend.position = "bottom")
+```
 
-# Residual of mass on stage
+# Model predictions (gs): lab-reared
+```{r}
+# Residual of mass on gosner stage
 mass_stage_mod <- lm(mass ~ gs, data = preds)
 
 preds$mass_stage_resid <- resid(mass_stage_mod)
@@ -482,20 +473,10 @@ preds %>% ggplot(aes(x = mass_stage_resid, y = pred))+
 
 # Model predictions: wild
 ```{r}
-load("data/outputs/wild_nonas.Rda")
-head(wild_nonas)
+load("data/outputs/wild_nonas_std.Rda")
 load("data/outputs/consensus_mod_wild.Rda")
 
-standardize <- function(vector){
-  mu <- mean(vector)
-  sd <- sd(vector)
-  z_vector <- (vector-mu)/sd
-  return(z_vector)
-}
-
-wild_nonas <- wild_nonas %>% mutate_at(.vars = c("PC1", "PC2", "mass", "size", "gs", "T_initial"), standardize)
-
-wild_preds <- wild_nonas %>% 
+wild_preds <- wild_nonas_std %>% 
   select(-c(sline_speed_mm_s, trial)) %>% 
   distinct() %>% # create new df for predictions
   select(mass, tadpole)
@@ -535,33 +516,20 @@ nrow(dat3_nonas) + nrow(wild_nonas)
 
 # MAIN FIGURE: burst speed/mass, lab and wild
 ```{r}
-load("data/outputs/dat3_nonas.Rda")
-load("data/outputs/consensus_mod.Rda")
+load("data/outputs/dat3_nonas_std.Rda")
+load("data/outputs/wild_nonas_std.Rda")
 
+load("data/outputs/consensus_mod.Rda")
 load("data/outputs/consensus_mod_wild.Rda")
 
-# Standardize variables
-# Function to calculate z scores
-standardize <- function(vector){
-  mu <- mean(vector)
-  sd <- sd(vector)
-  z_vector <- (vector-mu)/sd
-  return(z_vector)
-}
-
-dat3_nonas <- dat3_nonas %>% mutate_at(.vars = c("PC1", "PC2", "mass", "size", "gs", "T_initial"), standardize)
-
 # Get model predictions
-preds <- dat3_nonas %>% 
+preds <- dat3_nonas_std %>% 
   select(-c(sline_speed_mm_s, trial, predicted_speed, predicted_speed_withresids)) %>% 
   distinct() # create new df for predictions
 
 preds$pred <- predict(object = consensus_mod, newdata = preds) + summary(consensus_mod)$sigma # make predictions
 
-summary(consensus_mod)$sigma
-summary(consensus_mod_wild)$sigma
-
-# Color figure
+# Color figure: mass
 preds %>% ggplot(aes(x = mass, y = pred, col = treatment))+
   geom_point()+
   geom_smooth(method = "lm", 
@@ -571,9 +539,11 @@ preds %>% ggplot(aes(x = mass, y = pred, col = treatment))+
   theme_minimal()+
   scale_color_manual(name = "Temperature treatment", values = col_hilo)+
   theme(legend.position = "bottom")+
-  geom_abline(intercept = 59.876, 
-              slope = 4.276, 
+  geom_abline(intercept = 59.7619, 
+              slope = 5.3765, 
               lwd = 1)
+
+
 ```
 
 
