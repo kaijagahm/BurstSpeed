@@ -132,11 +132,6 @@ The similarity between these graphs shows us that we have correctly specified th
 ```
 Size, mass, and gosner stage are all closely correlated. 
 
-## Remove observations that are NA for mass
-```{r}
-dat3_nonas <- dat3_nonas %>% filter(!is.na(mass))
-```
-
 ### Standardize variables
 ```{r}
 # Function to calculate z scores
@@ -431,5 +426,6 @@ formula(consensus_mod)
 replica_mod_wild <- lmer(sline_speed_mm_s ~ mass * avg_pond_temp + gs + T_initial + (1 | tadpole), data = wild_nonas_std)
 
 summary(replica_mod_wild)
+save(replica_mod_wild, file = "data/outputs/replica_mod_wild.Rda")
 ```
 
