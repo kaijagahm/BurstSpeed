@@ -177,22 +177,7 @@ problemtadpoles %in% allmorpho$tadpole # we just don't have morpho data for thes
 problemtadpoles
 ```
 
-## Exploratory plotting
-```{r}
-tadpoles <- unique(bursts_allcrops$tadpole)
 
-bursts_allcrops %>% filter(tadpole == tadpoles[100], crop == "First half second") %>% 
-  ggplot(aes(x = frame_burst, y = speedma5, col = factor(trial)))+
-  geom_line()+
-  xlab("Frame")+
-  ylab("Speed (5-frame moving average)")
-
-accels_allcrops %>% filter(tadpole == tadpoles[100], crop == "First half second") %>%
-  ggplot(aes(x = frame_burst, y = accelma5, col = factor(trial)))+
-  geom_line()+
-  xlab("Frame")+
-  ylab("Acceleration (5-frame moving average)")
-```
 
 ### Exploring acceleration
 ```{r}
