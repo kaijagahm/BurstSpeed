@@ -16,7 +16,7 @@ source("libraries.R")
 
 # Load data
 ```{r}
-load("data/outputs/stats_fast3.Rda")
+load("data/outputs/stats_fast3.Rda") # this includes lab and wild tads
 ```
 
 # Further data cleaning
@@ -54,56 +54,69 @@ save(dat3, file = "data/outputs/dat3.Rda")
 save(wild, file = "data/outputs/wild.Rda")
 ```
 
+## Remove NA's
+### Wild
+```{r}
+wild_nonas <- wild[complete.cases(wild),] # remove NA's
+wild_nonas <- wild_nonas %>% filter(!is.na(T_initial), !is.na(mass))
+save(wild_nonas, file = "data/outputs/wild_nonas.Rda")
+```
+
+### Lab-reared
+```{r}
+dat3_nonas <- dat3 %>% filter(!is.na(T_initial) & !is.na(mass))
+locate.nas(dat3_nonas)
+save(dat3_nonas, file = "data/outputs/dat3_nonas.Rda")
+```
+
 # Mixed modeling
 Hierarchical mixed model, incorporating pond within clutch and accounting for multiple trials per individual
 Dat3: fastest 3 trials per tadpole
 
 ## Establish random effect structure
 ```{r}
-mod1 <- lmer(sline_speed_mm_s ~ treatment * mass + (1|pond/clutch) + (1|indiv) + (1|camera), data = dat3)
+mod1 <- lmer(sline_speed_mm_s ~ treatment * mass + (1|pond/clutch) + (1|indiv) + (1|camera), data = dat3_nonas)
 summary(mod1)
 
 # without the camera
-modx <- lmer(sline_speed_mm_s ~ treatment * mass + (1|pond/clutch) + (1|indiv), data = dat3)
+modx <- lmer(sline_speed_mm_s ~ treatment * mass + (1|pond/clutch) + (1|indiv), data = dat3_nonas)
 summary(modx)
 
 # exclude mass and camera
-modpond <- lmer(sline_speed_mm_s ~ treatment + (1|pond/clutch) + (1|indiv), data = dat3)
+modpond <- lmer(sline_speed_mm_s ~ treatment + (1|pond/clutch) + (1|indiv), data = dat3_nonas)
 summary(modpond)
 
 # remove indiv
-modpond2 <- lmer(sline_speed_mm_s ~ treatment + (1|pond/clutch), data = dat3)
+modpond2 <- lmer(sline_speed_mm_s ~ treatment + (1|pond/clutch), data = dat3_nonas)
 summary(modpond2)
 
-?lmer
-
 # removing the pond and camera random effects, because they don't tell us much. In fact, we need to remove the pond effect to get a non-singular fit.
-mod3 <- lmer(sline_speed_mm_s ~ treatment * mass + (1|clutch/indiv), data = dat3) # use this syntax, but remember that clutch already accounts for being nested thin pond. 
+mod3 <- lmer(sline_speed_mm_s ~ treatment * mass + (1|clutch/indiv), data = dat3_nonas) # use this syntax, but remember that clutch already accounts for being nested thin pond. 
 # note that if we add camera to this model, it doesn't converge.
 
 # : specifies that clutch is nested within pond, but without first fitting pond (since we discovered we don't need to)
 # / explicitly fits pond first and then clutch.
 
-dat3$predicted_speed <- predict(mod1, re.form = NA, newdata = dat3)
-dat3$predicted_speed_withresids <- predict(mod1, re.form = NA, newdata = dat3) + resid(mod1, newdata = dat3)
+dat3_nonas$predicted_speed <- predict(mod1, re.form = NA, newdata = dat3_nonas)
+dat3_nonas$predicted_speed_withresids <- predict(mod1, re.form = NA, newdata = dat3_nonas) + resid(mod1, newdata = dat3_nonas)
 ```
 
 ## Check random effect structure
 ```{r}
 # Compare ggplots
-dat3 %>% ggplot(aes(x = mass, y = sline_speed_mm_s, col = treatment))+
+dat3_nonas %>% ggplot(aes(x = mass, y = sline_speed_mm_s, col = treatment))+
   geom_point()+
   geom_smooth(method = "lm")+
   ylab("speed (mm/s)")+
   ggtitle("Original data")
 
-dat3 %>% ggplot(aes(x = mass, y = predicted_speed, col = treatment))+
+dat3_nonas %>% ggplot(aes(x = mass, y = predicted_speed, col = treatment))+
   geom_point()+
   geom_smooth(method = "lm")+
   ylab("predicted_speed (mm/s)")+
   ggtitle("Predicted data")
 
-dat3 %>% ggplot(aes(x = mass, y = predicted_speed_withresids, col = treatment))+
+dat3_nonas %>% ggplot(aes(x = mass, y = predicted_speed_withresids, col = treatment))+
   geom_point()+
   geom_smooth(method = "lm")+
   ylab("predicted_speed_withresids (mm/s)")+
@@ -115,19 +128,13 @@ The similarity between these graphs shows us that we have correctly specified th
 ## Figure out main effects
 ### Investigate correlations
 ```{r}
-#dat3 %>% select(PC1, PC2, size, mass, gs, T_initial, treatment) %>% ggpairs()
+#dat3_nonas %>% select(PC1, PC2, size, mass, gs, T_initial, treatment) %>% ggpairs()
 ```
 Size, mass, and gosner stage are all closely correlated. 
 
 ## Remove observations that are NA for mass
 ```{r}
-dat3 <- dat3 %>% filter(!is.na(mass))
-```
-
-### Remove NA's
-```{r}
-dat3_nonas <- dat3 %>% filter(!is.na(T_initial))
-save(dat3_nonas, file = "data/outputs/dat3_nonas.Rda")
+dat3_nonas <- dat3_nonas %>% filter(!is.na(mass))
 ```
 
 ### Standardize variables
@@ -140,7 +147,8 @@ standardize <- function(vector){
   return(z_vector)
 }
 
-dat3_nonas <- dat3_nonas %>% mutate_at(.vars = c("PC1", "PC2", "mass", "size", "gs", "T_initial"), standardize)
+dat3_nonas_std <- dat3_nonas %>% mutate_at(.vars = c("PC1", "PC2", "mass", "size", "gs", "T_initial"), standardize)
+save(dat3_nonas_std, file = "data/outputs/dat3_nonas_std.Rda")
 ```
 
 ## Make some biological decisions
@@ -152,7 +160,7 @@ In all of the tests that we ran, PC1 and PC2 were kind of equivalent (but with s
 ### Fit full model
 ```{r}
 full <- lmer(sline_speed_mm_s ~ PC2*mass*gs*treatment + T_initial + (1|clutch/indiv),
-             data = dat3_nonas, na.action = "na.fail", REML = F)
+             data = dat3_nonas_std, na.action = "na.fail", REML = F)
 vif(full) # check variance inflation factors: kind of high, but we're also going to be removing some of the interaction terms. Doesn't look too bad for the individual terms, especially because we already know that mass and gosner stage are correlated.
 
 #dredge_full <- dredge(full)
@@ -167,32 +175,31 @@ load("data/outputs/dredge_full.Rda") # load the dredge output
 dredge_full[1:5,] # take a look at the top five models
 
 m1 <- lmer(sline_speed_mm_s ~ mass*treatment + gs + T_initial + 
-             (1 | clutch/indiv), data = dat3_nonas, REML = F, 
+             (1 | clutch/indiv), data = dat3_nonas_std, REML = F, 
     na.action = "na.fail")
-summary(m1)
 
 m2 <- lmer(sline_speed_mm_s ~ mass*treatment + PC2 + gs + T_initial + 
-             (1 | clutch/indiv), data = dat3_nonas, REML = F, 
+             (1 | clutch/indiv), data = dat3_nonas_std, REML = F, 
     na.action = "na.fail")
 
 m3 <- lmer(sline_speed_mm_s ~ mass*treatment + gs*mass + T_initial + 
-             (1 | clutch/indiv), data = dat3_nonas, REML = F, 
+             (1 | clutch/indiv), data = dat3_nonas_std, REML = F, 
     na.action = "na.fail")
 
 m4 <- lmer(sline_speed_mm_s ~ treatment*gs + T_initial + 
-             (1 | clutch/indiv), data = dat3_nonas, REML = F, 
+             (1 | clutch/indiv), data = dat3_nonas_std, REML = F, 
     na.action = "na.fail")
 
 m5 <- lmer(sline_speed_mm_s ~ mass*treatment + gs*mass + PC2 + T_initial + 
-             (1 | clutch/indiv), data = dat3_nonas, REML = F, na.action = "na.fail")
+             (1 | clutch/indiv), data = dat3_nonas_std, REML = F, na.action = "na.fail")
 
 # all of these have singular fits! Is that a problem?
 ```
 
 ### Create new df of means
 ```{r}
-newdf <- dat3_nonas %>% select(treatment, clutch, indiv) # select grouping cols
-newdf_means <- dat3_nonas %>% summarize(mass = mean(mass), # take mean of each
+newdf <- dat3_nonas_std %>% select(treatment, clutch, indiv) # select grouping cols
+newdf_means <- dat3_nonas_std %>% summarize(mass = mean(mass), # take mean of each
                                         gs = mean(gs),
                                         T_initial = mean(T_initial),
                                         PC2 = mean(PC2))
@@ -219,6 +226,7 @@ df_preds %>% ggplot(aes(x = treatment, y = predicted_speed, fill = treatment))+
 Since all of the top 5 basically give the same results, we're going to choose model 1. 
 ```{r}
 consensus_mod <- m1
+summary(consensus_mod)
 
 # Get R-squared
 MuMIn::r.squaredGLMM(consensus_mod)
@@ -232,65 +240,66 @@ summary(consensus_mod)
 
 ## Check residuals
 ```{r}
-dat3_nonas <- dat3_nonas %>% mutate(resid = resid(consensus_mod))
+dat3_nonas_std <- dat3_nonas_std %>% mutate(resid = resid(consensus_mod))
 formula(consensus_mod)
 
-dat3_nonas %$% qqnorm(resid)
+dat3_nonas_std %$% qqnorm(resid)
 plot(consensus_mod) # looks roughly normal, but just to make sure, we'll do individual plots
 
-dat3_nonas %>% ggplot(aes(x = gs, y = resid))+
+dat3_nonas_std %>% ggplot(aes(x = gs, y = resid))+
   geom_point() +
   facet_wrap(~treatment) # the gosner stage data violates the equal variance assumption
 
-dat3_nonas %>% ggplot(aes(x = T_initial, y = resid))+
+dat3_nonas_std %>% ggplot(aes(x = T_initial, y = resid))+
   geom_point() +
   facet_wrap(~treatment)
 
-dat3_nonas %>% ggplot(aes(x = resid, col = treatment))+
+dat3_nonas_std %>% ggplot(aes(x = resid, col = treatment))+
   geom_density(aes(fill = treatment), alpha = 0.5)
 ```
 
 ## Add variance structure
 ```{r}
-# this is how we fitted our original model, mod_gs
-formula(consensus_mod)
-
-mod_nostruct <- lme(sline_speed_mm_s ~ mass*treatment + gs + T_initial, 
-         random = ~ 1 | clutch/indiv, 
-         data = dat3_nonas)
-summary(mod_nostruct)
-
-mod_varfixed <- lme(sline_speed_mm_s ~ mass*treatment + gs + T_initial, 
-         random = ~ 1 | clutch/indiv,
-         weights = varFixed(~gs),
-         data = dat3_nonas)
-summary(mod_varfixed)
-
-mod_varident <- lme(sline_speed_mm_s ~ mass*treatment + gs + T_initial,
-         random = ~ 1 | clutch/indiv,
-         weights = varIdent(form = ~ 1 | factor(as.character(gs))),
-         data = dat3_nonas)
-
-# mod_varpower <- lme(sline_speed_mm_s ~ mass*treatment + gs + T_initial, 
+# # this is how we fitted our original model, mod_gs
+# formula(consensus_mod)
+# summary(consensus_mod)
+# 
+# mod_nostruct <- lme(sline_speed_mm_s ~ mass*treatment + gs + T_initial,
 #          random = ~ 1 | clutch/indiv,
-#          weights = varPower(form = ~ gs),
-#          data = dat3_nonas)
-# summary(mod_varpower) # but we shouldn't use this, since gs can take a value of 0 once scaled.
+#          data = dat3_nonas_std)
+# summary(mod_nostruct)
+# 
+# mod_varfixed <- lme(sline_speed_mm_s ~ mass*treatment + gs + T_initial,
+#          random = ~ 1 | clutch/indiv,
+#          weights = varFixed(~gs),
+#          data = dat3_nonas_std)
+# summary(mod_varfixed)
+# 
+# mod_varident <- lme(sline_speed_mm_s ~ mass*treatment + gs + T_initial,
+#          random = ~ 1 | clutch/indiv,
+#          weights = varIdent(form = ~ 1 | factor(as.character(gs))),
+#          data = dat3_nonas_std)
+# 
+# # mod_varpower <- lme(sline_speed_mm_s ~ mass*treatment + gs + T_initial,
+# #          random = ~ 1 | clutch/indiv,
+# #          weights = varPower(form = ~ gs),
+# #          data = dat3_nonas)
+# # summary(mod_varpower) # but we shouldn't use this, since gs can take a value of 0 once scaled.
+# 
+# mod_varexp <- lme(sline_speed_mm_s ~ mass*treatment + gs + T_initial,
+#          random = ~ 1 | clutch/indiv,
+#          weights = varExp(form = ~ gs),
+#          data = dat3_nonas_std)
+# summary(mod_varexp)
+# 
+# mod_varconstpower <- lme(sline_speed_mm_s ~ mass*treatment + gs + T_initial,
+#          random = ~ 1 | clutch/indiv,
+#          weights = varConstPower(form = ~ gs),
+#          data = dat3_nonas_std)
+# summary(mod_varconstpower)
 
-mod_varexp <- lme(sline_speed_mm_s ~ mass*treatment + gs + T_initial, 
-         random = ~ 1 | clutch/indiv,
-         weights = varExp(form = ~ gs),
-         data = dat3_nonas)
-summary(mod_varexp)
 
-mod_varconstpower <- lme(sline_speed_mm_s ~ mass*treatment + gs + T_initial, 
-         random = ~ 1 | clutch/indiv,
-         weights = varConstPower(form = ~ gs),
-         data = dat3_nonas)
-summary(mod_varconstpower)
-
-
-anova(mod_nostruct, mod_varfixed, mod_varident, mod_varexp, mod_varconstpower) # var_nostruct actually wins
+#anova(mod_nostruct, mod_varfixed, mod_varident, mod_varexp, mod_varconstpower) # var_nostruct actually wins
 ```
 
 # Save model with structure
@@ -300,11 +309,6 @@ anova(mod_nostruct, mod_varfixed, mod_varident, mod_varexp, mod_varconstpower) #
 ```
 
 # Wild tadpoles
-## Load data
-```{r}
-load("data/outputs/wild_nonas.Rda")
-```
-
 ## Add pond temps
 ```{r}
 load("data/outputs/wild_tad_temps.Rda") # Load wild tadpole pond temperatures
@@ -326,25 +330,15 @@ standardize <- function(vector){
   return(z_vector)
 }
 
-wild_nonas <- wild_nonas %>% mutate_at(.vars = c("PC1", "PC2", "mass", "size", "gs", "T_initial", "avg_pond_temp"), standardize)
-```
-
-### Re-create consensus model: does it work for wild tads?
-```{r}
-load("data/outputs/consensus_mod.Rda")
-formula(consensus_mod)
-wild_mod <- lmer(sline_speed_mm_s ~ mass * avg_pond_temp + gs + T_initial + (1 | tadpole), 
-                 data = wild_nonas, REML = F,
-                 na.action = "na.fail")
-summary(wild_mod)
-vif(wild_mod) # Variance inflation factors look okay.
+wild_nonas_std <- wild_nonas %>% mutate_at(.vars = c("PC1", "PC2", "mass", "size", "gs", "T_initial", "avg_pond_temp"), standardize)
+save(wild_nonas_std, file = "data/outputs/wild_nonas_std.Rda")
 ```
 
 ### Dredging
 ```{r}
 # Full model, with no pond effect
 full <- lmer(sline_speed_mm_s ~ PC2*mass*gs*avg_pond_temp + T_initial + (1 | tadpole),
-             data = wild_nonas, 
+             data = wild_nonas_std, 
              na.action = "na.fail", 
              REML = F)
 # Do the same mean-based analysis on this one as I did for the lab-reared tadpoles. 
@@ -360,26 +354,26 @@ full <- lmer(sline_speed_mm_s ~ PC2*mass*gs*avg_pond_temp + T_initial + (1 | tad
 load("data/outputs/wild_full_dredge.Rda")
 wild_full_dredge[1:5,] # take a look at the top five models
 
-m1 <- lmer(sline_speed_mm_s ~ mass + (1 | tadpole), data = wild_nonas, REML = F, 
+m1 <- lmer(sline_speed_mm_s ~ mass + (1 | tadpole), data = wild_nonas_std, REML = F, 
            na.action = "na.fail")
 
-m2 <- lmer(sline_speed_mm_s ~ mass + avg_pond_temp + (1 | tadpole), data = wild_nonas, REML = F, 
+m2 <- lmer(sline_speed_mm_s ~ mass + avg_pond_temp + (1 | tadpole), data = wild_nonas_std, REML = F, 
            na.action = "na.fail")
 
-m3 <- lmer(sline_speed_mm_s ~ mass + PC2 + (1 | tadpole), data = wild_nonas, REML = F, 
+m3 <- lmer(sline_speed_mm_s ~ mass + PC2 + (1 | tadpole), data = wild_nonas_std, REML = F, 
            na.action = "na.fail")
 
-m4 <- lmer(sline_speed_mm_s ~ gs + (1 | tadpole), data = wild_nonas, REML = F, 
+m4 <- lmer(sline_speed_mm_s ~ gs + (1 | tadpole), data = wild_nonas_std, REML = F, 
            na.action = "na.fail")
 
-m5 <- lmer(sline_speed_mm_s ~ mass + T_initial + (1 | tadpole), data = wild_nonas, REML = F, 
+m5 <- lmer(sline_speed_mm_s ~ mass + T_initial + (1 | tadpole), data = wild_nonas_std, REML = F, 
            na.action = "na.fail")
 ```
 
 ### Create new df of means
 ```{r}
-wild_newdf <- wild_nonas %>% select(tadpole) # select grouping cols
-newdf_means <- wild_nonas %>% summarize(mass = mean(mass), # take mean of each
+wild_newdf <- wild_nonas_std %>% select(tadpole) # select grouping cols
+newdf_means <- wild_nonas_std %>% summarize(mass = mean(mass), # take mean of each
                                       gs = mean(gs),
                                       T_initial = mean(T_initial),
                                       PC2 = mean(PC2),
@@ -409,7 +403,7 @@ wild_df_preds %>% ggplot(aes(y = predicted_speed))+
 ```{r}
 # Select reduced model: best AIC
 reduced_model <- lmer(sline_speed_mm_s ~ mass + (1 | tadpole),
-                data = wild_nonas,
+                data = wild_nonas_std,
                 na.action = "na.fail",
                 REML = F)
 summary(reduced_model)
@@ -423,9 +417,19 @@ MuMIn::r.squaredGLMM(reduced_model)
 consensus_mod_wild <- reduced_model
 save(consensus_mod_wild, file = "data/outputs/consensus_mod_wild.Rda")
 
-wild_nonas %>% ggplot(aes(x = mass, y = sline_speed_mm_s))+
+wild_nonas_std %>% ggplot(aes(x = mass, y = sline_speed_mm_s))+
   geom_point(alpha = 0.4)+
   geom_smooth(method = "lm", col = "black")+
   xlab("Mass")+
   ylab("Burst speed (mm/s)")
 ```
+
+## Re-create the lab-reared model: model selection be damned!
+```{r}
+formula(consensus_mod)
+
+replica_mod_wild <- lmer(sline_speed_mm_s ~ mass * avg_pond_temp + gs + T_initial + (1 | tadpole), data = wild_nonas_std)
+
+summary(replica_mod_wild)
+```
+
