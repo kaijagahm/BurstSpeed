@@ -18,15 +18,13 @@ source("libraries.R")
 ```{r}
 load("data/outputs/dat3.Rda")
 load("data/outputs/wild.Rda")
+
+# without NA's
+load("data/outputs/wild_nonas.Rda")
 load("data/outputs/dat3_nonas.Rda")
+load("data/outputs/wild_nonas_std.Rda")
+load("data/outputs/dat3_nonas_std.Rda")
 ```
-
-## Clean wild data
-```{r}
-wild_nonas <- wild[complete.cases(wild),] # remove NA's
-save(wild_nonas, file = "data/outputs/wild_nonas.Rda")
-```
-
 
 # Summary stats
 ## Number of individuals
@@ -34,7 +32,7 @@ save(wild_nonas, file = "data/outputs/wild_nonas.Rda")
 length(unique(wild_nonas$tadpole)) + length(unique(dat3_nonas$tadpole))
 
 dat3_nonas_forsummary <- dat3_nonas %>%
-  select(-c(trial, sline_speed_mm_s, T_initial, camera, predicted_speed, predicted_speed_withresids)) %>%
+  select(-c(trial, sline_speed_mm_s, T_initial, camera)) %>%
   distinct() %>%
   mutate(clutch_only = str_extract(clutch, "(?<= )[[:digit:]]{1}"))
 
@@ -257,7 +255,7 @@ iccc_clutch
 ## Differences in means
 ### Individual means
 ```{r}
-indiv_means <- dat3 %>% group_by(indiv) %>% 
+indiv_means <- dat3_nonas %>% group_by(indiv) %>% 
   summarize(indiv_mean_speed = mean(sline_speed_mm_s),
             clutch = clutch[1],
             treatment = treatment[1],
@@ -284,8 +282,6 @@ clutch_means <- clutch_means %>%
   ungroup() %>%
   filter(freq == 2) %>%
   select(-freq)
-
-# We actually only removed CPS 1, which didn't occur in the Low treatment (probably because they all died?)
 ```
 
 ###Treatment differences
@@ -496,8 +492,7 @@ wild_nonas %>%
 names(wild_nonas)
 names(dat3_nonas)
 
-all <- bind_rows(wild_nonas, dat3_nonas) %>%
-  select(-c(predicted_speed, predicted_speed_withresids))
+all <- bind_rows(wild_nonas, dat3_nonas)
 
 indiv_means <- all %>% 
   group_by(pond, treatment, tadpole) %>%
@@ -515,4 +510,159 @@ indiv_means %>%
   facet_wrap(~pond)+
   theme_minimal()
 ```
+
+## Model predictions
+```{r}
+# Load data
+load("data/outputs/dat3_nonas.Rda")
+load("data/outputs/wild_nonas.Rda")
+
+load("data/outputs/dat3_nonas_std.Rda")
+load("data/outputs/wild_nonas_std.Rda")
+
+# Load models
+load("data/outputs/consensus_mod.Rda")
+load("data/outputs/replica_mod_wild.Rda")
+```
+
+### Development and allocation
+```{r}
+plot.alloc <- dat3_nonas %>% ggplot(aes(x = gs, y = mass, col = treatment))+ # plot lab-reared tadpoles
+  geom_point()+
+  geom_smooth(method = "lm")+
+  geom_point(data = wild_nonas, color = "black")+ # add points and line for wild tadpoles
+  geom_smooth(data = wild_nonas, method = "lm", col = "black")
+plot.alloc
+```
+It looks like there is no real difference in allocation between the lab treatments, but wild tadpoles are generally larger at all stages. Worth noting that the wild tads have much more variance. Slopes (allocation rate) is pretty similar. -Andis
+
+### Partial regressions
+Display the effect of a focal variable while holding the other variables at their averages (or medians, for Gosner stage). In this case, we're holding other variables at the mean _of the lab tadpoles_.
+#### WHY?
+
+#### Mean-constant data (mass)
+I make a new dataset holding all variables constant except for mass for both the lab tadpoles and the wild and use the models to predict burstspeeds. -Andis
+```{r}
+# Make new datasets
+newlab.mass <- dat3_nonas_std %>% # make new means/medians dataset (lab)
+  select(indiv, clutch, mass, treatment, pond, T_initial, gs) %>%
+  mutate(T_initial = mean(T_initial),
+         gs = median(gs, na.rm = T))
+
+newwld.mass <- wild_nonas_std %>% # make new means/medians dataset (wild)
+  select(tadpole, mass, pond, T_initial, gs, avg_pond_temp) %>%
+  mutate(T_initial = mean(T_initial), 
+         gs = median(gs),
+         avg_pond_temp = mean(avg_pond_temp))
+
+# Add predictions
+newlab.mass <- newlab.mass %>%
+  mutate(fit.nore = predict(consensus_mod, newdata = newlab.mass, re.form = ~0),
+         fit.re = predict(consensus_mod, newdata = newlab.mass, re.form = NULL))
+
+newwld.mass <- newwld.mass %>%
+  mutate(fit.nore = predict(replica_mod_wild, newdata = newwld.mass, re.form = ~0),
+         fit.re = predict(replica_mod_wild, newdata = newwld.mass, re.form = NULL))
+```
+
+#### Plot (mass)
+```{r}
+plot.mass <- newlab.mass %>%
+  ggplot(aes(x = mass, y = fit.re, col = treatment))+
+  geom_point()+ # lab points
+  geom_point(data = newwld.mass, col = "black")+
+  geom_smooth(method = "lm", se = F)+
+  geom_smooth(data = newwld.mass, aes(y = fit.nore),
+              method = "lm", se = F, col = "black")+
+  scale_color_manual(values = c("orange", "dodgerblue3"))
+plot.mass
+# WHY ARE THE LAB-REARED FIT.RE AND THE WILD FIT.NORE?
+```
+The wild tadpoles are about mid range of the lab tadpole treatments, at least in slope. But the variance in burst speed for the wild tadpoles is way greater.
+
+#### Mean-constant data (GS)
+And then I repeat the process to look at the effect of developmental stage while holding mass constant. -Andis 
+```{r}
+newlab.gs <- dat3_nonas_std %>% 
+  select(indiv, clutch, gs, treatment, pond, T_initial, mass) %>%
+  mutate(T_initial = mean(T_initial), 
+         mass = mean(mass))
+
+newwld.gs <- wild_nonas_std %>% 
+  select(tadpole, gs, pond, T_initial, mass, avg_pond_temp) %>%
+  mutate(T_initial = mean(T_initial), 
+         mass = mean(mass),
+         avg_pond_temp = mean(avg_pond_temp))
+
+newlab.gs <- newlab.gs %>% 
+  mutate(fit.nore = predict(consensus_mod, newdata = dat3_nonas_std, re.form = ~0),
+         fit.re = predict(consensus_mod, newdata = dat3_nonas_std, re.form = NULL))
+
+newwld.gs <- newwld.gs %>%
+  mutate(fit.nore = predict(replica_mod_wild, newdata = newwld.gs, re.form = ~0),
+         fit.re = predict(replica_mod_wild, newdata = newwld.gs, re.form = NULL))
+```
+
+#### Plot (GS)
+```{r}
+plot.gs <- newlab.gs %>%
+  ggplot(aes(x = gs, y = fit.re, col = treatment)) +
+  geom_point() +
+  geom_point(data = newwld.gs, col = "black") +
+  geom_smooth(data = newlab.gs, aes(y = fit.nore), 
+              method = 'lm', 
+              se = F) +
+  geom_smooth(data = newwld.gs, aes(y = fit.nore), 
+              method = 'lm', 
+              se = F, col = "black") +
+  scale_color_manual(values = c("orange", "dodgerblue3"))
+plot.gs
+```
+Interestingly, the wild tadpoles come out kind of as an average of the lab tadpoles again, but the slope is crossed, which is strange. One explanation is that developmental rates and growth are pretty tighly correlated in the lab but not so much in the wild, so stage isn't as good of a predictor of growth rates as in the lab.
+
+#### Plot (both)
+```{r}
+cowplot::plot_grid(plot.mass, plot.gs)
+```
+
+### Without points (RE by pond)
+I think the plots above are a little misleading because they don't show clear how much variaition there is in the wild compared to the lab tadpoles. The lab animals have really tight distributions, but the wild animals are all over the place and vary a ton just due to the pond that they were from.
+
+Below I've dropped the points and instead am plotting the random effects by pond to show the variation. -Andis
+#### Mass
+```{r}
+plot.mass.re <- newlab.mass %>%
+  ggplot(aes(x = mass, y = fit.re, col = treatment)) +
+  geom_smooth(aes(y = fit.re, group = interaction(pond, treatment)), 
+              method = 'lm', se = F, size = 0.5) +
+  geom_smooth(aes(y = fit.nore), 
+              method = 'lm', se = F, size = 2) +
+  geom_smooth(data = newwld.mass, aes(y = fit.re, group = pond), 
+              method = 'lm', se = F, col = 1, size = 0.5) +
+  geom_smooth(data = newwld.mass, aes(y = fit.nore), 
+              method = 'lm', se = F, col = 1, size = 2) +
+  scale_color_manual(values = c("orange", "dodgerblue3")) 
+plot.mass.re
+```
+
+#### GS
+```{r}
+plot.gs.re <- newlab.gs %>% ggplot(aes(x = gs, y = fit.re, col = treatment)) +
+  geom_smooth(data = newlab.gs, aes(y = fit.re, group = interaction(pond, treatment)), 
+              method = 'lm', se = F, size = 0.5) +
+  geom_smooth(data = newlab.gs, aes(y = fit.nore), 
+              method = 'lm', se = F, size = 2) +
+  geom_smooth(data = newwld.gs, aes(y = fit.re, group = pond), 
+              method = 'lm', se = F, col = 1, size = 0.5) +
+  geom_smooth(data = newwld.gs, aes(y = fit.nore), 
+              method = 'lm', se = F, col = 1, size = 2) +
+  scale_color_manual(values = c("orange", "dodgerblue3")) 
+plot.gs.re
+```
+
+#### Both
+```{r}
+cowplot::plot_grid(plot.mass.re, plot.gs.re)
+```
+
 
