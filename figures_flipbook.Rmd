@@ -521,6 +521,13 @@ load("data/outputs/newwld.mass.Rda")
 load("data/outputs/newlab.gs.Rda")
 load("data/outputs/newwld.gs.Rda")
 
+new.mass <- bind_rows(newlab.mass, newwld.mass) %>%
+  mutate(treatment = case_when(is.na(treatment) ~ "Wild"))
+new.gs <- bind_rows(newlab.gs, newwld.gs) %>%
+  mutate(treatment = case_when(is.na(treatment) ~ "Wild"))
+
+# TRY TO RECREATE THIS FIGURE WITH THE DATASET BOUND TOGETHER, TO FACILITATE MAKING THE LEGEND
+
 # Mass (with points)
 plot.mass <- newlab.mass %>%
   ggplot(aes(x = mass, y = fit.re, col = treatment))+
@@ -529,7 +536,10 @@ plot.mass <- newlab.mass %>%
   geom_smooth(method = "lm", se = F)+
   geom_smooth(data = newwld.mass, aes(y = fit.nore),
               method = "lm", se = F, col = "black")+
-  scale_color_manual(values = col_hilo)
+  scale_color_manual(name = "Temperature treatment", values = col_hilo)+
+  ylab("Burst speed (mm/s)")+
+  xlab("Mass (g)")+
+  theme(legend.position = "bottom")
 plot.mass
 
 # GS (with points)
@@ -543,7 +553,10 @@ plot.gs <- newlab.gs %>%
   geom_smooth(data = newwld.gs, aes(y = fit.nore), 
               method = 'lm', 
               se = F, col = "black") +
-  scale_color_manual(values = col_hilo)
+  scale_color_manual(name = "Temperature treatment", values = col_hilo)+
+  ylab("Burst speed (mm/s)")+
+  xlab("Gosner stage")+
+  theme(legend.position = "bottom")
 plot.gs
 
 # Mass (with pond random effects)
@@ -557,7 +570,10 @@ plot.mass.re <- newlab.mass %>%
               method = 'lm', se = F, col = 1, size = 0.5) +
   geom_smooth(data = newwld.mass, aes(y = fit.nore), 
               method = 'lm', se = F, col = 1, size = 2) +
-  scale_color_manual(values = col_hilo) 
+  scale_color_manual(name = "Temperature treatment", values = col_hilo)+
+  ylab("Burst speed (mm/s)")+
+  xlab("Mass (g)")+
+  theme(legend.position = "bottom")
 plot.mass.re
 
 # GS (with pond random effects)
@@ -570,7 +586,10 @@ plot.gs.re <- newlab.gs %>% ggplot(aes(x = gs, y = fit.re, col = treatment)) +
               method = 'lm', se = F, col = 1, size = 0.5) +
   geom_smooth(data = newwld.gs, aes(y = fit.nore), 
               method = 'lm', se = F, col = 1, size = 2) +
-  scale_color_manual(values = col_hilo) 
+  scale_color_manual(name = "Temperature treatment", values = col_hilo)+
+  ylab("Burst speed (mm/s)")+
+  xlab("Gosner stage")+
+  theme(legend.position = "bottom")
 plot.gs.re
 
 ```
