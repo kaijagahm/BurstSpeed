@@ -428,28 +428,30 @@ mean_tad_collection_date <- wild_tads %>%
   pull(mean)
 
 mean_tad_collection_date
+
+pond_avg_temps <- temps %>%
+  group_by(pond) %>%
+  summarize(avg_pond_temp = mean(mean_daily_temp_c, na.rm = T)) %>%
+  ungroup()
+
+save(pond_avg_temps, file = "data/outputs/pond_avg_temps.Rda")
 ```
 
 # Boxplots of daily temperatures during the dev. period
 ```{r}
-head(unique_combos)
-pond_intervals <- unique_combos %>% 
-  group_by(pond) %>% 
-  filter(coll.date == max(coll.date)) %>% # get longest interval
-  select(-avg_pond_temp)
+# Crop to the dev period
+fortempboxplots <- temps %>%
+  group_by(pond) %>%
+  filter(date >= mean_ovip_date & date <= mean_tad_collection_date) %>%
+  ungroup()
 
-fortempboxplots <- left_join(temps, pond_intervals, by = "pond") # join to ponds
 save(fortempboxplots, file = "data/outputs/fortempboxplots.Rda")
 
-# Crop to the developmental window and get just daily average temperatures
-fortempboxplots <- fortempboxplots %>% 
-  group_by(pond) %>% 
-  filter(date >= emb_collection_date & date <= coll.date) %>%
-  select(pond, date, mean_daily_temp_c, emb_collection_date, coll.date) %>%
-  distinct()
-
 # Make boxplots
-fortempboxplots %>% ggplot(aes(x = pond, y = mean_daily_temp_c))+
+fortempboxplots %>%
+  filter(!is.na(mean_daily_temp_c)) %>%
+  ggplot(aes(x = fct_reorder(pond, -mean_daily_temp_c), 
+             y = mean_daily_temp_c))+
   geom_boxplot()+
   xlab("Pond")+
   ylab("Average daily temperature")
