@@ -217,8 +217,27 @@ We'll use PC2 for now, and then we'll compare models later on to see which is be
 ### Fit full model
 Using unstandardized values for now.
 ```{r}
-full <- lmer(sline_speed_mm_s ~ mass*treatment + gs*treatment + PC2 + T_initial + (1|pond/clutch/tadpole), data = dat3_nonas)
-summary(full)
+full <- lmer(sline_speed_mm_s ~ mass*treatment + gs*treatment + PC2 + T_initial + (1|pond/clutch/tadpole), data = dat3_nonas, REML = F)
+summary(full) # Almost nothing is significant, and somehow pond has more effect than clutch??
+
+just_mass <- lmer(sline_speed_mm_s ~ mass*treatment + PC2 + T_initial + (1|pond/clutch/tadpole), data = dat3_nonas, REML = F)
+summary(just_mass) # We're back to pond having less effect than clutch, and more things are significant.
+
+just_gs <- lmer(sline_speed_mm_s ~ gs*treatment + PC2 + T_initial + (1|pond/clutch/tadpole), data = dat3_nonas, REML = F)
+summary(just_gs) # Things are still decently significant. Pond and clutch both drop to 0. Whaaat?
+
+# Residual of mass on gosner stage
+mass_gs_mod <- lm(gs ~ mass, data = dat3_nonas)
+dat3_nonas <- dat3_nonas %>%
+  mutate(mass_gs_resid = resid(mass_gs_mod))
+
+resid <- lmer(sline_speed_mm_s ~ mass_gs_resid*treatment + PC2 + T_initial + (1|pond/clutch/tadpole), data = dat3_nonas, REML = F)
+summary(resid) # now shape is super significant but clutch and pond drop to zero.
+
+#AIC comparison
+AIC(full, just_mass, just_gs, resid) %>%
+  mutate(model = row.names(.)) %>%
+  arrange(AIC)
 ```
 
 ## Select a model
