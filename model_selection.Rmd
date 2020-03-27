@@ -29,17 +29,20 @@ stats_fast3 <- stats_fast3 %>% # remove tadpole column
   mutate(clutch = factor(paste(pond, clutch)), # code clutches explicitly
          indiv = factor(paste(clutch, indiv, treatment))) # code individuals explicitly
 locate.nas(stats_fast3)
+
+stats_fast3 <- stats_fast3 %>%
+  mutate(burst_date = dmy(paste(burst_day, burst_month, burst_year, sep = "_")))
 ```
 
 ## Select relevant columns and change data types
 ```{r}
-dat3 <- stats_fast3 %>% select(tadpole, trial, indiv, treatment, sline_speed_mm_s, PC1, PC2, pond, size, clutch, mass, gs, T_initial, camera) %>% ungroup() %>% mutate(treatment = factor(treatment),
+dat3 <- stats_fast3 %>% select(tadpole, trial, indiv, treatment, sline_speed_mm_s, PC1, PC2, pond, size, clutch, mass, gs, T_initial, camera, burst_date) %>% ungroup() %>% mutate(treatment = factor(treatment),
                      pond = factor(pond),
                      clutch = factor(clutch)) %>%
   filter(treatment %in% c("High", "Low"), !is.na(PC1)) %>% droplevels()
 
 # wild tadpoles are separate
-wild <- stats_fast3 %>% select(tadpole, trial, treatment, sline_speed_mm_s, PC1, PC2, pond, size, mass, gs, T_initial, camera) %>% ungroup() %>% mutate(treatment = factor(treatment),
+wild <- stats_fast3 %>% select(tadpole, trial, treatment, sline_speed_mm_s, PC1, PC2, pond, size, mass, gs, T_initial, camera, burst_date) %>% ungroup() %>% mutate(treatment = factor(treatment),
                      pond = factor(pond)) %>% 
   filter(treatment == "Wild") %>% droplevels()
 
@@ -66,6 +69,16 @@ wild_nonas <- wild_nonas %>% filter(!is.na(T_initial), !is.na(mass))
 ## Add pond temps
 load("data/outputs/pond_avg_temps.Rda") # Load pond temperatures
 wild_nonas <- wild_nonas %>% left_join(pond_avg_temps, by = "pond")
+
+## Add all relevant dates
+load("data/outputs/wild_dates.Rda")
+wild_dates <- wild_dates %>%
+  select(-pond) # remove pond before joining
+
+wild_nonas <- wild_nonas %>% # join dates
+  left_join(wild_dates, by = "tadpole")
+
+locate.nas(wild_nonas) # check for NA's
 ```
 
 #### Save wild_nonas
@@ -320,8 +333,6 @@ dat3_nonas_std %>% ggplot(aes(x = resid, col = treatment))+
 ```
 
 # Wild tadpoles
-
-
 ## Model selection
 ### Variable standardization
 ```{r}
