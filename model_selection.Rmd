@@ -306,12 +306,9 @@ dat3_nonas_std %>% ggplot(aes(x = resid, col = treatment))+
 # Wild tadpoles
 ## Add pond temps
 ```{r}
-load("data/outputs/wild_tad_temps.Rda") # Load wild tadpole pond temperatures
-head(wild_tad_temps)
-wild_tad_temps_tojoin <- wild_tad_temps %>% select(tadpole, avg_pond_temp)
-locate.nas(wild_tad_temps_tojoin) # check for NA's: looks good
+load("data/outputs/pond_avg_temps.Rda") # Load pond temperatures
 
-wild_nonas <- wild_nonas %>% left_join(wild_tad_temps_tojoin, by = "tadpole")
+wild_nonas <- wild_nonas %>% left_join(pond_avg_temps, by = "pond")
 ```
 
 ## Model selection
@@ -426,6 +423,8 @@ formula(consensus_mod)
 replica_mod_wild <- lmer(sline_speed_mm_s ~ mass * avg_pond_temp + gs + T_initial + (1 | tadpole), data = wild_nonas_std)
 
 summary(replica_mod_wild)
+MuMIn::r.squaredGLMM(replica_mod_wild)
+#confint.merMod(replica_mod_wild, method = "boot", nsim = 1000, oldNames = FALSE)
 save(replica_mod_wild, file = "data/outputs/replica_mod_wild.Rda")
 ```
 
