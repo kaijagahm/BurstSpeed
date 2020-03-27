@@ -405,10 +405,14 @@ temps %>% ggplot(aes(x = date, y = mean_daily_temp_c, col = pond))+
 # Get temps over the dev period
 ```{r}
 # Embryo collection dates for each pond
-collection_dates <- emb %>% 
+mean_emb_collection_date <- emb %>% 
   select(pond, Coll.Date) %>% 
   distinct() %>%
-  rename(emb_collection_date = Coll.Date)
+  rename(emb_collection_date = Coll.Date) %>%
+  mutate(emb_collection_date = dmy(emb_collection_date)) %>%
+  summarize(mean = mean(emb_collection_date)) %>%
+  pull(mean)
+mean_emb_collection_date
 
 # Info about when the wild tads were collected
 wild_tads <- read.csv("data/inputs/wild_info.csv", as.is = T)
@@ -419,34 +423,11 @@ wild_tads <- wild_tads %>%
   rename(tadpole = ID,
          pond = Pond)
 
-# Join embryo collection dates to wild tadpole collection dates
-wild_tads <- wild_tads %>%
-  left_join(collection_dates, by = "pond") %>%
-  mutate(emb_collection_date = dmy(emb_collection_date))
+mean_tad_collection_date <- wild_tads %>%
+  summarize(mean = mean(coll.date)) %>%
+  pull(mean)
 
-# Get unique pond-interval combos
-unique_combos <- wild_tads %>% 
-  select(pond, emb_collection_date, coll.date) %>%
-  distinct()
-nrow(unique_combos)
-
-# Get average temp
-for(i in 1:nrow(unique_combos)){
-  tempsvec <- temps %>% 
-    filter(pond == unique_combos$pond[i], 
-           date >= unique_combos$emb_collection_date[i], 
-           date <= unique_combos$coll.date[i]) %>% pull(temp_c)
-  avg_temp <- mean(tempsvec, na.rm = T)
-  
-  unique_combos$avg_pond_temp[i] <- avg_temp
-  print(paste("iteration", i, "of", nrow(unique_combos), "complete"))
-}
-
-wild_tad_temps <- left_join(wild_tads, unique_combos, by = c("pond", "emb_collection_date", "coll.date"))
-wild_tad_temps <- wild_tad_temps %>%
-  mutate(tadpole = paste0(tadpole, "_Wild"))
-
-save(wild_tad_temps, file = "data/outputs/wild_tad_temps.Rda")
+mean_tad_collection_date
 ```
 
 # Boxplots of daily temperatures during the dev. period
