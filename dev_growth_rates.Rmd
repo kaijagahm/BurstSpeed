@@ -404,7 +404,16 @@ temps %>% ggplot(aes(x = date, y = mean_daily_temp_c, col = pond))+
 
 # Get temps over the dev period
 ```{r}
-# Embryo collection dates for each pond
+# Oviposition and embryo collection dates for each pond
+ovip_dates <- emb %>%
+  select(pond, Coll.Date) %>%
+  distinct() %>%
+  mutate(Coll.Date = dmy(Coll.Date),
+         ovip_date = Coll.Date - 1) %>%
+  rename(eggmass_coll_date = Coll.Date)
+head(ovip_dates)
+
+# Get mean oviposition date for wild tadpoles
 mean_ovip_date <- emb %>% 
   select(pond, Coll.Date) %>% 
   distinct() %>%
@@ -413,15 +422,6 @@ mean_ovip_date <- emb %>%
   summarize(mean = mean(ovip_date)) %>%
   pull(mean)
 mean_ovip_date
-
-# Oviposition and egg mass collection dates by pond
-ovip_dates <- emb %>%
-  select(pond, Coll.Date) %>%
-  distinct() %>%
-  mutate(Coll.Date = dmy(Coll.Date),
-         ovip_date = Coll.Date - 1) %>%
-  rename(eggmass_coll_date = Coll.Date)
-head(ovip_dates)
 
 # Info about when the wild tads were collected
 wild_tads <- read.csv("data/inputs/wild_info.csv", as.is = T)
@@ -432,19 +432,25 @@ wild_tads <- wild_tads %>%
   rename(tadpole = ID,
          pond = Pond)
 
-head(wild_tads)
-
+# Get mean collection date for wild tadpoles
 mean_tad_collection_date <- wild_tads %>%
   summarize(mean = mean(coll.date)) %>%
   pull(mean)
 
-mean_tad_collection_date
-
+# Calculate pond average temperatures over the mean interval (oviposition to tadpole collection)
 pond_avg_temps <- temps %>%
   group_by(pond) %>%
   summarize(avg_pond_temp = mean(mean_daily_temp_c, na.rm = T)) %>%
   ungroup()
 
+# Summary of all dates for wild tadpoles
+wild_dates <- wild_tads %>%
+  select(tadpole, coll.date, pond) %>%
+  mutate(tadpole = paste0(tadpole, "_Wild")) %>%
+  left_join(ovip_dates, by = "pond") %>%
+  rename(tadpole_coll_date = coll.date)
+
+save(wild_dates, file = "data/outputs/wild_dates.Rda")
 save(pond_avg_temps, file = "data/outputs/pond_avg_temps.Rda")
 ```
 
