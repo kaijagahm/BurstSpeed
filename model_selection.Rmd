@@ -175,75 +175,50 @@ dat3_nonas_std <- dat3_nonas %>% mutate_at(.vars = c("PC1", "PC2", "mass", "size
 save(dat3_nonas_std, file = "data/outputs/dat3_nonas_std.Rda")
 ```
 
-## Make some biological decisions
-In all of the tests that we ran, PC1 and PC2 were kind of equivalent (but with slightly more effect of PC2 than PC1), and mass and size were also basically equivalent. Therefore, we choose:
-1. PC2 over PC1
-2. mass over size: since they're pretty much the same anyway, this shouldn't change the results. Mass was calculated by weighing the tadpoles, whereas size was calculated from the same landmarks used to calculate the shape PC's: seems more indirect, so we'll go with mass. Mass is also more of a real biological phenomenon. Size would basically end up being the area of a cross section of the tadpole, which is probably not as important for physiological processes as mass. The two are also highly correlated, so we don't want both in the model.
+## Select variables
+We know from various papers that shape, development, size (mass), temperature water during the trial affect burst speed.
+Variables:
+ - Tadpole mass (as a measure of size)
+ - Temperature treatment (as a measure of developmental/growth rate)
+ - Gosner stage (as a measure of development)
+ - Tray temperature (experimental conditions)
+ 
+The performance at any given mass or GS may be impacted by the developmental rate, so we'll allow for temp_treatment:mass and temp_treatment:gs. Tray temperature varied so little between the two temperature treatments that we didn't consider an interaction there, including only the additive effect.
+```{r}
+dat3_nonas %>%
+  ggplot(aes(x = T_initial, col = treatment))+
+  geom_density()
+
+dat3_nonas %>%
+  ggplot(aes(x = T_initial, y = sline_speed_mm_s, col = treatment))+
+  geom_point()+
+  geom_smooth(method = "lm") # ok yeah we definitely do not need an interaction term here.
+```
+
+### Shape variables
+Independent of body size
+We can use either PC1 (ratio of body length to total length) or PC2 (ratio of depth to length)
+Because they're principal components, they're orthogonal. Neither is particularly strongly correlated with mass or Gosner stage.
+Which is a better predictor of speed?
+```{r}
+dat3_nonas %>% ggplot(aes(x = PC1, y = sline_speed_mm_s, col = treatment))+
+  geom_point()+
+  geom_smooth(method = "lm")
+
+dat3_nonas %>% ggplot(aes(x = PC2, y = sline_speed_mm_s, col = treatment))+
+  geom_point()+
+  geom_smooth(method = "lm")
+
+# PC2 appears to be a slightly better predictor of speed.
+```
+We'll use PC2 for now, and then we'll compare models later on to see which is better once other variables are taken into account.
 
 ## Model selection
 ### Fit full model
+Using unstandardized values for now.
 ```{r}
-full <- lmer(sline_speed_mm_s ~ PC2*mass*gs*treatment + T_initial + (1|clutch/indiv),
-             data = dat3_nonas_std, na.action = "na.fail", REML = F)
-vif(full) # check variance inflation factors: kind of high, but we're also going to be removing some of the interaction terms. Doesn't look too bad for the individual terms, especially because we already know that mass and gosner stage are correlated.
-
-#dredge_full <- dredge(full)
-#save(dredge_full, file = "data/outputs/dredge_full.Rda")
-
-# Look at top five, see if the actual results for treatment effect are changing. If not, then we just know that we're accounting for the variables of interest. Provide table in supplements. 
-```
-
-### Fit top five models
-```{r}
-load("data/outputs/dredge_full.Rda") # load the dredge output
-dredge_full[1:5,] # take a look at the top five models
-
-m1 <- lmer(sline_speed_mm_s ~ mass*treatment + gs + T_initial + 
-             (1 | clutch/indiv), data = dat3_nonas_std, REML = F, 
-    na.action = "na.fail")
-
-m2 <- lmer(sline_speed_mm_s ~ mass*treatment + PC2 + gs + T_initial + 
-             (1 | clutch/indiv), data = dat3_nonas_std, REML = F, 
-    na.action = "na.fail")
-
-m3 <- lmer(sline_speed_mm_s ~ mass*treatment + gs*mass + T_initial + 
-             (1 | clutch/indiv), data = dat3_nonas_std, REML = F, 
-    na.action = "na.fail")
-
-m4 <- lmer(sline_speed_mm_s ~ treatment*gs + T_initial + 
-             (1 | clutch/indiv), data = dat3_nonas_std, REML = F, 
-    na.action = "na.fail")
-
-m5 <- lmer(sline_speed_mm_s ~ mass*treatment + gs*mass + PC2 + T_initial + 
-             (1 | clutch/indiv), data = dat3_nonas_std, REML = F, na.action = "na.fail")
-
-# all of these have singular fits! Is that a problem?
-```
-
-### Create new df of means
-```{r}
-newdf <- dat3_nonas_std %>% select(treatment, clutch, indiv) # select grouping cols
-newdf_means <- dat3_nonas_std %>% summarize(mass = mean(mass), # take mean of each
-                                        gs = mean(gs),
-                                        T_initial = mean(T_initial),
-                                        PC2 = mean(PC2))
-newdf[,4:7] <- newdf_means # bind grouping cols to means
-newdf <- newdf %>% mutate(model1 = predict(m1, newdf), # predict on means with each model
-                          model2 = predict(m2, newdf),
-                          model3 = predict(m3, newdf),
-                          model4 = predict(m4, newdf),
-                          model5 = predict(m5, newdf))
-
-df_preds <- newdf %>% select(treatment, model1, model2, model3, model4, model5) %>% 
-  pivot_longer(cols = c(model1, model2, model3, model4, model5), # put into long format
-               names_to = "model",
-               values_to = "predicted_speed")
-
-# Boxplot of predictions on means
-df_preds %>% ggplot(aes(x = treatment, y = predicted_speed, fill = treatment))+
-  geom_boxplot()+
-  facet_wrap(~model)+
-  ggtitle("Comparison of top 5 models, predicted on means of data")
+full <- lmer(sline_speed_mm_s ~ mass*treatment + gs*treatment + PC2 + T_initial + (1|pond/clutch/tadpole), data = dat3_nonas)
+summary(full)
 ```
 
 ## Select a model
