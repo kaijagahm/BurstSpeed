@@ -55,17 +55,33 @@ save(wild, file = "data/outputs/wild.Rda")
 ```
 
 ## Remove NA's
-### Wild
+### Wild 
+#### Remove NA's
 ```{r}
 wild_nonas <- wild[complete.cases(wild),] # remove NA's
 wild_nonas <- wild_nonas %>% filter(!is.na(T_initial), !is.na(mass))
+```
+#### Add pond temps
+```{r}
+## Add pond temps
+load("data/outputs/pond_avg_temps.Rda") # Load pond temperatures
+wild_nonas <- wild_nonas %>% left_join(pond_avg_temps, by = "pond")
+```
+
+#### Save wild_nonas
+```{r}
 save(wild_nonas, file = "data/outputs/wild_nonas.Rda")
 ```
 
 ### Lab-reared
+#### Remove NA's
 ```{r}
 dat3_nonas <- dat3 %>% filter(!is.na(T_initial) & !is.na(mass))
 locate.nas(dat3_nonas)
+```
+
+#### Save dat3_nonas
+```{r}
 save(dat3_nonas, file = "data/outputs/dat3_nonas.Rda")
 ```
 
@@ -304,12 +320,7 @@ dat3_nonas_std %>% ggplot(aes(x = resid, col = treatment))+
 ```
 
 # Wild tadpoles
-## Add pond temps
-```{r}
-load("data/outputs/pond_avg_temps.Rda") # Load pond temperatures
 
-wild_nonas <- wild_nonas %>% left_join(pond_avg_temps, by = "pond")
-```
 
 ## Model selection
 ### Variable standardization
