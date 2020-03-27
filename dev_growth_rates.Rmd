@@ -414,6 +414,15 @@ mean_ovip_date <- emb %>%
   pull(mean)
 mean_ovip_date
 
+# Oviposition and egg mass collection dates by pond
+ovip_dates <- emb %>%
+  select(pond, Coll.Date) %>%
+  distinct() %>%
+  mutate(Coll.Date = dmy(Coll.Date),
+         ovip_date = Coll.Date - 1) %>%
+  rename(eggmass_coll_date = Coll.Date)
+head(ovip_dates)
+
 # Info about when the wild tads were collected
 wild_tads <- read.csv("data/inputs/wild_info.csv", as.is = T)
 wild_tads <- wild_tads %>% select(ID, Coll.DOY, Pond)
@@ -422,6 +431,8 @@ wild_tads <- wild_tads %>%
   mutate(coll.date = as.Date(Coll.DOY, origin = "2019-01-01")) %>%
   rename(tadpole = ID,
          pond = Pond)
+
+head(wild_tads)
 
 mean_tad_collection_date <- wild_tads %>%
   summarize(mean = mean(coll.date)) %>%
