@@ -405,14 +405,14 @@ temps %>% ggplot(aes(x = date, y = mean_daily_temp_c, col = pond))+
 # Get temps over the dev period
 ```{r}
 # Embryo collection dates for each pond
-mean_emb_collection_date <- emb %>% 
+mean_ovip_date <- emb %>% 
   select(pond, Coll.Date) %>% 
   distinct() %>%
-  rename(emb_collection_date = Coll.Date) %>%
-  mutate(emb_collection_date = dmy(emb_collection_date)) %>%
-  summarize(mean = mean(emb_collection_date)) %>%
+  mutate(Coll.Date = dmy(Coll.Date),
+         ovip_date = Coll.Date - 1) %>%
+  summarize(mean = mean(ovip_date)) %>%
   pull(mean)
-mean_emb_collection_date
+mean_ovip_date
 
 # Info about when the wild tads were collected
 wild_tads <- read.csv("data/inputs/wild_info.csv", as.is = T)
