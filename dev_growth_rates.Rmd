@@ -488,6 +488,18 @@ incs <- incs %>%
 
 # Pivot to long
 incs_long <- incs %>% pivot_longer(cols = c(high, low, mean), names_to = "pond", values_to = "temp_c")
+
+# Get average incubator temperatures
+avg_inc_temps <- incs_long %>%
+  filter(pond %in% c("high", "low")) %>%
+  group_by(pond) %>%
+  filter(date >= "2019-04-04" & date <= "2019-06-06") %>%
+  summarize(avg_temp = mean(temp_c, na.rm = T)) %>%
+  mutate(treatment = case_when(pond == "high" ~ "High",
+                               pond == "low" ~ "Low")) %>%
+  select(-pond)
+
+save(avg_inc_temps, file = "data/outputs/avg_inc_temps.Rda")
 ```
 
 ## Visualize
