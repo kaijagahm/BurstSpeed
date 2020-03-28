@@ -531,7 +531,8 @@ plot.alloc <- dat3_nonas %>% ggplot(aes(x = gs, y = mass, col = treatment))+ # p
   geom_point()+
   geom_smooth(method = "lm")+
   geom_point(data = wild_nonas, color = "black")+ # add points and line for wild tadpoles
-  geom_smooth(data = wild_nonas, method = "lm", col = "black")
+  geom_smooth(data = wild_nonas, method = "lm", col = "black")+
+  scale_color_manual(values = c("orange", "dodgerblue3"))
 plot.alloc
 ```
 It looks like there is no real difference in allocation between the lab treatments, but wild tadpoles are generally larger at all stages. Worth noting that the wild tads have much more variance. Slopes (allocation rate) is pretty similar. -Andis
