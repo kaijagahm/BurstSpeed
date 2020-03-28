@@ -490,15 +490,36 @@ incs <- incs %>%
 incs_long <- incs %>% pivot_longer(cols = c(high, low, mean), names_to = "pond", values_to = "temp_c")
 
 # Get average incubator temperatures
-avg_inc_temps <- incs_long %>%
-  filter(pond %in% c("high", "low")) %>%
-  group_by(pond) %>%
-  filter(date >= "2019-04-04" & date <= "2019-06-06") %>%
-  summarize(avg_temp = mean(temp_c, na.rm = T)) %>%
-  mutate(treatment = case_when(pond == "high" ~ "High",
-                               pond == "low" ~ "Low")) %>%
-  select(-pond)
+## Get mean burst assay dates for each incubator. We'll use the mean oviposition date as the starting point.
+mean_ovip <- "2019-04-04"
 
+# get the mean burst dates for each incubator
+load("data/outputs/dat3_nonas.Rda")
+ends <- dat3_nonas %>% 
+  group_by(treatment) %>%
+  summarize(end = mean(burst_date))
+high_end <- ends$end[1]
+low_end <- ends$end[2]
+
+# get high inc avg
+high_avg <- incs_long %>% 
+  filter(pond == "high") %>%
+  filter(date >= mean_ovip & date <= high_end) %>%
+  pull(temp_c) %>%
+  mean(., na.rm = T)
+
+# get low inc avg
+low_avg <- incs_long %>%
+  filter(pond == "low") %>%
+  filter(date >= mean_ovip & date <= low_end) %>%
+  pull(temp_c) %>%
+  mean(., na.rm = T)
+
+# make a df
+avg_inc_temps <- data.frame(avg_temp = c(high_avg, low_avg),
+                            treatment = c("High", "Low"))
+
+# save the avg temp data
 save(avg_inc_temps, file = "data/outputs/avg_inc_temps.Rda")
 ```
 
