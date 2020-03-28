@@ -588,7 +588,8 @@ plot.gs <- newlab.gs %>%
               method = "lm", se = F, col = "black")+
   scale_color_manual(values = c("orange", "dodgerblue3"))+
   ylab("Predicted speed (mm/s)")+
-  xlab("Gosner stage")
+  xlab("Gosner stage")+
+  theme_minimal()
 plot.gs
 ```
 
@@ -640,54 +641,65 @@ plot.sas <- newlab.sas %>%
               se = F, col = "black") +
   scale_color_manual(values = c("orange", "dodgerblue3"))+
   ylab("Predicted speed (mm/s)")+
-  xlab("Size at stage")
+  xlab("Size at stage")+
+  theme_minimal()
 plot.sas
 ```
-Interestingly, the wild tadpoles come out kind of as an average of the lab tadpoles again, but the slope is crossed, which is strange. One explanation is that developmental rates and growth are pretty tighly correlated in the lab but not so much in the wild, so stage isn't as good of a predictor of growth rates as in the lab.
 
 #### Plot (both)
 ```{r}
-cowplot::plot_grid(plot.mass, plot.gs)
+cowplot::plot_grid(plot.gs, plot.sas)
 ```
 
 ### Without points (RE by pond)
 I think the plots above are a little misleading because they don't show clear how much variaition there is in the wild compared to the lab tadpoles. The lab animals have really tight distributions, but the wild animals are all over the place and vary a ton just due to the pond that they were from.
 
 Below I've dropped the points and instead am plotting the random effects by pond to show the variation. -Andis
-#### Mass
+#### GS
 ```{r}
-plot.mass.re <- newlab.mass %>%
-  ggplot(aes(x = mass, y = fit.re, col = treatment)) +
+plot.gs.re <- newlab.gs %>%
+  ggplot(aes(x = gs, y = fit.re, col = treatment)) +
   geom_smooth(aes(y = fit.re, group = interaction(pond, treatment)), 
               method = 'lm', se = F, size = 0.5) +
   geom_smooth(aes(y = fit.nore), 
-              method = 'lm', se = F, size = 2) +
-  geom_smooth(data = newwld.mass, aes(y = fit.re, group = pond), 
-              method = 'lm', se = F, col = 1, size = 0.5) +
-  geom_smooth(data = newwld.mass, aes(y = fit.nore), 
-              method = 'lm', se = F, col = 1, size = 2) +
-  scale_color_manual(values = c("orange", "dodgerblue3")) 
-plot.mass.re
-```
-
-#### GS
-```{r}
-plot.gs.re <- newlab.gs %>% ggplot(aes(x = gs, y = fit.re, col = treatment)) +
-  geom_smooth(data = newlab.gs, aes(y = fit.re, group = interaction(pond, treatment)), 
-              method = 'lm', se = F, size = 0.5) +
-  geom_smooth(data = newlab.gs, aes(y = fit.nore), 
               method = 'lm', se = F, size = 2) +
   geom_smooth(data = newwld.gs, aes(y = fit.re, group = pond), 
               method = 'lm', se = F, col = 1, size = 0.5) +
   geom_smooth(data = newwld.gs, aes(y = fit.nore), 
               method = 'lm', se = F, col = 1, size = 2) +
-  scale_color_manual(values = c("orange", "dodgerblue3")) 
+  scale_color_manual(values = c("orange", "dodgerblue3"))+
+  ylab("Predicted speed (mm/s)")+
+  xlab("Gosner stage")+
+  theme_minimal()
 plot.gs.re
+```
+
+#### Size at stage
+```{r}
+plot.sas.re <- newlab.sas %>% ggplot(aes(x = size_at_stage, y = fit.re, col = treatment)) +
+  geom_smooth(aes(y = fit.re, group = interaction(pond, treatment)), 
+              method = 'lm', se = F, size = 0.5) +
+  geom_smooth(aes(y = fit.nore), 
+              method = 'lm', se = F, size = 2) +
+  geom_smooth(data = newwld.sas, aes(y = fit.re, group = pond), 
+              method = 'lm', se = F, col = 1, size = 0.5) +
+  geom_smooth(data = newwld.sas, aes(y = fit.nore), 
+              method = 'lm', se = F, col = 1, size = 2) +
+  scale_color_manual(values = c("orange", "dodgerblue3")) +
+  ylab("Predicted speed (mm/s)")+
+  xlab("Size at stage")+
+  theme_minimal()
+plot.sas.re
 ```
 
 #### Both
 ```{r}
-cowplot::plot_grid(plot.mass.re, plot.gs.re)
+cowplot::plot_grid(plot.gs.re, plot.sas.re)
+```
+
+#### All four
+```{r}
+cowplot::plot_grid(plot.gs, plot.sas, plot.gs.re, plot.sas.re, nrow = 2)
 ```
 
 
