@@ -34,7 +34,7 @@ loggers_cropped %>% ggplot(aes(x = date, y = mean_daily_temp_c, group = pond))+
   geom_line(data = incs_long_cropped, 
             aes(x = date, y = temp_c, col = pond), lwd = 1.5)+
   theme_minimal()+
-  xlab("Date")+
+  xlab("Date (2019)")+
   ylab("Temperature (ºC)")+
   scale_color_manual(name = "Temperature treatment incubator", values = col_hilo, labels = c("High", "Low"))+
   theme(legend.position = "bottom")
@@ -45,7 +45,7 @@ loggers_cropped %>% ggplot(aes(x = date, y = mean_daily_temp_c, group = pond))+
   geom_line(data = incs_long_cropped, 
             aes(x = date, y = temp_c, lty = pond), lwd = 1)+
   theme_minimal()+
-  xlab("Date")+
+  xlab("Date (2019)")+
   ylab("Temperature (ºC)")+
   scale_linetype_manual(name = "Temperature treatment incubator", values = linetype_hilo, labels = c("High", "Low"))+
   guides(linetype = guide_legend(override.aes = list(lwd = 0.5)))+
