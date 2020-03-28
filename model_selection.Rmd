@@ -264,11 +264,23 @@ AIC(full_3way, full, full_alt, resid) %>%
 
 ### Select a model
 Because it's most interpretable and has one of the lowest AIC's (equivalent to the full model including mass), we're going to select the model that uses size-at-stage, the residual of mass on gosner stage. 
-
-#### Re-fit the  model with unstandardized vars
 ```{r}
 consensus_mod_std <- resid
 save(consensus_mod_std, file = "data/outputs/consensus_mod_std.Rda")
+
+summary(consensus_mod_std)
+
+# Get R-squared
+MuMIn::r.squaredGLMM(consensus_mod_std)
+
+# Confidence intervals for the coefficients
+#ci <- confint.merMod(consensus_mod, method = "boot", nsim = 1000, oldNames = FALSE)
+```
+
+
+#### Re-fit the  model with unstandardized vars
+```{r}
+
 
 consensus_mod <- lmer(sline_speed_mm_s ~ size_at_stage*treatment + gs*treatment + PC2 + T_initial + (1|pond/clutch/tadpole), data = dat3_nonas)
 summary(consensus_mod)
