@@ -25,13 +25,13 @@ linetype_hilowi <- c(linetype_hilo, "dotted")
 
 # Incubators and pond temp loggers
 ```{r}
-load("data/outputs/loggers_tojoin.Rda")
-load("data/outputs/incs_long.Rda")
+load("data/outputs/loggers_cropped.Rda")
+load("data/outputs/incs_long_cropped.Rda")
 
 # Color
-loggers_tojoin %>% ggplot(aes(x = date, y = mean_daily_temp_c, group = pond))+
+loggers_cropped %>% ggplot(aes(x = date, y = mean_daily_temp_c, group = pond))+
   geom_line(alpha = 0.2)+
-  geom_line(data = incs_long %>% filter(pond %in% c("high", "low")), 
+  geom_line(data = incs_long_cropped, 
             aes(x = date, y = temp_c, col = pond), lwd = 1.5)+
   theme_minimal()+
   xlab("Date")+
@@ -40,9 +40,9 @@ loggers_tojoin %>% ggplot(aes(x = date, y = mean_daily_temp_c, group = pond))+
   theme(legend.position = "bottom")
 
 # Black and white
-loggers_tojoin %>% ggplot(aes(x = date, y = mean_daily_temp_c, group = pond))+
+loggers_cropped %>% ggplot(aes(x = date, y = mean_daily_temp_c, group = pond))+
   geom_line(alpha = 0.2)+
-  geom_line(data = incs_long %>% filter(pond %in% c("high", "low")), 
+  geom_line(data = incs_long_cropped, 
             aes(x = date, y = temp_c, lty = pond), lwd = 1)+
   theme_minimal()+
   xlab("Date")+
@@ -473,6 +473,7 @@ plot.sas.re <- newlab.sas %>% ggplot(aes(x = size_at_stage, y = fit.re, col = tr
 plot.sas.re
 
 cowplot::plot_grid(plot.gs, plot.sas, plot.gs.re, plot.sas.re, nrow = 2)
+cowplot::plot_grid(plot.gs.re, plot.sas.re, align = "h")
 ```
 
 # Reaction norm
@@ -480,30 +481,40 @@ cowplot::plot_grid(plot.gs, plot.sas, plot.gs.re, plot.sas.re, nrow = 2)
 load("data/outputs/dat3_nonas.Rda")
 load("data/outputs/wild_nonas.Rda")
 
-lab <- dat3_nonas %>%
+lab_pred <- dat3_nonas %>%
+  mutate(predicted_speed = predict(consensus_mod, newdata = dat3_nonas, re.form = NULL))
+
+wild_pred <- wild_nonas %>%
+  mutate(predicted_speed = predict(consensus_mod_wild, newdata = wild_nonas, re.form = NULL))
+
+lab <- lab_pred %>%
   group_by(treatment, pond) %>%
-  mutate(meanspeed = mean(sline_speed_mm_s),
-         sd = sd(sline_speed_mm_s)) %>%
+  mutate(meanspeed = mean(predicted_speed),
+         sd = sd(predicted_speed)) %>%
   select(pond, meanspeed, sd, avg_temp) %>%
   distinct()
 
-wild <- wild_nonas %>%
+wild <- wild_pred %>%
   group_by(pond) %>%
-  mutate(meanspeed = mean(sline_speed_mm_s),
-         sd = sd(sline_speed_mm_s)) %>%
+  mutate(meanspeed = mean(predicted_speed),
+         sd = sd(predicted_speed)) %>%
   select(pond, meanspeed, sd, avg_pond_temp) %>%
   distinct()
 
 lab %>%
-  ggplot(aes(x = jitter(avg_temp, amount = 0.2), y = meanspeed))+
-  geom_point(aes(col = treatment))+
+  ggplot(aes(x = avg_temp, y = meanspeed))+
+  geom_point(aes(col = treatment), size = 3, alpha = 0.7)+
+  scale_color_manual(name = "Temperature treatment", values = col_hilo)+
   geom_smooth(method = "lm", se = F, aes(group = pond),
               col = "black", lwd = 0.3, lty = "dashed")+
-  geom_point(data = wild, aes(x = avg_pond_temp, y = meanspeed))+
+  geom_point(data = wild, aes(x = avg_pond_temp, y = meanspeed), size = 2)+
   geom_smooth(data = wild, aes(x = avg_pond_temp, y = meanspeed),
-              method = "lm", se = F, col = "black", lwd = 0.3)
-
-
+              method = "lm", se = F, col = "black", lwd = 0.5)+
+  theme_minimal()+
+  ylab("Burst speed (mm/s)")+
+  xlab("Average temperature (ºC)")+
+  theme(legend.position = "bottom")+
+  guides(col = guide_legend(override.aes = list(alpha = 1)))
 ```
 
 
