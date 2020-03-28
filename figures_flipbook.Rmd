@@ -357,135 +357,6 @@ wild_nonas %>%
             sd_mass = sd(mass, na.rm = T))
 ```
 
-# Model predictions (mass): lab-reared
-```{r}
-load("data/outputs/dat3_nonas_std.Rda")
-load("data/outputs/consensus_mod.Rda")
-
-preds <- dat3_nonas_std %>% 
-  select(-c(sline_speed_mm_s, trial)) %>% 
-  distinct() # create new df for predictions
-
-preds$pred <- predict(object = consensus_mod, newdata = preds) + summary(consensus_mod)$sigma # make predictions
-
-# Color
-preds %>% ggplot(aes(x = mass, y = pred, col = treatment))+
-  geom_point()+
-  geom_smooth(method = "lm", 
-              se = F)+
-  ylab("Burst speed (mm/s)")+
-  xlab("Mass (g)")+
-  theme_minimal()+
-  scale_color_manual(name = "Temperature treatment", values = col_hilo)+
-  theme(legend.position = "bottom")
-
-# Black and white
-preds %>% ggplot(aes(x = mass, y = pred))+
-  geom_point(aes(shape = treatment))+
-  geom_smooth(aes(lty = treatment), 
-              method = "lm", 
-              col = "black", 
-              lwd = 0.7,
-              se = F)+
-  ylab("Burst speed (mm/s)")+
-  xlab("Mass (g)")+
-  theme_minimal()+
-  scale_shape_manual(values = shape_hilo)+
-  scale_linetype_manual(values = linetype_hilo)+
-  guides(shape = guide_legend(title = "", override.aes = list(alpha = 1)))+
-  guides(lty = guide_legend(title = "Temperature \n treatment"))+
-  theme(legend.position = "bottom")
-```
-
-# Model predictions (gs): lab-reared
-```{r}
-# Color
-preds %>% ggplot(aes(x = jitter(gs), y = pred, col = treatment))+
-  geom_point()+
-  geom_smooth(method = "lm", 
-              se = F)+
-  ylab("Burst speed (mm/s)")+
-  xlab("Gosner stage")+
-  theme_minimal()+
-  scale_color_manual(name = "Temperature treatment", values = col_hilo)+
-  theme(legend.position = "bottom")
-
-# Black and white
-preds %>% ggplot(aes(x = jitter(gs), y = pred))+
-  geom_point(aes(shape = treatment))+
-  geom_smooth(aes(lty = treatment), 
-              method = "lm", 
-              col = "black", 
-              lwd = 0.7,
-              se = F)+
-  ylab("Burst speed (mm/s)")+
-  xlab("Gosner stage")+
-  theme_minimal()+
-  scale_shape_manual(values = shape_hilo)+
-  scale_linetype_manual(values = linetype_hilo)+
-  guides(shape = guide_legend(title = "", override.aes = list(alpha = 1)))+
-  guides(lty = guide_legend(title = "Temperature \n treatment"))+
-  theme(legend.position = "bottom")
-```
-
-# Model predictions (gs): lab-reared
-```{r}
-# Residual of mass on gosner stage
-mass_stage_mod <- lm(mass ~ gs, data = preds)
-
-preds$mass_stage_resid <- resid(mass_stage_mod)
-
-# Color
-preds %>% ggplot(aes(x = mass_stage_resid, y = pred, col = treatment))+
-  geom_point()+
-  geom_smooth(method = "lm", 
-              se = F)+
-  ylab("Burst speed (mm/s)")+
-  xlab("Residual of mass at stage")+
-  theme_minimal()+
-  scale_color_manual(name = "Temperature treatment", values = col_hilo)+
-  theme(legend.position = "bottom")
-
-# Black and white
-preds %>% ggplot(aes(x = mass_stage_resid, y = pred))+
-  geom_point(aes(shape = treatment))+
-  geom_smooth(aes(lty = treatment), 
-              method = "lm", 
-              col = "black", 
-              lwd = 0.7,
-              se = F)+
-  ylab("Burst speed (mm/s)")+
-  xlab("Residual of mass at stage")+
-  theme_minimal()+
-  scale_shape_manual(values = shape_hilo)+
-  scale_linetype_manual(values = linetype_hilo)+
-  guides(shape = guide_legend(title = "", override.aes = list(alpha = 1)))+
-  guides(lty = guide_legend(title = "Temperature \n treatment"))+
-  theme(legend.position = "bottom")
-```
-
-# Model predictions: wild
-```{r}
-load("data/outputs/wild_nonas_std.Rda")
-load("data/outputs/consensus_mod_wild.Rda")
-
-wild_preds <- wild_nonas_std %>% 
-  select(-c(sline_speed_mm_s, trial)) %>% 
-  distinct() %>% # create new df for predictions
-  select(mass, tadpole)
-
-wild_preds$pred <- predict(object = consensus_mod_wild, newdata = wild_preds, re.form = NULL) + summary(consensus_mod_wild)$sigma # make predictions
-
-wild_preds %>% ggplot(aes(x = mass, y = pred))+
-  geom_point(alpha = 0.4)+
-  geom_smooth(method = "lm", 
-              col = "black",
-              se = F)+
-  xlab("Mass")+
-  ylab("Burst speed (mm/s)")+
-  theme_minimal()
-```
-
 # Number of trials
 ```{r}
 load("data/outputs/dat3_nonas.Rda")
@@ -507,86 +378,101 @@ nrow(dat3_nonas) + nrow(wild_nonas)
 
 ```
 
-# MAIN FIGURE: burst speed/mass, lab and wild
+# Allocation
 ```{r}
-load("data/outputs/newlab.mass.Rda")
-load("data/outputs/newwld.mass.Rda")
+load("data/outputs/dat3_nonas.Rda")
+load("data/outputs/wild_nonas.Rda")
+plot.alloc <- dat3_nonas %>% ggplot(aes(x = jitter(gs, amount = 0.1), y = mass, col = treatment))+ 
+  geom_point(alpha = 0.5)+
+  geom_smooth(method = "lm")+
+  geom_point(data = wild_nonas, color = "black", alpha = 0.5)+ # add points and line for wild tadpoles
+  geom_smooth(data = wild_nonas, method = "lm", col = "black")+
+  scale_color_manual(name = "Temperature treatment", values = col_hilo)+
+  theme_minimal()+
+  theme(legend.position = "bottom")+
+  ylab("Mass (g)")+
+  xlab("Gosner stage")
+plot.alloc
+```
+
+
+# Partial regression plots
+```{r}
 load("data/outputs/newlab.gs.Rda")
 load("data/outputs/newwld.gs.Rda")
+load("data/outputs/newlab.sas.Rda")
+load("data/outputs/newwld.sas.Rda")
 
-new.mass <- bind_rows(newlab.mass, newwld.mass) %>%
-  mutate(treatment = case_when(is.na(treatment) ~ "Wild"))
-new.gs <- bind_rows(newlab.gs, newwld.gs) %>%
-  mutate(treatment = case_when(is.na(treatment) ~ "Wild"))
-
-# TRY TO RECREATE THIS FIGURE WITH THE DATASET BOUND TOGETHER, TO FACILITATE MAKING THE LEGEND
-
-# Mass (with points)
-plot.mass <- newlab.mass %>%
-  ggplot(aes(x = mass, y = fit.re, col = treatment))+
-  geom_point()+ # lab points
-  geom_point(data = newwld.mass, col = "black")+
-  geom_smooth(method = "lm", se = F)+
-  geom_smooth(data = newwld.mass, aes(y = fit.nore),
-              method = "lm", se = F, col = "black")+
-  scale_color_manual(name = "Temperature treatment", values = col_hilo)+
-  ylab("Burst speed (mm/s)")+
-  xlab("Mass (g)")+
-  theme(legend.position = "bottom")
-plot.mass
-
-# GS (with points)
+# Gosner stage (points)
 plot.gs <- newlab.gs %>%
-  ggplot(aes(x = gs, y = fit.re, col = treatment)) +
-  geom_point() +
-  geom_point(data = newwld.gs, col = "black") +
-  geom_smooth(data = newlab.gs, aes(y = fit.nore), 
-              method = 'lm', 
-              se = F) +
-  geom_smooth(data = newwld.gs, aes(y = fit.nore), 
-              method = 'lm', 
-              se = F, col = "black") +
-  scale_color_manual(name = "Temperature treatment", values = col_hilo)+
-  ylab("Burst speed (mm/s)")+
-  xlab("Gosner stage")+
-  theme(legend.position = "bottom")
+  ggplot(aes(x = jitter(gs, amount = 0.1), y = fit.re, col = treatment))+
+  geom_point(alpha = 0.5)+ # lab points
+  geom_point(data = newwld.gs, col = "black", alpha = 0.5)+
+  geom_smooth(aes(y = fit.nore), 
+              method = "lm", se = F)+
+  geom_smooth(data = newwld.gs, aes(y = fit.nore),
+              method = "lm", se = F, col = "black")+
+  scale_color_manual(values = col_hilo)+
+  ylab("Predicted speed (mm/s)")+
+  xlab("")+
+  theme_minimal()+
+  theme(legend.position = "none")
 plot.gs
 
-# Mass (with pond random effects)
-plot.mass.re <- newlab.mass %>%
-  ggplot(aes(x = mass, y = fit.re, col = treatment)) +
+# Size at stage (points)
+plot.sas <- newlab.sas %>%
+  ggplot(aes(x = size_at_stage, y = fit.re, col = treatment)) +
+  geom_point(alpha = 0.5) +
+  geom_point(data = newwld.sas, col = "black", alpha = 0.5) +
+  geom_smooth(data = newlab.sas, aes(y = fit.nore), 
+              method = 'lm', 
+              se = F) +
+  geom_smooth(data = newwld.sas, aes(y = fit.nore), 
+              method = 'lm', 
+              se = F, col = "black") +
+  scale_color_manual(values = col_hilo)+
+  ylab("")+
+  xlab("")+
+  theme_minimal()+
+  theme(legend.position = "none")
+plot.sas
+
+# Gosner stage (lines)
+plot.gs.re <- newlab.gs %>%
+  ggplot(aes(x = gs, y = fit.re, col = treatment)) +
   geom_smooth(aes(y = fit.re, group = interaction(pond, treatment)), 
               method = 'lm', se = F, size = 0.5) +
   geom_smooth(aes(y = fit.nore), 
-              method = 'lm', se = F, size = 2) +
-  geom_smooth(data = newwld.mass, aes(y = fit.re, group = pond), 
-              method = 'lm', se = F, col = 1, size = 0.5) +
-  geom_smooth(data = newwld.mass, aes(y = fit.nore), 
-              method = 'lm', se = F, col = 1, size = 2) +
-  scale_color_manual(name = "Temperature treatment", values = col_hilo)+
-  ylab("Burst speed (mm/s)")+
-  xlab("Mass (g)")+
-  theme(legend.position = "bottom")
-plot.mass.re
-
-# GS (with pond random effects)
-plot.gs.re <- newlab.gs %>% ggplot(aes(x = gs, y = fit.re, col = treatment)) +
-  geom_smooth(data = newlab.gs, aes(y = fit.re, group = interaction(pond, treatment)), 
-              method = 'lm', se = F, size = 0.5) +
-  geom_smooth(data = newlab.gs, aes(y = fit.nore), 
               method = 'lm', se = F, size = 2) +
   geom_smooth(data = newwld.gs, aes(y = fit.re, group = pond), 
               method = 'lm', se = F, col = 1, size = 0.5) +
   geom_smooth(data = newwld.gs, aes(y = fit.nore), 
               method = 'lm', se = F, col = 1, size = 2) +
-  scale_color_manual(name = "Temperature treatment", values = col_hilo)+
-  ylab("Burst speed (mm/s)")+
+  scale_color_manual(values = col_hilo)+
+  ylab("Predicted speed (mm/s)")+
   xlab("Gosner stage")+
-  theme(legend.position = "bottom")
+  theme_minimal()+
+  theme(legend.position = "none")
 plot.gs.re
 
-cowplot::plot_grid(plot.mass.re, plot.gs.re, align = "h")
+# Size at stage (lines)
+plot.sas.re <- newlab.sas %>% ggplot(aes(x = size_at_stage, y = fit.re, col = treatment)) +
+  geom_smooth(aes(y = fit.re, group = interaction(pond, treatment)), 
+              method = 'lm', se = F, size = 0.5) +
+  geom_smooth(aes(y = fit.nore), 
+              method = 'lm', se = F, size = 2) +
+  geom_smooth(data = newwld.sas, aes(y = fit.re, group = pond), 
+              method = 'lm', se = F, col = 1, size = 0.5) +
+  geom_smooth(data = newwld.sas, aes(y = fit.nore), 
+              method = 'lm', se = F, col = 1, size = 2) +
+  scale_color_manual(name = "Temperature \n treatment", values = col_hilo) +
+  ylab("")+
+  xlab("Size at stage")+
+  theme_minimal()+
+  theme(legend.position = "none")
+plot.sas.re
 
+cowplot::plot_grid(plot.gs, plot.sas, plot.gs.re, plot.sas.re, nrow = 2)
 ```
 
 # Reaction norm
@@ -615,10 +501,9 @@ lab %>%
               col = "black", lwd = 0.3, lty = "dashed")+
   geom_point(data = wild, aes(x = avg_pond_temp, y = meanspeed))+
   geom_smooth(data = wild, aes(x = avg_pond_temp, y = meanspeed),
-              method = "lm", se = F, col = "black", lwd = 0.3)+
-  geom_errorbar
-  theme_minimal()+
-  
+              method = "lm", se = F, col = "black", lwd = 0.3)
+
+
 ```
 
 
