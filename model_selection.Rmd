@@ -225,7 +225,7 @@ dat3_nonas %>% ggplot(aes(x = PC2, y = sline_speed_mm_s, col = treatment))+
 We'll use PC2 for now, and then we'll compare models later on to see which is better once other variables are taken into account.
 
 ## Model selection
-### Fit full model
+### Fit several full models
 Using unstandardized values for now.
 ```{r}
 load("data/outputs/dat3_nonas_std.Rda")
@@ -236,11 +236,11 @@ full <- lmer(sline_speed_mm_s ~ treatment*mass + treatment*gs + PC2 + T_initial 
 full_alt <- lmer(sline_speed_mm_s ~ treatment + mass*gs + PC2 + T_initial + (1|pond/clutch/tadpole), data = dat3_nonas_std, REML = F)
 
 # Predict mass from gosner stage
-mass_gs_mod <- lm(mass ~ gs, data = dat3_nonas_std)
+mass_gs_mod_std <- lm(mass ~ gs, data = dat3_nonas_std)
 dat3_nonas_std <- dat3_nonas_std %>%
-  mutate(mass_gs_resid = resid(mass_gs_mod))
+  mutate(size_at_stage = resid(mass_gs_mod_std))
 
-resid <- lmer(sline_speed_mm_s ~ mass_gs_resid*treatment + gs*treatment + PC2 + T_initial + (1|pond/clutch/tadpole), data = dat3_nonas_std, REML = F)
+resid <- lmer(sline_speed_mm_s ~ size_at_stage*treatment + gs*treatment + PC2 + T_initial + (1|pond/clutch/tadpole), data = dat3_nonas_std, REML = F)
 summary(resid) 
 # We've decided to use this one: AIC is the same as the full model, but it's more interpretable.
 
@@ -250,17 +250,27 @@ AIC(full_3way, full, full_alt, resid) %>%
   arrange(AIC)
 ```
 
-## Select a model
-Since all of the top 5 basically give the same results, we're going to choose model 1. 
+### Select a model
+Because it's most interpretable and has one of the lowest AIC's (equivalent to the full model including mass), we're going to select the model that uses size-at-stage, the residual of mass on gosner stage. 
+
+#### Re-fit the  model with unstandardized vars
 ```{r}
-consensus_mod <- resid
+consensus_mod_std <- resid
+save(consensus_mod_std, file = "data/outputs/consensus_mod_std.Rda")
+
+# Predict mass from gosner stage (unstandardized)
+mass_gs_mod <- lm(mass ~ gs, data = dat3_nonas)
+dat3_nonas <- dat3_nonas %>%
+  mutate(size_at_stage = resid(mass_gs_mod))
+
+consensus_mod <- lmer(sline_speed_mm_s ~ size_at_stage*treatment + gs*treatment + PC2 + T_initial + (1|pond/clutch/tadpole), data = dat3_nonas)
 summary(consensus_mod)
 
 # Get R-squared
 MuMIn::r.squaredGLMM(consensus_mod)
 
 # Confidence intervals for the coefficients
-#confint.merMod(consensus_mod, method = "boot", nsim = 1000, oldNames = FALSE)
+#ci <- confint.merMod(consensus_mod, method = "boot", nsim = 1000, oldNames = FALSE)
 
 save(consensus_mod, file = "data/outputs/consensus_mod.Rda")
 summary(consensus_mod)
@@ -271,7 +281,7 @@ summary(consensus_mod)
 plot(consensus_mod) # looking good!
 ```
 
-## Add variance structure
+## Variance structure?
 ```{r}
 # # this is how we fitted our original model, mod_gs
 # formula(consensus_mod)
@@ -315,16 +325,16 @@ plot(consensus_mod) # looking good!
 #anova(mod_nostruct, mod_varfixed, mod_varident, mod_varexp, mod_varconstpower) # var_nostruct actually wins
 ```
 
-# Save model with structure
+### Save model with structure
 ```{r}
 # consensus_mod_varident <- mod_varident
 # save(consensus_mod_varident, file = "data/outputs/consensus_mod_varident")
 ```
 
 # Wild tadpoles
-## Model selection
-### Variable standardization
+## Standardize variables
 ```{r}
+head(wild_nonas)
 # Function to calculate z scores
 standardize <- function(vector){
   mu <- mean(vector)
@@ -337,15 +347,37 @@ wild_nonas_std <- wild_nonas %>% mutate_at(.vars = c("PC1", "PC2", "mass", "size
 save(wild_nonas_std, file = "data/outputs/wild_nonas_std.Rda")
 ```
 
-## Re-create the lab-reared model: model selection be damned!
+## Model
+### Standardized
 ```{r}
-formula(consensus_mod)
+# Predict mass from gosner stage
+mass_gs_mod_wild_std <- lm(mass ~ gs, data = wild_nonas_std)
+wild_nonas_std <- wild_nonas_std %>%
+  mutate(size_at_stage = resid(mass_gs_mod_wild_std))
 
-replica_mod_wild <- lmer(sline_speed_mm_s ~ mass * avg_pond_temp + gs + T_initial + (1 | tadpole), data = wild_nonas_std)
+consensus_mod_wild_std <- lmer(sline_speed_mm_s ~ size_at_stage*avg_pond_temp + gs*avg_pond_temp + PC2 + T_initial + (1|pond/tadpole), data = wild_nonas_std)
+summary(consensus_mod_wild_std)
 
-summary(replica_mod_wild)
-MuMIn::r.squaredGLMM(replica_mod_wild)
-#confint.merMod(replica_mod_wild, method = "boot", nsim = 1000, oldNames = FALSE)
-save(replica_mod_wild, file = "data/outputs/replica_mod_wild.Rda")
+# Get R-squared
+MuMIn::r.squaredGLMM(consensus_mod_wild_std)
+
+# Confidence intervals for the coefficients
+ci <- confint.merMod(consensus_mod_wild_std, method = "boot", nsim = 1000, oldNames = FALSE)
+ci
+
+```
+
+### Unstandardized
+```{r}
+# Predict mass from gosner stage
+mass_gs_mod_wild <- lm(mass ~ gs, data = wild_nonas)
+wild_nonas <- wild_nonas %>%
+  mutate(size_at_stage = resid(mass_gs_mod_wild))
+
+consensus_mod_wild <- lmer(sline_speed_mm_s ~ size_at_stage*avg_pond_temp + gs*avg_pond_temp + PC2 + T_initial + (1|pond/tadpole), data = wild_nonas)
+summary(consensus_mod_wild)
+
+# Get R-squared
+MuMIn::r.squaredGLMM(consensus_mod_wild)
 ```
 
