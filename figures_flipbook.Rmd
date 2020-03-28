@@ -589,4 +589,36 @@ cowplot::plot_grid(plot.mass.re, plot.gs.re, align = "h")
 
 ```
 
+# Reaction norm
+```{r}
+load("data/outputs/dat3_nonas.Rda")
+load("data/outputs/wild_nonas.Rda")
+
+lab <- dat3_nonas %>%
+  group_by(treatment, pond) %>%
+  mutate(meanspeed = mean(sline_speed_mm_s),
+         sd = sd(sline_speed_mm_s)) %>%
+  select(pond, meanspeed, sd, avg_temp) %>%
+  distinct()
+
+wild <- wild_nonas %>%
+  group_by(pond) %>%
+  mutate(meanspeed = mean(sline_speed_mm_s),
+         sd = sd(sline_speed_mm_s)) %>%
+  select(pond, meanspeed, sd, avg_pond_temp) %>%
+  distinct()
+
+lab %>%
+  ggplot(aes(x = jitter(avg_temp, amount = 0.2), y = meanspeed))+
+  geom_point(aes(col = treatment))+
+  geom_smooth(method = "lm", se = F, aes(group = pond),
+              col = "black", lwd = 0.3, lty = "dashed")+
+  geom_point(data = wild, aes(x = avg_pond_temp, y = meanspeed))+
+  geom_smooth(data = wild, aes(x = avg_pond_temp, y = meanspeed),
+              method = "lm", se = F, col = "black", lwd = 0.3)+
+  geom_errorbar
+  theme_minimal()+
+  
+```
+
 
