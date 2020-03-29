@@ -82,12 +82,12 @@ wild_nonas <- wild_nonas %>% # join dates
 locate.nas(wild_nonas) # check for NA's
 ```
 
-#### Add size at stage
+#### Add mass at stage
 ```{r}
 # Predict mass from gosner stage
 mass_gs_mod_wild <- lm(mass ~ gs, data = wild_nonas)
 wild_nonas <- wild_nonas %>%
-  mutate(size_at_stage = resid(mass_gs_mod_wild))
+  mutate(mass_at_stage = resid(mass_gs_mod_wild))
 ```
 
 
@@ -105,7 +105,6 @@ locate.nas(dat3_nonas)
 
 #### Add incubator temps
 ```{r}
-## Add pond temps
 load("data/outputs/avg_inc_temps.Rda") # Load pond temperatures
 dat3_nonas <- dat3_nonas %>% left_join(avg_inc_temps, by = "treatment") %>%
   mutate(treatment = factor(treatment))
@@ -113,12 +112,12 @@ dat3_nonas <- dat3_nonas %>% left_join(avg_inc_temps, by = "treatment") %>%
 locate.nas(dat3_nonas) # check for NA's
 ```
 
-#### Add size at stage
+#### Add mass at stage
 ```{r}
 # Predict mass from gosner stage
 mass_gs_mod <- lm(mass ~ gs, data = dat3_nonas)
 dat3_nonas <- dat3_nonas %>%
-  mutate(size_at_stage = resid(mass_gs_mod))
+  mutate(mass_at_stage = resid(mass_gs_mod))
 ```
 
 #### Save dat3_nonas
@@ -182,7 +181,7 @@ dat3_nonas %>% ggplot(aes(x = mass, y = predicted_speed_withresids, col = treatm
 The similarity between these graphs shows us that we have correctly specified the structure of our random effects
 
 
-## Figure out main effects
+## Main effects
 ### Investigate correlations
 ```{r}
 #dat3_nonas %>% select(PC1, PC2, size, mass, gs, T_initial, treatment) %>% ggpairs()
@@ -199,7 +198,7 @@ standardize <- function(vector){
   return(z_vector)
 }
 
-dat3_nonas_std <- dat3_nonas %>% mutate_at(.vars = c("PC1", "PC2", "mass", "size", "gs", "T_initial", "size_at_stage"), standardize)
+dat3_nonas_std <- dat3_nonas %>% mutate_at(.vars = c("PC1", "PC2", "mass", "size", "gs", "T_initial", "mass_at_stage"), standardize)
 save(dat3_nonas_std, file = "data/outputs/dat3_nonas_std.Rda")
 ```
 
@@ -252,7 +251,7 @@ full <- lmer(sline_speed_mm_s ~ treatment*mass + treatment*gs + PC2 + T_initial 
 
 full_alt <- lmer(sline_speed_mm_s ~ treatment + mass*gs + PC2 + T_initial + (1|pond/clutch/tadpole), data = dat3_nonas_std, REML = F)
 
-resid <- lmer(sline_speed_mm_s ~ size_at_stage*treatment + gs*treatment + PC2 + T_initial + (1|pond/clutch/tadpole), data = dat3_nonas_std, REML = F)
+resid <- lmer(sline_speed_mm_s ~ mass_at_stage*treatment + gs*treatment + PC2 + T_initial + (1|pond/clutch/tadpole), data = dat3_nonas_std, REML = F)
 summary(resid) 
 # We've decided to use this one: AIC is the same as the full model, but it's more interpretable.
 
@@ -282,7 +281,7 @@ MuMIn::r.squaredGLMM(consensus_mod_std)
 ```{r}
 
 
-consensus_mod <- lmer(sline_speed_mm_s ~ size_at_stage*treatment + gs*treatment + PC2 + T_initial + (1|pond/clutch/tadpole), data = dat3_nonas)
+consensus_mod <- lmer(sline_speed_mm_s ~ mass_at_stage*treatment + gs*treatment + PC2 + T_initial + (1|pond/clutch/tadpole), data = dat3_nonas)
 summary(consensus_mod)
 
 # Get R-squared
@@ -363,14 +362,14 @@ standardize <- function(vector){
   return(z_vector)
 }
 
-wild_nonas_std <- wild_nonas %>% mutate_at(.vars = c("PC1", "PC2", "mass", "size", "gs", "T_initial", "avg_pond_temp", "size_at_stage"), standardize)
+wild_nonas_std <- wild_nonas %>% mutate_at(.vars = c("PC1", "PC2", "mass", "size", "gs", "T_initial", "avg_pond_temp", "mass_at_stage"), standardize)
 save(wild_nonas_std, file = "data/outputs/wild_nonas_std.Rda")
 ```
 
 ## Model
 ### Standardized
 ```{r}
-consensus_mod_wild_std <- lmer(sline_speed_mm_s ~ size_at_stage*avg_pond_temp + gs*avg_pond_temp + PC2 + T_initial + (1|pond/tadpole), data = wild_nonas_std)
+consensus_mod_wild_std <- lmer(sline_speed_mm_s ~ mass_at_stage*avg_pond_temp + gs*avg_pond_temp + PC2 + T_initial + (1|pond/tadpole), data = wild_nonas_std)
 summary(consensus_mod_wild_std)
 
 # Get R-squared
@@ -384,7 +383,7 @@ save(consensus_mod_wild_std, file = "data/outputs/consensus_mod_wild_std.Rda")
 
 ### Unstandardized
 ```{r}
-consensus_mod_wild <- lmer(sline_speed_mm_s ~ size_at_stage*avg_pond_temp + gs*avg_pond_temp + PC2 + T_initial + (1|pond/tadpole), data = wild_nonas)
+consensus_mod_wild <- lmer(sline_speed_mm_s ~ mass_at_stage*avg_pond_temp + gs*avg_pond_temp + PC2 + T_initial + (1|pond/tadpole), data = wild_nonas)
 summary(consensus_mod_wild)
 
 # Get R-squared
