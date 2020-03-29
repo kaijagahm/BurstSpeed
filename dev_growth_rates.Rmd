@@ -325,6 +325,9 @@ names(templist) <- pondnames
 # select columns we want
 templist <- lapply(templist, select, V2, V3) # I can't believe that worked!
 
+# remove NA's
+templist <- lapply(templist, filter, !is.na(V2) & !is.na(V3))
+
 # make names vector
 namesvec <- c("datetime", "temp_c")
 
@@ -333,6 +336,7 @@ templist <- lapply(templist, setNames, nm = namesvec)
 
 # parse dates and times
 templist <- map(templist, mutate, datetime = parse_date_time(datetime, orders = c("mdy HM", "mdy HMS")))
+lapply(templist, FUN = locate.nas)
 ```
 
 ## Bind together
@@ -369,7 +373,7 @@ temps <- temps %>%
   group_by(pond) %>%
   filter(datetime >= datetime_in & datetime < datetime_out)
 
-head(temps)
+
 
 ## Fix deploy times for PB and GB
 temps <- temps %>% filter(!(pond == "PB" & datetime < "2019-03-31 16:00:00")) # fix PB deploy time
@@ -386,10 +390,10 @@ temps <- temps %>%
 
 temps <- temps %>%
   group_by(date, pond) %>% # group by day
-  mutate(mean_daily_temp_c = mean(temp_c)) %>% # mean daily temp
+  mutate(mean_daily_temp_c = mean(temp_c, na.rm = T)) %>% # mean daily temp
   ungroup() %>%
   group_by(date_hour, pond) %>% # group by hour
-  mutate(mean_hourly_temp_c = mean(temp_c)) # mean hourly temp
+  mutate(mean_hourly_temp_c = mean(temp_c, na.rm = T)) # mean hourly temp
 ```
 
 ## Visualize
@@ -436,12 +440,18 @@ wild_tads <- wild_tads %>%
 mean_tad_collection_date <- wild_tads %>%
   summarize(mean = mean(coll.date)) %>%
   pull(mean)
+mean_tad_collection_date
 
 # Calculate pond average temperatures over the mean interval (oviposition to tadpole collection)
 pond_avg_temps <- temps %>%
   group_by(pond) %>%
+  select(pond, date, mean_daily_temp_c) %>%
+  distinct() %>%
+  filter(date >= mean_ovip_date & date <= mean_tad_collection_date) %>%
   summarize(avg_pond_temp = mean(mean_daily_temp_c, na.rm = T)) %>%
   ungroup()
+
+head(pond_avg_temps)
 
 # Summary of all dates for wild tadpoles
 wild_dates <- wild_tads %>%
@@ -457,15 +467,15 @@ save(pond_avg_temps, file = "data/outputs/pond_avg_temps.Rda")
 # Boxplots of daily temperatures during the dev. period
 ```{r}
 # Crop to the dev period
-fortempboxplots <- temps %>%
+temps_cropped <- temps %>%
   group_by(pond) %>%
   filter(date >= mean_ovip_date & date <= mean_tad_collection_date) %>%
   ungroup()
 
-save(fortempboxplots, file = "data/outputs/fortempboxplots.Rda")
+save(temps_cropped, file = "data/outputs/temps_cropped.Rda")
 
 # Make boxplots
-fortempboxplots %>%
+temps_cropped %>%
   filter(!is.na(mean_daily_temp_c)) %>%
   ggplot(aes(x = fct_reorder(pond, -mean_daily_temp_c), 
              y = mean_daily_temp_c))+
