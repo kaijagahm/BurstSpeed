@@ -320,6 +320,13 @@ newsas <- bind_rows(newlab.sas, newwld.sas) %>%
   mutate(treatment = factor(treatment))
 ```
 
+### Save
+```{r}
+save(newgs, file = "data/outputs/newgs.Rda")
+save(newsas, file = "data/outputs/newsas.Rda")
+```
+
+
 ## Points
 ```{r}
 # Gosner stage (points)
