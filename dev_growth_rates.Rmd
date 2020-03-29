@@ -605,7 +605,6 @@ loggers_cropped %>% ggplot(aes(x = date, y = mean_daily_temp_c, group = pond))+
   scale_color_manual(values = c("red", "blue"))+
   xlab("Date")+
   ylab("Temperature (ºC)")
-
 ```
 
 
