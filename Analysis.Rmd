@@ -562,10 +562,10 @@ newlab.gs <- dat3_nonas %>% # make new means/medians dataset (lab)
 
 newwld.gs <- wild_nonas %>%
   select(tadpole, mass_at_stage, avg_pond_temp, pond, T_initial, gs, PC2) %>%
-  mutate(T_initial = mean(T_initial),
-         mass_at_stage = mean(mass_at_stage),
-         avg_pond_temp = mean(avg_pond_temp),
-         PC2 = mean(PC2))
+  mutate(T_initial = mean(dat3_nonas$T_initial),
+         mass_at_stage = mean(dat3_nonas$mass_at_stage),
+         avg_pond_temp = mean(avg_pond_temp), # this one is set to the mean of the wild tads because it doesn't exist in the lab tads
+         PC2 = mean(dat3_nonas$PC2))
 
 # Add predictions
 newlab.gs <- newlab.gs %>%
@@ -605,10 +605,10 @@ newlab.sas <- dat3_nonas %>%
 
 newwld.sas <- wild_nonas %>%
   select(tadpole, mass_at_stage, avg_pond_temp, pond, T_initial, gs, PC2) %>%
-  mutate(T_initial = mean(T_initial),
-         gs = median(gs),
+  mutate(T_initial = mean(dat3_nonas$T_initial),
+         gs = median(dat3_nonas$gs),
          avg_pond_temp = mean(avg_pond_temp),
-         PC2 = mean(PC2))
+         PC2 = mean(dat3_nonas$PC2))
 
 # Add predictions
 newlab.sas <- newlab.sas %>%
