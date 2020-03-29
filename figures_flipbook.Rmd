@@ -231,104 +231,6 @@ wild_nonas %>% ggplot(aes(x = mass, y = sline_speed_mm_s))+
   theme_minimal()
 ```
 
-# Comparison of high, low, and wild tadpoles in the same ponds
-```{r}
-load("data/outputs/indiv_means.Rda")
-
-# Helper function to shift the legend
-library(gtable)
-library(cowplot)
-library(grid)
-
-shift_legend <- function(p){
-
-  # check if p is a valid object
-  if(!"gtable" %in% class(p)){
-    if("ggplot" %in% class(p)){
-      gp <- ggplotGrob(p) # convert to grob
-    } else {
-      message("This is neither a ggplot object nor a grob generated from ggplotGrob. Returning original plot.")
-      return(p)
-    }
-  } else {
-    gp <- p
-  }
-
-  # check for unfilled facet panels
-  facet.panels <- grep("^panel", gp[["layout"]][["name"]])
-  empty.facet.panels <- sapply(facet.panels, function(i) "zeroGrob" %in% class(gp[["grobs"]][[i]]))
-  empty.facet.panels <- facet.panels[empty.facet.panels]
-  if(length(empty.facet.panels) == 0){
-    message("There are no unfilled facet panels to shift legend into. Returning original plot.")
-    return(p)
-  }
-
-  # establish extent of unfilled facet panels (including any axis cells in between)
-  empty.facet.panels <- gp[["layout"]][empty.facet.panels, ]
-  empty.facet.panels <- list(min(empty.facet.panels[["t"]]), min(empty.facet.panels[["l"]]),
-                             max(empty.facet.panels[["b"]]), max(empty.facet.panels[["r"]]))
-  names(empty.facet.panels) <- c("t", "l", "b", "r")
-
-  # extract legend & copy over to location of unfilled facet panels
-  guide.grob <- which(gp[["layout"]][["name"]] == "guide-box")
-  if(length(guide.grob) == 0){
-    message("There is no legend present. Returning original plot.")
-    return(p)
-  }
-  gp <- gtable_add_grob(x = gp,
-                        grobs = gp[["grobs"]][[guide.grob]],
-                        t = empty.facet.panels[["t"]],
-                        l = empty.facet.panels[["l"]],
-                        b = empty.facet.panels[["b"]],
-                        r = empty.facet.panels[["r"]],
-                        name = "new-guide-box")
-
-  # squash the original guide box's row / column (whichever applicable)
-  # & empty its cell
-  guide.grob <- gp[["layout"]][guide.grob, ]
-  if(guide.grob[["l"]] == guide.grob[["r"]]){
-    gp <- gtable_squash_cols(gp, cols = guide.grob[["l"]])
-  }
-  if(guide.grob[["t"]] == guide.grob[["b"]]){
-    gp <- gtable_squash_rows(gp, rows = guide.grob[["t"]])
-  }
-  gp <- gtable_remove_grobs(gp, "guide-box")
-
-  return(gp)
-}
-
-
-# Color
-pc <- indiv_means %>%
-  ggplot(aes(x = mass, y = speed, col = treatment))+
-  geom_smooth(method = "lm", alpha = 0.2)+
-  facet_wrap(~pond)+
-  theme_minimal()+
-  scale_color_manual(name = "Temperature \n treatment", values = col_hilowi)+
-  theme(legend.position = "bottom")+
-  ylab("Burst speed (mm/s)")+
-  xlab("Mass (g)")
-
-grid.draw(shift_legend(pc)) # have to run this in the console for some reason.
-
-# Black and white
-pbw <- indiv_means %>%
-  ggplot(aes(x = mass, y = speed))+
-  geom_smooth(method = "lm", 
-              col = "black", 
-              alpha = 0.2,
-              lwd = 0.7,
-              aes(lty = treatment))+
-  facet_wrap(~pond)+
-  theme_minimal()+
-  scale_linetype_manual(name = "Temperature \n treatment", values = linetype_hilowi)+
-  theme(legend.position = "bottom")+
-  xlab("Mass (g)")+
-  ylab("Burst speed (mm/s)")
-
-grid.draw(shift_legend(pbw)) # have to run this in the console for some reason
-```
-
 # Average size and stage of tadpoles at time of trials
 ```{r}
 load("data/outputs/dat3_nonas.Rda")
@@ -395,85 +297,104 @@ plot.alloc <- dat3_nonas %>% ggplot(aes(x = jitter(gs, amount = 0.1), y = mass, 
 plot.alloc
 ```
 
-
 # Partial regression plots
+## Data
+### Load
 ```{r}
 load("data/outputs/newlab.gs.Rda")
 load("data/outputs/newwld.gs.Rda")
 load("data/outputs/newlab.sas.Rda")
 load("data/outputs/newwld.sas.Rda")
+```
 
+### Bind
+```{r}
+newgs <- bind_rows(newlab.gs, newwld.gs) %>%
+  mutate(treatment = case_when(is.na(treatment) ~ "Wild",
+                               TRUE ~ as.character(treatment))) %>%
+  mutate(treatment = factor(treatment))
+
+newsas <- bind_rows(newlab.sas, newwld.sas) %>%
+  mutate(treatment = case_when(is.na(treatment) ~ "Wild",
+                               TRUE ~ as.character(treatment))) %>%
+  mutate(treatment = factor(treatment))
+```
+
+## Points
+```{r}
 # Gosner stage (points)
-plot.gs <- newlab.gs %>%
+plot.gs <- newgs %>%
   ggplot(aes(x = jitter(gs, amount = 0.1), y = fit.re, col = treatment))+
-  geom_point(alpha = 0.5)+ # lab points
-  geom_point(data = newwld.gs, col = "black", alpha = 0.5)+
-  geom_smooth(aes(y = fit.nore), 
-              method = "lm", se = F)+
-  geom_smooth(data = newwld.gs, aes(y = fit.nore),
-              method = "lm", se = F, col = "black")+
-  scale_color_manual(values = col_hilo)+
+  geom_point(alpha = 0.5)+
+  geom_smooth(aes(y = fit.nore), method = "lm", se = F)+
+  scale_color_manual(values = col_hilowi)+
   ylab("Predicted speed (mm/s)")+
   xlab("")+
   theme_minimal()+
   theme(legend.position = "none")
-plot.gs
 
 # Mass at stage (points)
-plot.sas <- newlab.sas %>%
-  ggplot(aes(x = mass_at_stage, y = fit.re, col = treatment)) +
-  geom_point(alpha = 0.5) +
-  geom_point(data = newwld.sas, col = "black", alpha = 0.5) +
-  geom_smooth(data = newlab.sas, aes(y = fit.nore), 
-              method = 'lm', 
-              se = F) +
-  geom_smooth(data = newwld.sas, aes(y = fit.nore), 
-              method = 'lm', 
-              se = F, col = "black") +
-  scale_color_manual(values = col_hilo)+
+plot.sas <- newsas %>%
+  ggplot(aes(x = mass_at_stage, y = fit.re, col = treatment))+
+  geom_point(alpha = 0.5)+
+  geom_smooth(aes(y = fit.nore), method = "lm", se = F)+
+  scale_color_manual(values = col_hilowi)+
   ylab("")+
   xlab("")+
   theme_minimal()+
   theme(legend.position = "none")
-plot.sas
+```
 
+## Lines
+```{r}
 # Gosner stage (lines)
-plot.gs.re <- newlab.gs %>%
-  ggplot(aes(x = gs, y = fit.re, col = treatment)) +
-  geom_smooth(aes(y = fit.re, group = interaction(pond, treatment)), 
-              method = 'lm', se = F, size = 0.5) +
-  geom_smooth(aes(y = fit.nore), 
-              method = 'lm', se = F, size = 2) +
-  geom_smooth(data = newwld.gs, aes(y = fit.re, group = pond), 
-              method = 'lm', se = F, col = 1, size = 0.5) +
-  geom_smooth(data = newwld.gs, aes(y = fit.nore), 
-              method = 'lm', se = F, col = 1, size = 2) +
-  scale_color_manual(values = col_hilo)+
+plot.gs.re <- newgs %>%
+  ggplot(aes(x = gs, y = fit.re, col = treatment))+
+  geom_smooth(aes(y = fit.re, group = interaction(pond, treatment)),
+              method = "lm", se = F, size = 0.5)+
+  geom_smooth(aes(y = fit.nore),
+              method = "lm", se = F, size = 2)+
+  scale_color_manual(values = col_hilowi)+
   ylab("Predicted speed (mm/s)")+
   xlab("Gosner stage")+
   theme_minimal()+
-  theme(legend.position = "none")
+  theme(legend.position = "bottom")
 plot.gs.re
 
 # Mass at stage (lines)
-plot.sas.re <- newlab.sas %>% ggplot(aes(x = mass_at_stage, y = fit.re, col = treatment)) +
-  geom_smooth(aes(y = fit.re, group = interaction(pond, treatment)), 
-              method = 'lm', se = F, size = 0.5) +
-  geom_smooth(aes(y = fit.nore), 
-              method = 'lm', se = F, size = 2) +
-  geom_smooth(data = newwld.sas, aes(y = fit.re, group = pond), 
-              method = 'lm', se = F, col = 1, size = 0.5) +
-  geom_smooth(data = newwld.sas, aes(y = fit.nore), 
-              method = 'lm', se = F, col = 1, size = 2) +
-  scale_color_manual(name = "Temperature \n treatment", values = col_hilo) +
+plot.sas.re <- newsas %>%
+  ggplot(aes(x = mass_at_stage, y = fit.re, col = treatment))+
+  geom_smooth(aes(y = fit.re, group = interaction(pond, treatment)),
+              method = "lm", se = F, size = 0.5)+
+  geom_smooth(aes(y = fit.nore),
+              method = "lm", se = F, size = 2)+
+  scale_color_manual(name = "Temperature \n treatment", values = col_hilowi) +
   ylab("")+
   xlab("Mass at stage")+
   theme_minimal()+
   theme(legend.position = "none")
 plot.sas.re
+```
 
+## Cowplots
+```{r}
 cowplot::plot_grid(plot.gs, plot.sas, plot.gs.re, plot.sas.re, nrow = 2)
 cowplot::plot_grid(plot.gs.re, plot.sas.re, align = "h")
+```
+
+## By pond
+```{r}
+source("plot_helper_funs.R")
+pondplot <- newgs %>%
+  ggplot(aes(x = gs, y = fit.re, col = treatment))+ # use fit.re here bc it's different for each pond
+  geom_smooth(method = "lm", se = F)+
+  scale_color_manual(name = "Temperature treatment", values = col_hilowi)+
+  theme_minimal()+
+  facet_wrap(~pond)+
+  ylab("Predicted speed (mm/s)")+
+  xlab("Gosner stage")
+
+grid.draw(shift_legend(pondplot)) # have to run this in the console for some reason
 ```
 
 # Reaction norm
