@@ -543,7 +543,7 @@ Display the effect of a focal variable while holding the other variables at thei
 For these partial regressions, we'll work with _unstandardized_ data.
 
 #### Mean-constant data (GS)
-Hold all variables constant at their mean values for lab tadpoles except for Gosner stage. Size_at_stage will be held to 0, since those values are residuals.
+Hold all variables constant at their mean values for lab tadpoles except for Gosner stage. Mass_at_stage will be held to 0, since those values are residuals.
 ```{r}
 # Load data
 load("data/outputs/dat3_nonas.Rda")
@@ -555,15 +555,15 @@ load("data/outputs/consensus_mod_wild.Rda")
 
 # Make new datasets
 newlab.gs <- dat3_nonas %>% # make new means/medians dataset (lab)
-  select(tadpole, clutch, size_at_stage, treatment, pond, T_initial, gs, PC2) %>%
+  select(tadpole, clutch, mass_at_stage, treatment, pond, T_initial, gs, PC2) %>%
   mutate(T_initial = mean(T_initial),
-         size_at_stage = mean(size_at_stage),
+         mass_at_stage = mean(mass_at_stage),
          PC2 = mean(PC2))
 
 newwld.gs <- wild_nonas %>%
-  select(tadpole, size_at_stage, avg_pond_temp, pond, T_initial, gs, PC2) %>%
+  select(tadpole, mass_at_stage, avg_pond_temp, pond, T_initial, gs, PC2) %>%
   mutate(T_initial = mean(T_initial),
-         size_at_stage = mean(size_at_stage),
+         mass_at_stage = mean(mass_at_stage),
          avg_pond_temp = mean(avg_pond_temp),
          PC2 = mean(PC2))
 
@@ -598,13 +598,13 @@ plot.gs
 ```{r}
 # Make new datasets
 newlab.sas <- dat3_nonas %>%
-  select(tadpole, clutch, size_at_stage, treatment, pond, T_initial, gs, PC2) %>%
+  select(tadpole, clutch, mass_at_stage, treatment, pond, T_initial, gs, PC2) %>%
   mutate(T_initial = mean(T_initial),
          gs = median(gs),
          PC2 = mean(PC2))
 
 newwld.sas <- wild_nonas %>%
-  select(tadpole, size_at_stage, avg_pond_temp, pond, T_initial, gs, PC2) %>%
+  select(tadpole, mass_at_stage, avg_pond_temp, pond, T_initial, gs, PC2) %>%
   mutate(T_initial = mean(T_initial),
          gs = median(gs),
          avg_pond_temp = mean(avg_pond_temp),
@@ -628,10 +628,10 @@ save(newlab.sas, file = "data/outputs/newlab.sas.Rda")
 save(newwld.sas, file = "data/outputs/newwld.sas.Rda")
 ```
 
-#### Plot (size at stage)
+#### Plot (mass at stage)
 ```{r}
 plot.sas <- newlab.sas %>%
-  ggplot(aes(x = size_at_stage, y = fit.re, col = treatment)) +
+  ggplot(aes(x = mass_at_stage, y = fit.re, col = treatment)) +
   geom_point() +
   geom_point(data = newwld.sas, col = "black") +
   geom_smooth(data = newlab.sas, aes(y = fit.nore), 
@@ -642,7 +642,7 @@ plot.sas <- newlab.sas %>%
               se = F, col = "black") +
   scale_color_manual(values = c("orange", "dodgerblue3"))+
   ylab("Predicted speed (mm/s)")+
-  xlab("Size at stage")+
+  xlab("Mass at stage")+
   theme_minimal()
 plot.sas
 ```
@@ -675,9 +675,9 @@ plot.gs.re <- newlab.gs %>%
 plot.gs.re
 ```
 
-#### Size at stage
+#### Mass at stage
 ```{r}
-plot.sas.re <- newlab.sas %>% ggplot(aes(x = size_at_stage, y = fit.re, col = treatment)) +
+plot.sas.re <- newlab.sas %>% ggplot(aes(x = mass_at_stage, y = fit.re, col = treatment)) +
   geom_smooth(aes(y = fit.re, group = interaction(pond, treatment)), 
               method = 'lm', se = F, size = 0.5) +
   geom_smooth(aes(y = fit.nore), 
@@ -688,7 +688,7 @@ plot.sas.re <- newlab.sas %>% ggplot(aes(x = size_at_stage, y = fit.re, col = tr
               method = 'lm', se = F, col = 1, size = 2) +
   scale_color_manual(values = c("orange", "dodgerblue3")) +
   ylab("Predicted speed (mm/s)")+
-  xlab("Size at stage")+
+  xlab("Mass at stage")+
   theme_minimal()
 plot.sas.re
 ```
