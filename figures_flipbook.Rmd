@@ -419,9 +419,9 @@ plot.gs <- newlab.gs %>%
   theme(legend.position = "none")
 plot.gs
 
-# Size at stage (points)
+# Mass at stage (points)
 plot.sas <- newlab.sas %>%
-  ggplot(aes(x = size_at_stage, y = fit.re, col = treatment)) +
+  ggplot(aes(x = mass_at_stage, y = fit.re, col = treatment)) +
   geom_point(alpha = 0.5) +
   geom_point(data = newwld.sas, col = "black", alpha = 0.5) +
   geom_smooth(data = newlab.sas, aes(y = fit.nore), 
@@ -455,8 +455,8 @@ plot.gs.re <- newlab.gs %>%
   theme(legend.position = "none")
 plot.gs.re
 
-# Size at stage (lines)
-plot.sas.re <- newlab.sas %>% ggplot(aes(x = size_at_stage, y = fit.re, col = treatment)) +
+# Mass at stage (lines)
+plot.sas.re <- newlab.sas %>% ggplot(aes(x = mass_at_stage, y = fit.re, col = treatment)) +
   geom_smooth(aes(y = fit.re, group = interaction(pond, treatment)), 
               method = 'lm', se = F, size = 0.5) +
   geom_smooth(aes(y = fit.nore), 
@@ -467,7 +467,7 @@ plot.sas.re <- newlab.sas %>% ggplot(aes(x = size_at_stage, y = fit.re, col = tr
               method = 'lm', se = F, col = 1, size = 2) +
   scale_color_manual(name = "Temperature \n treatment", values = col_hilo) +
   ylab("")+
-  xlab("Size at stage")+
+  xlab("Mass at stage")+
   theme_minimal()+
   theme(legend.position = "none")
 plot.sas.re
