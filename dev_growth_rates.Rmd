@@ -373,8 +373,6 @@ temps <- temps %>%
   group_by(pond) %>%
   filter(datetime >= datetime_in & datetime < datetime_out)
 
-
-
 ## Fix deploy times for PB and GB
 temps <- temps %>% filter(!(pond == "PB" & datetime < "2019-03-31 16:00:00")) # fix PB deploy time
 temps <- temps %>% filter(!(pond == "GB" & datetime < "2019-03-25 10:30:00")) # fix GB deploy time
@@ -572,6 +570,8 @@ head(ovip_dates)
 min_ovip <- ovip_dates %$% 
   min(ovip_date)
 
+load("data/outputs/wild_nonas.Rda")
+
 max_wild_coll <- wild_nonas %$%
   max(tadpole_coll_date)
 
@@ -620,26 +620,95 @@ loggers_cropped %>% ggplot(aes(x = date, y = mean_daily_temp_c, group = pond))+
 
 # Model dev rates
 ```{r}
-standardize <- function(vector){
-  mu <- mean(vector)
-  sd <- sd(vector)
-  z_vector <- (vector-mu)/sd
-  return(z_vector)
+mean_center <- function(vector){
+  mu <- mean(vector, na.rm = T)
+  centered_vector <- (vector-mu)
+  return(centered_vector)
 }
 
-head(dev4)
-
 formod <- dev4 %>% 
-  select(treatment, photo.date, tadpole, stage) %>%
+  filter(!is.na(photo.date)) %>%
+  select(treatment, photo.date, tadpole, stage, pond) %>%
   mutate(treatment = factor(treatment),
          tadpole = factor(tadpole),
-         photo.date = standardize(photo.date)) 
-head(formod)
+         pond = factor(pond),
+         photo.date = mean_center(photo.date)) %>%
+  filter(treatment %in% c("High", "Low"))
 
 dev_mod <- lmer(stage ~ photo.date * treatment + (1 | tadpole), data = formod)
 summary(dev_mod)
 #stage predicted by photo.date * treatment, with a random effect for tadpole. Give a brief description of this and the linear method in the methods.
+```
 
-dev4 %$% sd(photo.date)
+## ...and growth rates, by SVL (mm)
+```{r}
+formod_growth <- dev4 %>% 
+  filter(!is.na(photo.date)) %>%
+  select(treatment, photo.date, tadpole, svl.mm) %>%
+  mutate(treatment = factor(treatment),
+         tadpole = factor(tadpole),
+         photo.date = mean_center(photo.date)) %>%
+  filter(treatment %in% c("High", "Low"))
+
+growth_mod <- lmer(svl.mm ~ photo.date * treatment + (1 | tadpole), data = formod_growth)
+
+summary(growth_mod)
+```
+
+# Dev rates by pond
+```{r}
+dev_mod_pond <- lmer(stage ~ as.numeric(photo.date) * treatment * pond + (1 | tadpole), data = formod)
+summary(dev_mod_pond)
+
+datesvec <- seq(min(as.numeric(formod$photo.date)), max(as.numeric(formod$photo.date)), by = 3)
+testdata <- expand.grid(photo.date = datesvec,
+           pond = c("BO", "BS", "CPS", "DE", "DT", "E1", "GB", "LO", "MI", "PB"),
+           treatment = c("High", "Low"),
+           tadpole = unique(formod$tadpole)[1])
+
+testdata <- testdata %>%
+  mutate(pred = predict(dev_mod_pond, newdata = testdata, allow.new.levels = T))
+
+testdata %>%
+  ggplot(aes(x = photo.date, y = pred, col = treatment))+
+  geom_smooth(method = "lm", aes(group = interaction(pond, treatment)), lwd = 0.2)
+
+# SPLIT the data into a list of data frames, each containing data from one pond at one treatment
+l <- testdata %>%
+  group_by(pond, treatment) %>%
+  group_split() # split into list
+
+# Function to dev rate (fit linear model and get slope) [this is what would go inside the for loop]
+get_dev_rate <- function(df){
+  mod <- lm(pred ~ photo.date, data = df) # make model
+  coefs <- summary(mod)$coefficients %>% as.data.frame() # extract coefficients
+  output <- data.frame(pond = df$pond[1], treatment = df$treatment[1], dev_rate = coefs$Estimate[2]) # put slope coefficient together with pond and treatment information for output
+  return(output)
+}
+
+# APPLY the function to each of the split up data frames
+dev_rates_list <- lapply(l, get_dev_rate) 
+
+# COMBINE the list into a data frame
+dev_rates <- rbindlist(dev_rates_list) 
+head(dev_rates)
+```
+
+
+```{r}
+load("data/outputs/avg_inc_temps.Rda")
+incubator_dev_rates_bypond <- dev_rates %>%
+  left_join(avg_inc_temps, by = "treatment")
+save(incubator_dev_rates_bypond, file = "data/outputs/incubator_dev_rates_bypond.Rda")
+
+incubator_dev_rates_bypond %>%
+  ggplot(aes(x = avg_temp, y = dev_rate, col = treatment))+
+  geom_smooth(aes(group = pond), method = "lm", col = "black", lty = "dashed", lwd = 0.5)+
+  geom_point(size = 3, alpha = 0.7)+
+  scale_color_manual(name = "Temperature treatment", values = c("orange", "dodgerblue3"))+
+  theme_minimal()+
+  theme(legend.position = "bottom")+
+  ylab("Developmental rate (GS/day)")+
+  xlab("Average incubator temperature")
 ```
 
