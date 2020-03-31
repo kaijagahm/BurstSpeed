@@ -52,9 +52,9 @@ loggers_cropped %>% ggplot(aes(x = date, y = mean_daily_temp_c, group = pond))+
   theme(legend.position = "bottom")
 
 #~~~~~~~~~~~~~ Temp boxplots
-load("data/outputs/fortempboxplots.Rda")
+load("data/outputs/temps_cropped.Rda")
 
-fortempboxplots %>%
+temps_cropped %>%
   filter(!is.na(mean_daily_temp_c)) %>%
   ggplot(aes(x = fct_reorder(pond, -mean_daily_temp_c), 
              y = mean_daily_temp_c))+
@@ -403,10 +403,15 @@ pondplot <- newgs %>%
 grid.draw(shift_legend(pondplot)) # have to run this in the console for some reason
 ```
 
-# Reaction norm
+# Reaction norms
 ```{r}
+# Lab vs. wild
 load("data/outputs/dat3_nonas.Rda")
 load("data/outputs/wild_nonas.Rda")
+load("data/outputs/consensus_mod.Rda")
+load("data/outputs/consensus_mod_wild.Rda")
+
+head(dat3_nonas)
 
 lab_pred <- dat3_nonas %>%
   mutate(predicted_speed = predict(consensus_mod, newdata = dat3_nonas, re.form = NULL))
@@ -428,20 +433,53 @@ wild <- wild_pred %>%
   select(pond, meanspeed, sd, avg_pond_temp) %>%
   distinct()
 
+
 lab %>%
   ggplot(aes(x = avg_temp, y = meanspeed))+
-  geom_point(aes(col = treatment), size = 3, alpha = 0.7)+
+  geom_smooth(data = wild, aes(x = avg_pond_temp, y = meanspeed),
+              method = "lm", se = T, col = "black", lwd = 0.5)+
+  geom_point(data = wild, aes(x = avg_pond_temp, y = meanspeed), size = 2)+
   scale_color_manual(name = "Temperature treatment", values = col_hilo)+
+  geom_point(aes(col = treatment), size = 3, alpha = 0.7)+
   geom_smooth(method = "lm", se = F, aes(group = pond),
               col = "black", lwd = 0.3, lty = "dashed")+
-  geom_point(data = wild, aes(x = avg_pond_temp, y = meanspeed), size = 2)+
-  geom_smooth(data = wild, aes(x = avg_pond_temp, y = meanspeed),
-              method = "lm", se = F, col = "black", lwd = 0.5)+
   theme_minimal()+
   ylab("Burst speed (mm/s)")+
   xlab("Average temperature (ºC)")+
   theme(legend.position = "bottom")+
   guides(col = guide_legend(override.aes = list(alpha = 1)))
+
+load("data/outputs/pond_avg_temps.Rda")
+load("data/outputs/dat3_nonas.Rda")
+
+
+lab %>%
+  left_join(pond_avg_temps, by = "pond") %>%
+  ggplot(aes(x = avg_pond_temp, y = meanspeed, col = treatment))+
+  geom_point()+
+  geom_smooth(method = "lm")+
+  scale_color_manual(name = "Temperature treatment", values = col_hilo)+
+  facet_wrap(~treatment)+
+  theme_minimal()+
+  ylab("Mean predicted burst speed")+
+  xlab("Mean pond temperature")+
+  theme(legend.position = "bottom")
+
+mod <- lm(meanspeed ~ avg_pond_temp + treatment, data = lab %>% left_join(pond_avg_temps, by = "pond"))
+summary(mod)
+
+
+# Development vs. burst speed
+load("data/outputs/incubator_dev_rates_bypond.Rda")
+incubator_dev_rates_bypond %>%
+  ggplot(aes(x = avg_temp, y = dev_rate, col = treatment))+
+  geom_smooth(aes(group = pond), method = "lm", col = "black", lty = "dashed", lwd = 0.5)+
+  geom_point(size = 3, alpha = 0.7)+
+  scale_color_manual(name = "Temperature treatment", values = c("orange", "dodgerblue3"))+
+  theme_minimal()+
+  theme(legend.position = "bottom")+
+  ylab("Developmental rate (GS/day)")+
+  xlab("Average incubator temperature")
 ```
 
 
