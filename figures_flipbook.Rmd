@@ -470,16 +470,34 @@ summary(mod)
 
 
 # Development vs. burst speed
+
+# Developmental rate
 load("data/outputs/incubator_dev_rates_bypond.Rda")
-incubator_dev_rates_bypond %>%
+dev.plot <- incubator_dev_rates_bypond %>%
   ggplot(aes(x = avg_temp, y = dev_rate, col = treatment))+
   geom_smooth(aes(group = pond), method = "lm", col = "black", lty = "dashed", lwd = 0.5)+
   geom_point(size = 3, alpha = 0.7)+
   scale_color_manual(name = "Temperature treatment", values = c("orange", "dodgerblue3"))+
   theme_minimal()+
-  theme(legend.position = "bottom")+
+  theme(legend.position = "none")+
   ylab("Developmental rate (GS/day)")+
-  xlab("Average incubator temperature")
+  xlab("")+
+  guides(col = guide_legend(override.aes = list(alpha = 1)))
+
+# Burst speed
+burstspeed.plot <- lab %>%
+  ggplot(aes(x = avg_temp, y = meanspeed))+
+  geom_point(aes(col = treatment), size = 3, alpha = 0.7)+
+  geom_smooth(method = "lm", se = F, aes(group = pond),
+              col = "black", lwd = 0.3, lty = "dashed")+
+  scale_color_manual(name = "Temperature treatment", values = col_hilo)+
+  theme_minimal()+
+  ylab("Burst speed (mm/s)")+
+  xlab("Average temperature (ºC)")+
+  theme(legend.position = "bottom")+
+  guides(col = guide_legend(override.aes = list(alpha = 1)))
+
+cowplot::plot_grid(dev.plot, burstspeed.plot, nrow = 2, align = "h")
 ```
 
 
