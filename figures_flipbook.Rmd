@@ -196,7 +196,7 @@ plasticity %>%
             xmin = -Inf, xmax = Inf,
             ymin = -Inf, ymax = Inf, 
             alpha = 0.3)+
-  scale_fill_manual(values = rep(c("grey95", "grey78"), 5))+
+  scale_fill_manual(values = rep(c("white", "grey90"), 5))+
   geom_hline(aes(yintercept = 0), color = "black")+
   geom_boxplot()+
   scale_x_reordered()+
@@ -206,7 +206,7 @@ plasticity %>%
     axis.ticks.x = element_blank(),
     legend.position = "none"
   )+
-  ylab("Scope of plastic response (low temp - high temp)")+
+  ylab("Scope of plastic response (low - high)")+
   xlab("Pond")
 
 sample_sizes <- plasticity %>% 
