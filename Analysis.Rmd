@@ -255,13 +255,33 @@ iccc_clutch
 ## Differences in means
 ### Individual means
 ```{r}
-indiv_means <- dat3_nonas %>% group_by(indiv) %>% 
-  summarize(indiv_mean_speed = mean(sline_speed_mm_s),
-            clutch = clutch[1],
-            treatment = treatment[1],
-            pond = pond[1]) 
+load("data/outputs/dat3_nonas_std.Rda")
+load("data/outputs/consensus_mod_std.Rda")
+head(dat3_nonas_std)
 
-head(indiv_means)
+# Create a new dataset with all of the main effect variables set to the mean
+formula(consensus_mod_std)
+new.lab <- dat3_nonas_std %>%
+  mutate(mass_at_stage = 0,
+         gs = 0,
+         PC2 = 0,
+         T_initial = 0)
+
+lab <- dat3_nonas_std
+
+# get model predictions with covariates set to 0
+lab <- lab %>% 
+  mutate(fit.re = predict(consensus_mod_std, newdata = new.lab, re.form = NULL),
+         resid = summary(consensus_mod_std)$resid,
+         fit = fit.re + resid)
+
+# select only relevant columns
+lab <- lab %>% select(fit, tadpole, pond, clutch, treatment)
+
+# get individual means
+indiv_means <- lab %>% 
+  group_by(tadpole) %>%
+  mutate(indiv_mean_speed = mean(fit))
 ```
 
 ### Clutch means
@@ -327,30 +347,14 @@ indiv_means <- indiv_means %>%
 #### Simplify data
 ```{r}
 plasticity <- indiv_means %>% select(-c(clutch_mean_speed)) %>% rename(D = indiv_opp_clutch_diff)
-```
 
-#### Fit model predicting difference by pond
-```{r}
-head(plasticity)
+# add a column for just the clutch
 plasticity <- plasticity %>% mutate(clutch_only = factor(str_extract(clutch, pattern = "(?<= )[[:digit:]](?=$)")))
 save(plasticity, file = "data/outputs/plasticity.Rda")
+```
 
-# Plasticity model: predict D by pond and clutch
-pls_mod <- lmer(D ~ pond + (1|clutch), data = plasticity)
-summary(pls_mod)
-
-plot(pls_mod) # plot residuals: they look good.
-
-# Plot effect sizes
-sjPlot::plot_model(pls_mod, type = "eff", title = "")
-# SE's are computed after taking away the variance by clutch. 
-
-# Plot all D points
-plasticity %>% ggplot(aes(x = pond, y = D))+
-  geom_violin()+
-  geom_jitter(aes(col = clutch_only), width = 0.1)+
-  scale_color_viridis(discrete = T) # no patterns by pond _or_ clutch within pond. Yikes!
-
+#### Plot plasticity
+```{r}
 # Get order of ponds by mean plasticity
 mean_pond_order <- plasticity %>% 
   group_by(pond) %>% 
@@ -380,7 +384,7 @@ plasticity %>%
             xmin = -Inf, xmax = Inf,
             ymin = -Inf, ymax = Inf, 
             alpha = 0.3)+
-  scale_fill_manual(values = rep(c("lightskyblue1", "skyblue2"), 5))+
+  scale_fill_manual(values = rep(c("grey95", "grey78"), 5))+
   geom_boxplot()+
   scale_x_reordered()+
   facet_grid(cols = vars(pond), scales = "free_x")+
