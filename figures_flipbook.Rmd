@@ -28,6 +28,8 @@ linetype_hilowi <- c(linetype_hilo, "dotted")
 load("data/outputs/loggers_cropped.Rda")
 load("data/outputs/incs_long_cropped.Rda")
 
+loggers_cropped %>% filter(pond == "CPS")
+
 # Color
 loggers_cropped %>% ggplot(aes(x = date, y = mean_daily_temp_c, group = pond))+
   geom_line(alpha = 0.2)+
@@ -404,73 +406,119 @@ grid.draw(shift_legend(pondplot)) # have to run this in the console for some rea
 ```
 
 # Reaction norms
+## Lab vs. wild
+### LAB
 ```{r}
-# Lab vs. wild
-load("data/outputs/dat3_nonas.Rda")
-load("data/outputs/wild_nonas.Rda")
-load("data/outputs/consensus_mod.Rda")
-load("data/outputs/consensus_mod_wild.Rda")
+# Load data
+load("data/outputs/dat3_nonas_std.Rda")
+load("data/outputs/consensus_mod_std.Rda") 
 
-head(dat3_nonas)
+## Create a new dataset with all of the main effect variables set to the mean BUT maintain treatment values. In this case, the mean is 0, since we're using the standardized data. 
+new.lab <- dat3_nonas_std %>% mutate(
+  mass_at_stage = 0,
+  gs = 0,
+  PC2 = 0,
+  T_initial = 0,
+  treatment = treatment
+  )
 
-lab_pred <- dat3_nonas %>%
-  mutate(predicted_speed = predict(consensus_mod, newdata = dat3_nonas, re.form = NULL))
+# Fit the predicted speed for each individual, since we held the fixed effects constant, these are essentially just the conditional modes of the random effects. We also want to maintain our individual level variation, so we include the individual residuals from the model.
+dat3_nonas_std <- dat3_nonas_std %>% mutate(
+  fit.re = predict(consensus_mod_std, newdata = new.lab, re.form = NULL),
+  resid = summary(consensus_mod_std)$resid,
+  fit = fit.re + resid)
 
-wild_pred <- wild_nonas %>%
-  mutate(predicted_speed = predict(consensus_mod_wild, newdata = wild_nonas, re.form = NULL))
+# Explore reaction norms by clutch and pond
+dat3_nonas_std %>% group_by(treatment, pond, clutch, tadpole) %>% 
+  summarise(fit = mean(fit)) %>%
+  group_by(treatment, pond, clutch) %>% 
+  summarise(fit = mean(fit)) %>%
+  ggplot(aes(x = treatment, y = fit)) +
+  geom_point() +
+  geom_line(aes(group = interaction(pond, clutch)), size = 1) +
+  facet_wrap(~pond)
 
-lab <- lab_pred %>%
+# Reaction norms by pond
+dat3_nonas_std %>%
+  group_by(treatment, pond, clutch, tadpole) %>%
+  summarize(fit = mean(fit)) %>%
+  group_by(treatment, pond, clutch) %>%
+  summarize(fit = mean(fit)) %>%
   group_by(treatment, pond) %>%
-  mutate(meanspeed = mean(predicted_speed),
-         sd = sd(predicted_speed)) %>%
-  select(pond, meanspeed, sd, avg_temp) %>%
-  distinct()
-
-wild <- wild_pred %>%
-  group_by(pond) %>%
-  mutate(meanspeed = mean(predicted_speed),
-         sd = sd(predicted_speed)) %>%
-  select(pond, meanspeed, sd, avg_pond_temp) %>%
-  distinct()
-
-
-lab %>%
-  ggplot(aes(x = avg_temp, y = meanspeed))+
-  geom_smooth(data = wild, aes(x = avg_pond_temp, y = meanspeed),
-              method = "lm", se = T, col = "black", lwd = 0.5)+
-  geom_point(data = wild, aes(x = avg_pond_temp, y = meanspeed), size = 2)+
+  summarize(fit = mean(fit)) %>%
+  ggplot(aes(x = treatment, y = fit)) +
+  geom_point(aes(col = treatment), size = 3, alpha = 0.7) +
   scale_color_manual(name = "Temperature treatment", values = col_hilo)+
-  geom_point(aes(col = treatment), size = 3, alpha = 0.7)+
-  geom_smooth(method = "lm", se = F, aes(group = pond),
-              col = "black", lwd = 0.3, lty = "dashed")+
-  theme_minimal()+
-  ylab("Burst speed (mm/s)")+
-  xlab("Average temperature (ºC)")+
-  theme(legend.position = "bottom")+
-  guides(col = guide_legend(override.aes = list(alpha = 1)))
+  geom_line(aes(group = pond), size = 0.5, lty = "dashed", col = "black")
+```
 
+### WILD
+```{r}
+# Load data
+load("data/outputs/wild_nonas_std.Rda")
+load("data/outputs/consensus_mod_wild_std.Rda") 
+
+## Create a new dataset with all of the main effect variables set to the mean BUT maintain treatment values. In this case, the mean is 0, since we're using the standardized data. 
+new.wild <- wild_nonas_std %>% mutate(
+  mass_at_stage = 0,
+  gs = 0,
+  PC2 = 0,
+  T_initial = 0)
+
+# Fit the predicted speed for each individual, since we held the fixed effects constant, these are essentially just the conditional modes of the random effects. We also want to maintain our individual level variation, so we include the individual residuals from the model.
+wild_nonas_std <- wild_nonas_std %>% mutate(
+  fit.re = predict(consensus_mod_wild_std, newdata = new.wild, re.form = NULL),
+  resid = summary(consensus_mod_wild_std)$resid,
+  fit = fit.re + resid)
+head(wild_nonas_std)
+
+# Merge in unstandardized pond temperatures
 load("data/outputs/pond_avg_temps.Rda")
-load("data/outputs/dat3_nonas.Rda")
+wild_nonas_std <- wild_nonas_std %>%
+  select(-avg_pond_temp) %>%
+  left_join(pond_avg_temps, by = "pond")
 
+# Wild reaction norm over range of pond temperatures
+wild_nonas_std %>% group_by(pond, tadpole, avg_pond_temp) %>% 
+  summarise(fit = mean(fit)) %>%
+  group_by(pond, avg_pond_temp) %>% 
+  summarise(fit = mean(fit)) %>%
+  ggplot(aes(x = avg_pond_temp, y = fit)) +
+  geom_point(size = 1.5) +
+  geom_smooth(method = "lm", color = "black", se = T)
+```
+
+
+### Combined
+```{r}
+lab <- dat3_nonas_std %>%
+  group_by(treatment, pond, clutch, tadpole, avg_temp) %>% summarize(fit = mean(fit)) %>%
+  group_by(treatment, pond, clutch, avg_temp) %>% summarize(fit = mean(fit)) %>%
+  group_by(treatment, pond, avg_temp) %>% summarize(fit = mean(fit))
+
+wild <- wild_nonas_std %>%
+  group_by(pond, tadpole, avg_pond_temp) %>% summarize(fit = mean(fit)) %>%
+  group_by(pond, avg_pond_temp) %>% summarize(fit = mean(fit))
+
+head(wild)
 
 lab %>%
-  left_join(pond_avg_temps, by = "pond") %>%
-  ggplot(aes(x = avg_pond_temp, y = meanspeed, col = treatment))+
-  geom_point()+
-  geom_smooth(method = "lm")+
-  scale_color_manual(name = "Temperature treatment", values = col_hilo)+
-  facet_wrap(~treatment)+
+  ggplot(aes(x = avg_temp, y = fit))+ # start the ggplot
+  geom_line(aes(group = pond), lwd = 0.5, lty = "dashed", color = "black")+ # lab lines
+  geom_point(aes(col = treatment), size = 3, alpha = 0.7)+ # lab points
+  scale_color_manual(name = "Temperature treatment", values = col_hilo)+ # lab point colors
+  geom_point(data = wild, aes(x = avg_pond_temp, y = fit), color = "black", size = 1.5)+
+  geom_smooth(data = wild, aes(x = avg_pond_temp, y = fit), method = "lm", se = T, color = "black")+
   theme_minimal()+
-  ylab("Mean predicted burst speed")+
-  xlab("Mean pond temperature")+
-  theme(legend.position = "bottom")
+  theme(legend.position = "bottom")+
+  guides(col = guide_legend(override.aes = list(alpha = 1)))+
+  ylab("Predicted burst speed (mm/s)")+
+  xlab("Average temperature (ºC)")
+  
+```
 
-mod <- lm(meanspeed ~ avg_pond_temp + treatment, data = lab %>% left_join(pond_avg_temps, by = "pond"))
-summary(mod)
-
-
-# Development vs. burst speed
-
+## Development vs. burst speed
+```{r}
 # Developmental rate
 load("data/outputs/incubator_dev_rates_bypond.Rda")
 dev.plot <- incubator_dev_rates_bypond %>%
@@ -483,19 +531,19 @@ dev.plot <- incubator_dev_rates_bypond %>%
   ylab("Developmental rate (GS/day)")+
   xlab("")+
   guides(col = guide_legend(override.aes = list(alpha = 1)))
+dev.plot
 
 # Burst speed
 burstspeed.plot <- lab %>%
-  ggplot(aes(x = avg_temp, y = meanspeed))+
-  geom_point(aes(col = treatment), size = 3, alpha = 0.7)+
-  geom_smooth(method = "lm", se = F, aes(group = pond),
-              col = "black", lwd = 0.3, lty = "dashed")+
-  scale_color_manual(name = "Temperature treatment", values = col_hilo)+
+  ggplot(aes(x = avg_temp, y = fit))+ # start the ggplot
+  geom_line(aes(group = pond), lwd = 0.5, lty = "dashed", color = "black")+ # lab lines
+  geom_point(aes(col = treatment), size = 3, alpha = 0.7)+ # lab points
+  scale_color_manual(name = "Temperature treatment", values = col_hilo)+ # lab point colors
   theme_minimal()+
-  ylab("Burst speed (mm/s)")+
-  xlab("Average temperature (ºC)")+
   theme(legend.position = "bottom")+
-  guides(col = guide_legend(override.aes = list(alpha = 1)))
+  guides(col = guide_legend(override.aes = list(alpha = 1)))+
+  ylab("Predicted burst speed (mm/s)")+
+  xlab("Average temperature (ºC)")
 
 cowplot::plot_grid(dev.plot, burstspeed.plot, nrow = 2, align = "h")
 ```
