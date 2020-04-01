@@ -373,10 +373,12 @@ temps <- temps %>%
   group_by(pond) %>%
   filter(datetime >= datetime_in & datetime < datetime_out)
 
-## Fix deploy times for PB and GB
+## Fix deploy times for PB and GB: the recorded deploy time doesn't match what's clear on the graph. Bump it forward slightly to account for temps when the loggers were obviously still in the car.
 temps <- temps %>% filter(!(pond == "PB" & datetime < "2019-03-31 16:00:00")) # fix PB deploy time
 temps <- temps %>% filter(!(pond == "GB" & datetime < "2019-03-25 10:30:00")) # fix GB deploy time
 ```
+
+
 
 ## Add aggregators
 ```{r}
@@ -470,6 +472,11 @@ temps_cropped <- temps %>%
   filter(date >= mean_ovip_date & date <= mean_tad_collection_date) %>%
   ungroup()
 
+temps_cropped %>%
+  ggplot(aes(date, mean_daily_temp_c))+
+  geom_line()+
+  facet_wrap(~pond)
+
 save(temps_cropped, file = "data/outputs/temps_cropped.Rda")
 
 # Make boxplots
@@ -496,6 +503,7 @@ incs <- incs %>%
 
 # Pivot to long
 incs_long <- incs %>% pivot_longer(cols = c(high, low, mean), names_to = "pond", values_to = "temp_c")
+save(incs_long, file = "data/outputs/incs_long.Rda")
 
 # Get average incubator temperatures
 ## Get mean burst assay dates for each incubator. We'll use the mean oviposition date as the starting point.
@@ -540,22 +548,18 @@ incs_long %>% ggplot(aes(x = date, y = temp_c, col = pond))+
 # Incubator and temp logger together
 ## Join
 ```{r}
-loggers_tojoin <- temps %>% 
-  select(pond, date, mean_daily_temp_c, mean_hourly_temp_c) %>%
-  mutate(date = as.POSIXct(date))
+loggers_cropped <- temps_cropped %>%
+  select(pond, date, mean_daily_temp_c)
+head(loggers_cropped)
 
-incs_long <- incs_long %>%
-  mutate(date = as.POSIXct(date))
-
-save(loggers_tojoin, file = "data/outputs/loggers_tojoin.Rda")
-save(incs_long, file = "data/outputs/incs_long.Rda")
+save(loggers_cropped, file = "data/outputs/loggers_cropped.Rda")
 ```
 
 ## Visualize
 ```{r}
-load("data/outputs/loggers_tojoin.Rda")
+load("data/outputs/loggers_cropped.Rda")
 load("data/outputs/incs_long.Rda")
-loggers_tojoin %>% ggplot(aes(x = date, y = mean_daily_temp_c, group = pond))+
+loggers_cropped %>% ggplot(aes(x = date, y = mean_daily_temp_c, group = pond))+
   geom_line(alpha = 0.4)+
   geom_line(data = incs_long %>% filter(pond %in% c("high", "low")), 
             aes(x = date, y = temp_c, col = pond), lwd = 1.5)+
@@ -586,10 +590,6 @@ max_low_burst <- dat3_nonas %>%
   filter(treatment == "Low") %$%
   max(burst_date)
 
-# Crop logger temps to the developmental period
-loggers_cropped <- loggers_tojoin %>%
-  filter(date >= min_ovip & date <= max_wild_coll)
-
 # Crop incubator temps to the developmental period
 incs_long_cropped <- incs_long %>%
   mutate(pond = case_when(pond == "high" ~ "High",
@@ -601,7 +601,6 @@ incs_long_cropped <- incs_long %>%
   filter(date >= min_incubator & date <= late_date)
 
 save(incs_long_cropped, file = "data/outputs/incs_long_cropped.Rda")
-save(loggers_cropped, file = "data/outputs/loggers_cropped.Rda")
 ```
 
 ## Visualize cropped
