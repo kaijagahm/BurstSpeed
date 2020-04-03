@@ -45,11 +45,41 @@ lab <- wild_dates %>%
 ```{r}
 lab <- lab %>%
   mutate(devrate = (gs-1)/as.numeric((burst_date-ovip_date)))
+
+head(lab)
 ```
 
-
+# Do dev rates differ between Tx?
+## Prepare data
 ```{r}
-save(wild, file = "~/Desktop/wild_20200403.Rda")
-save(lab, file = "~/Desktop/lab_20200403.Rda")
+labdev <- lab %>% select(pond, clutch, tadpole, treatment, devrate)
+wilddev <- wild %>% select(pond, tadpole, devrate)
+
+dev <- bind_rows(labdev, wilddev) %>%
+  mutate(treatment = case_when(is.na(treatment) ~ "Wild",
+                               TRUE ~ as.character(treatment))) %>%
+  mutate(treatment = factor(treatment))
+```
+
+## ANOVA
+```{r}
+mod <- lm(devrate ~ treatment, data = dev)
+summary(mod)
+```
+
+# Does performance differ between Tx?
+```{r}
+load("data/outputs/dat3_nonas.Rda")
+head(dat3_nonas)
+
+# Unstandardized
+performance_mod_lab <- lmer(sline_speed_mm_s ~ mass_at_stage*treatment + gs*treatment + PC2 + T_initial + (1|pond/clutch/tadpole), data = dat3_nonas)
+summary(performance_mod_lab)
+
+# Standardized
+load("data/outputs/dat3_nonas_std.Rda")
+head(dat3_nonas_std)
+performance_mod_lab_std <- lmer(sline_speed_mm_s ~ mass_at_stage*treatment + gs*treatment + PC2 + T_initial + (1|pond/clutch/tadpole), data = dat3_nonas_std)
+summary(performance_mod_lab_std)
 ```
 
