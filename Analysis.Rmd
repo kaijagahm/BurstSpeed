@@ -411,20 +411,23 @@ head(clutch_mean_diffs)
 
 #### Fit model predicting difference by pond
 ```{r}
-# Plasticity model: predict D by pond and clutch
-pls_mod_means <- lm(D ~ pond, data = clutch_mean_diffs)
-summary(pls_mod_means)
+load("data/outputs/plasticity.Rda")
+pls <- plasticity %>% select(pond, clutch, tadpole, treatment, indiv_mean_speed, opposite_clutch_mean, D) %>%
+  distinct()
 
-plot(pls_mod_means) # plot residuals: they look good.
+load("data/outputs/longtemps.Rda")
+pls <- pls %>%
+  left_join(longtemps, by = "pond")
 
-# Plot effect sizes
-sjPlot::plot_model(pls_mod_means, type = "eff", title = "Predicted values of D, means")
-sjPlot::plot_model(pls_mod, type = "eff", title = "Predicted values of D, individuals")
+pls.mod <- lmer(D ~ ptemp + (1 | pond/clutch), data = pls)
+summary(pls.mod)
 
-# Plot all D points
-clutch_mean_diffs %>% ggplot(aes(x = pond, y = D))+
-  geom_violin()+
-  geom_jitter(width = 0.1)
+pls %>%
+  group_by(ptemp, clutch) %>%
+  summarize(D = mean(D, na.rm = T)) %>%
+  ggplot(aes(x = ptemp, y = D))+
+  geom_point()+
+  geom_smooth(method = "lm")
 ```
 
 
@@ -731,6 +734,9 @@ lab_rxn <- dat3_nonas_std %>% mutate(
   resid = summary(consensus_mod_std)$resid,
   fit = fit.re + resid)
 
+lab_rxn_clutch <- lab_rxn %>% group_by(treatment, pond, clutch, tadpole, avg_temp) %>% summarize(fit = mean(fit)) %>%
+  group_by(treatment, pond, clutch, avg_temp) %>% summarize(fit = mean(fit))
+
 lab_rxn <- lab_rxn %>% group_by(treatment, pond, clutch, tadpole, avg_temp) %>% summarize(fit = mean(fit)) %>%
   group_by(treatment, pond, clutch, avg_temp) %>% summarize(fit = mean(fit)) %>%
   group_by(treatment, pond, avg_temp) %>% summarize(fit = mean(fit))
@@ -839,8 +845,27 @@ cowplot::plot_grid(dev.plot, burstspeed.plot, ncol = 2, align = "v")
 longtemps <- read.csv("data/inputs/PTemps.predicted.2001_2018.csv", as.is = T) %>%
   select(Pond, PTemp) %>%
   rename(pond = Pond,
-         ptemp = PTemp)
+         ptemp = PTemp) %>%
+  mutate(pond = case_when(pond == "CP" ~ "CPS",
+                          TRUE ~ pond))
+
 
 head(longtemps)
+lab_rxn_clutch <- lab_rxn_clutch %>%
+  rename(inc_temp = avg_temp)
+
+lab_rxn_clutch <- lab_rxn_clutch %>%
+  left_join(longtemps, by = "pond")
+
+head(lab_rxn_clutch)
+
+lab_rxn_clutch %>%
+  ggplot(aes(x = ptemp, y = fit, col = treatment))+
+  geom_point(alpha = 0.6)+
+  scale_color_manual(name = "Temperature treatment", values = c("orange", "dodgerblue3"))+
+  geom_smooth(method = "lm")+
+  ylab("Predicted burst speed (mm/s)")+
+  xlab("Mean pond temperature, 2001-18 (ºC)")+
+  theme(legend.position = "bottom")
 ```
 
