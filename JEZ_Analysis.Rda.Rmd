@@ -1,0 +1,55 @@
+---
+title: "JEZ_Analysis"
+author: "Kaija Gahm"
+date: "4/3/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Libraries
+```{r}
+source("libraries.R")
+```
+
+# Load data
+```{r}
+# Lab and wild
+load("data/outputs/dat3_nonas.Rda")
+load("data/outputs/wild_nonas.Rda")
+
+# Oviposition dates
+load("data/outputs/wild_dates.Rda")
+head(wild_dates)
+```
+
+# Calculate developmental rates (stages/day)
+## Wild
+### Calculate
+```{r}
+wild <- wild_nonas %>%
+  mutate(devrate = (gs-1)/as.numeric((burst_date-ovip_date)))
+```
+
+## Lab
+### Bind oviposition dates
+```{r}
+lab <- wild_dates %>%
+  select(pond, ovip_date) %>%
+  distinct() %>%
+  right_join(dat3_nonas, by = "pond")
+```
+### Calculate
+```{r}
+lab <- lab %>%
+  mutate(devrate = (gs-1)/as.numeric((burst_date-ovip_date)))
+```
+
+
+```{r}
+save(wild, file = "~/Desktop/wild_20200403.Rda")
+save(lab, file = "~/Desktop/lab_20200403.Rda")
+```
+
