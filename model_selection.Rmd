@@ -392,3 +392,46 @@ MuMIn::r.squaredGLMM(consensus_mod_wild)
 save(consensus_mod_wild, file = "data/outputs/consensus_mod_wild.Rda")
 ```
 
+## Model of developmental rates with pond as a factor
+```{r}
+# Calculate developmental rates for wild tadpoles
+load("data/outputs/wild_nonas.Rda")
+
+str(wild_nonas)
+
+wild_dev <- wild_nonas %>%
+  mutate(devrate = (gs-1)/as.numeric((burst_date - ovip_date)))
+
+# Are there differences in developmental rate by pond?
+devmod <- lm(devrate ~ pond, data = wild_dev)
+summary(devmod)
+visreg(devmod)
+
+# Does developmental rate vary with pond temperature?
+devmodtemp <- lmer(devrate ~ avg_pond_temp + (1 | pond), data = wild_dev)
+summary(devmodtemp)
+visreg(devmodtemp)
+plot(devmodtemp)
+
+ssmodtemp <- lmer(mass_at_stage ~ avg_pond_temp + (1 | pond), data = wild_dev)
+summary(ssmodtemp)
+visreg(ssmodtemp)
+```
+
+## Model of burst speed  with pond as a factor
+```{r}
+standardize <- function(vector){
+  mu <- mean(vector)
+  sd <- sd(vector)
+  z_vector <- (vector-mu)/sd
+  return(z_vector)
+}
+
+# standardize variables, including dev rate
+wild_dev_std <- wild_dev %>% mutate_at(.vars = c("PC1", "PC2", "mass", "size", "gs", "T_initial", "avg_pond_temp", "mass_at_stage", "devrate"), standardize)
+
+# Are there differences in burst speed by pond?
+burstmod <- lmer(sline_speed_mm_s ~ mass_at_stage * factor(pond) + gs * factor(pond) + PC2 + T_initial + (1 | tadpole), data = wild_dev_std)
+summary(burstmod)
+visreg(burstmod, xvar = "gs", by = "pond")
+```
