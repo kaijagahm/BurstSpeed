@@ -49,28 +49,18 @@ lab <- lab %>%
 head(lab)
 ```
 
-# Do dev rates differ between Tx?
-## Prepare data
+# LAB
+## Do dev rates differ between Tx?
+### ANOVA
 ```{r}
-labdev <- lab %>% select(pond, clutch, tadpole, treatment, devrate)
-wilddev <- wild %>% select(pond, tadpole, devrate)
-
-dev <- bind_rows(labdev, wilddev) %>%
-  mutate(treatment = case_when(is.na(treatment) ~ "Wild",
-                               TRUE ~ as.character(treatment))) %>%
-  mutate(treatment = factor(treatment))
-```
-
-## ANOVA
-```{r}
-mod <- lm(devrate ~ treatment, data = dev)
+mod <- lm(devrate ~ treatment, data = lab)
 summary(mod)
 ```
 
-# Does performance differ between Tx?
+## Does performance differ between Tx?
+### Mixed model
 ```{r}
 load("data/outputs/dat3_nonas.Rda")
-head(dat3_nonas)
 
 # Unstandardized
 performance_mod_lab <- lmer(sline_speed_mm_s ~ mass_at_stage*treatment + gs*treatment + PC2 + T_initial + (1|pond/clutch/tadpole), data = dat3_nonas)
@@ -78,8 +68,324 @@ summary(performance_mod_lab)
 
 # Standardized
 load("data/outputs/dat3_nonas_std.Rda")
-head(dat3_nonas_std)
+
 performance_mod_lab_std <- lmer(sline_speed_mm_s ~ mass_at_stage*treatment + gs*treatment + PC2 + T_initial + (1|pond/clutch/tadpole), data = dat3_nonas_std)
 summary(performance_mod_lab_std)
 ```
 
+### Partial regression plots
+#### Mean-constant data (GS)
+Hold all variables constant at their mean values for lab tadpoles except for Gosner stage. Mass_at_stage will be held to 0, since those values are residuals.
+
+We'll use unstandardized data for this.
+```{r}
+# Make new datasets
+newlab.gs <- dat3_nonas %>% # make new means/medians dataset (lab)
+  select(tadpole, clutch, mass_at_stage, treatment, pond, T_initial, gs, PC2) %>%
+  mutate(T_initial = mean(T_initial),
+         mass_at_stage = mean(mass_at_stage),
+         PC2 = mean(PC2))
+
+# Add predictions
+newlab.gs <- newlab.gs %>%
+  mutate(fit.nore = predict(performance_mod_lab, newdata = newlab.gs, re.form = ~0),
+         fit.re = predict(performance_mod_lab, newdata = newlab.gs, re.form = NULL))
+
+newlab.gs <- newlab.gs %>%
+  distinct()
+```
+
+##### Plot (GS)
+```{r}
+plot.gs <- newlab.gs %>%
+  ggplot(aes(x = jitter(gs, amount = 0.1), y = fit.re, col = treatment))+
+  geom_point(alpha = 0.75)+
+  geom_smooth(aes(y = fit.nore),
+              method = "lm", se = F)+
+  scale_color_manual(name = "Temperature treatment",
+                     values = c("orange", "dodgerblue3"))+
+  ylab("Predicted speed (mm/s)")+
+  xlab("Gosner stage")+
+  theme_minimal()+
+  theme(legend.position = "bottom")
+plot.gs
+```
+
+#### Mean-constant data (mass at stage)
+```{r}
+# Make new datasets
+newlab.mas <- dat3_nonas %>%
+  select(tadpole, clutch, mass_at_stage, treatment, pond, T_initial, gs, PC2) %>%
+  mutate(T_initial = mean(T_initial),
+         gs = median(gs),
+         PC2 = mean(PC2))
+
+# Add predictions
+newlab.mas <- newlab.mas %>%
+  mutate(fit.nore = predict(performance_mod_lab, newdata = newlab.mas, re.form = ~0),
+         fit.re = predict(performance_mod_lab, newdata = newlab.mas, re.form = NULL))
+
+newlab.mas <- newlab.mas %>%
+  distinct()
+```
+
+##### Plot (mass at stage)
+```{r}
+plot.mas <- newlab.mas %>%
+  ggplot(aes(x = mass_at_stage, y = fit.re, col = treatment))+
+  geom_point(alpha = 0.75) +
+  geom_smooth(aes(y = fit.nore),
+              method = "lm", se = F)+
+  scale_color_manual(name = "Temperature treatment",
+                     values = c("orange", "dodgerblue3"))+
+  ylab("Predicted speed (mm/s)")+
+  xlab("Mass at stage")+
+  theme_minimal()+
+  theme(legend.position = "bottom")
+plot.mas
+```
+
+##### Plot (both)
+```{r}
+cowplot::plot_grid(plot.gs, plot.mas)
+```
+
+#### Without points (RE by pond)
+I think the plots above are a little misleading because they don't show clear how much variaition there is in the wild compared to the lab tadpoles. The lab animals have really tight distributions, but the wild animals are all over the place and vary a ton just due to the pond that they were from.
+
+Below I've dropped the points and instead am plotting the random effects by pond to show the variation. -Andis
+##### GS
+```{r}
+plot.gs.re <- newlab.gs %>%
+  ggplot(aes(x = gs, y = fit.re, col = treatment))+
+  geom_smooth(aes(y = fit.re, group = interaction(pond, treatment)),
+              method = "lm", se = F, size = 0.5)+
+  geom_smooth(aes(y = fit.nore),
+              method = "lm", se = F, size = 2)+
+  scale_color_manual(name = "Temperature treatment",
+                     values = c("orange", "dodgerblue3"))+
+  ylab("Predicted speed (mm/s)")+
+  xlab("Gosner stage")+
+  theme_minimal()+
+  theme(legend.position = "bottom")
+plot.gs.re
+```
+
+##### Mass at stage
+```{r}
+plot.mas.re <- newlab.mas %>%
+  ggplot(aes(x = mass_at_stage, y = fit.re, col = treatment))+
+  geom_smooth(aes(y = fit.re, group = interaction(pond, treatment)),
+              method = "lm", se = F, size = 0.5)+
+  geom_smooth(aes(y = fit.nore),
+              method = "lm", se = F, size = 2)+
+  scale_color_manual(name = "Temperature treatment",
+                     values = c("orange", "dodgerblue3"))+
+  ylab("Predicted speed (mm/s)")+
+  xlab("Mass at stage")+
+  theme_minimal()+
+  theme(legend.position = "bottom")
+plot.mas.re
+```
+
+##### Both
+```{r}
+cowplot::plot_grid(plot.gs.re, plot.mas.re)
+```
+
+## Tradeoff? (Dev/performance)
+### Make data
+```{r}
+## Create a new dataset with all of the main effect variables set to the mean BUT maintain treatment values.
+new.lab <- lab %>% mutate(
+  mass_at_stage = mean(mass_at_stage, na.rm = T),
+  gs = median(gs, na.rm = T),
+  PC2 = mean(PC2, na.rm = T),
+  T_initial = mean(T_initial, na.rm = T),
+  treatment = treatment
+  )
+
+# Fit the predicted speed for each individual, since we held the fixed effects constant, these are essentially just the conditional modes of the random effects. We also want to maintain our individual level variation, so we include the individual residuals from the model.
+lab_tradeoff <- lab %>% mutate(
+  fit.re = predict(performance_mod_lab, newdata = new.lab, re.form = NULL),
+  resid = summary(performance_mod_lab)$resid,
+  fit = fit.re + resid) %>%
+  select(pond, clutch, tadpole, treatment, devrate, fit)
+
+head(lab_tradeoff)
+```
+
+### Plot
+```{r}
+lab_tradeoff_plot <- lab_tradeoff %>%
+  group_by(treatment, pond, clutch, tadpole) %>% 
+  summarize(devrate = mean(devrate), fit = mean(fit)) %>%
+  group_by(treatment, pond, clutch) %>%
+  summarize(devrate = mean(devrate), fit = mean(fit)) %>%
+  group_by(treatment, pond) %>%
+  summarize(devrate = mean(devrate), fit = mean(fit)) %>%
+  ggplot(aes(x = devrate, y = fit, col = treatment))+
+  geom_point(size = 3, alpha = 0.6)+
+  geom_line(aes(group = pond), lty = "dashed", lwd = 0.5, col = "black")+
+  scale_color_manual(name = "Temperature treatment", values = c("orange", "dodgerblue3"))+
+  theme_minimal()+
+  theme(legend.position = "bottom")+
+  ylab("Predicted burst speed (mm/s)")+
+  xlab("Developmental rate (GS/day)")
+lab_tradeoff_plot
+```
+
+# Wild
+## How do wild dev rates compare?
+### Prepare data
+```{r}
+wilddev <- wild %>% 
+  select(devrate) %>%
+  mutate(treatment = "Wild")
+
+labdev <- lab %>%
+  select(devrate, treatment)
+
+dev <- bind_rows(wilddev, labdev)
+```
+
+### ANOVA
+```{r}
+mod <- lm(devrate ~ treatment, data = dev)
+summary(mod)
+```
+
+## Do dev rates differ by pond?
+### Model of devrate with pond as a factor
+```{r}
+# Are there differences in developmental rate by pond?
+devmod <- lm(devrate ~ pond, data = wild)
+summary(devmod)
+visreg(devmod)
+```
+
+## Does performance differ by pond?
+### Model of burst speed  with pond as a factor, including covariates
+```{r}
+# Unstandardized
+performance_mod_wild <- lmer(sline_speed_mm_s ~ mass_at_stage * factor(pond) + gs * factor(pond) + PC2 + T_initial + (1|tadpole), data = wild_nonas)
+summary(performance_mod_wild)
+
+# Standardized
+load("data/outputs/wild_nonas_std.Rda")
+
+performance_mod_wild_std <- lmer(sline_speed_mm_s ~ mass_at_stage * factor(pond) + gs * factor(pond) + PC2 + T_initial + (1|tadpole), data = wild_nonas_std)
+summary(performance_mod_wild_std)
+visreg(performance_mod_wild_std, xvar = "pond")
+visreg(performance_mod_wild_std, xvar = "gs", by = "pond")
+```
+
+## Tradeoff? (Dev/performance, wild)
+### Make data
+```{r}
+## Create a new dataset with all of the main effect variables set to the mean BUT maintain treatment values.
+new.wild <- wild %>% mutate(
+  mass_at_stage = mean(mass_at_stage, na.rm = T),
+  gs = median(gs, na.rm = T),
+  PC2 = mean(PC2, na.rm = T),
+  T_initial = mean(T_initial, na.rm = T),
+  pond = pond,
+  avg_pond_temp = avg_pond_temp
+  )
+
+# Fit the predicted speed for each individual, since we held the fixed effects constant, these are essentially just the conditional modes of the random effects. We also want to maintain our individual level variation, so we include the individual residuals from the model.
+wild_tradeoff <- wild %>% 
+  mutate(fit.re = predict(performance_mod_wild, newdata = new.wild, re.form = NULL),
+         resid = summary(performance_mod_wild)$resid,
+         fit = fit.re + resid) %>%
+  select(pond, tadpole, pond, devrate, fit)
+```
+
+### Model
+```{r}
+tradeoff_mod_wild <- lmer(fit ~ devrate + (1 | pond), data = wild_tradeoff)
+summary(tradeoff_mod_wild)
+visreg(tradeoff_mod_wild, by = "pond")
+```
+
+### Plot
+```{r}
+wild_tradeoff_plot <- wild_tradeoff %>%
+  group_by(pond, tadpole) %>% 
+  summarize(devrate = mean(devrate), fit = mean(fit)) %>%
+  ggplot(aes(x = devrate, y = fit, col = pond))+
+  geom_point(size = 2, alpha = 0.7)+
+  geom_smooth(method = "lm", aes(col = pond, group = pond), se = F)+
+  theme_minimal()+
+  theme(legend.position = "bottom")+
+  ylab("Predicted burst speed (mm/s)")+
+  xlab("Developmental rate (GS/day)")
+wild_tradeoff_plot
+```
+
+## Combined tradeoff plot (lab and wild)
+```{r}
+wild_tradeoff %>%
+  group_by(pond, tadpole) %>%
+  summarize(devrate = mean(devrate), fit = mean(fit)) %>%
+  # group_by(pond) %>%
+  # summarize(devrate = mean(devrate), fit = mean(fit)) %>%
+  ggplot(aes(x = devrate, y = fit))+
+  geom_point(alpha = 0.6)+
+  geom_smooth(method = "lm", col = "black", se = F)+
+  geom_point(data = lab_tradeoff %>%
+               group_by(treatment, pond, clutch, tadpole) %>%
+               summarize(devrate = mean(devrate), fit = mean(fit)) %>%
+               group_by(treatment, pond, clutch) %>%
+               summarize(devrate = mean(devrate), fit = mean(fit)) %>%
+               group_by(treatment, pond) %>%
+               summarize(devrate = mean(devrate), fit = mean(fit)),
+             aes(x = devrate, y = fit, col = treatment),
+             size = 3, alpha = 0.7)+
+  geom_line(data = lab_tradeoff %>%
+               group_by(treatment, pond, clutch, tadpole) %>%
+               summarize(devrate = mean(devrate), fit = mean(fit)) %>%
+               group_by(treatment, pond, clutch) %>%
+               summarize(devrate = mean(devrate), fit = mean(fit)) %>%
+               group_by(treatment, pond) %>%
+               summarize(devrate = mean(devrate), fit = mean(fit)),
+            aes(group = pond), lty = "dashed", lwd = 0.5, col = "black")+
+  scale_color_manual(name = "Temperature treatment", values = c("orange", "dodgerblue3"))+
+  theme_minimal()+
+  theme(legend.position = "bottom")+
+  ylab("Predicted burst speed (mm/s)")+
+  xlab("Developmental rate (GS/day)")
+```
+
+# Lab vs. Wild
+## Allocation
+Allocation rates are different between lab and wild.
+```{r}
+load("data/outputs/dat3_nonas.Rda")
+load("data/outputs/wild_nonas.Rda")
+plot.alloc <- dat3_nonas %>% ggplot(aes(x = jitter(gs, amount = 0.1), y = mass, col = treatment))+ 
+  geom_point(alpha = 0.5)+
+  geom_smooth(method = "lm")+
+  geom_point(data = wild_nonas, color = "black", alpha = 0.5)+ # add points and line for wild tadpoles
+  geom_smooth(data = wild_nonas, method = "lm", col = "black")+
+  scale_color_manual(name = "Temperature treatment", values = c("orange", "dodgerblue3"))+
+  theme_minimal()+
+  theme(legend.position = "bottom")+
+  ylab("Mass (g)")+
+  xlab("Gosner stage")
+plot.alloc
+```
+
+# Pond temp
+Do developmental rates in the wild vary with pond temp? (mixed model: dev rates ~ 2019 pond temp + (1| pond)
+```{r}
+# Does developmental rate vary with pond temperature?
+dev_temp_wild <- lmer(devrate ~ avg_pond_temp + (1 | pond), data = wild)
+summary(dev_temp_wild)
+visreg(dev_temp_wild)
+
+# (Size at stage vs. pond temp?)
+ssmodtemp <- lmer(mass_at_stage ~ avg_pond_temp + (1 | pond), data = wild)
+summary(ssmodtemp)
+visreg(ssmodtemp)
+```
