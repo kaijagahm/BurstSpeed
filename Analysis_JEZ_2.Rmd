@@ -21,8 +21,7 @@ load("data/outputs/dat3_nonas.Rda")
 load("data/outputs/wild_nonas.Rda")
 
 # Oviposition dates
-load("data/outputs/wild_dates.Rda")
-head(wild_dates)
+load("data/outputs/ovip_dates.Rda")
 ```
 
 # Calculate developmental rates (stages/day)
@@ -36,17 +35,13 @@ wild <- wild_nonas %>%
 ## Lab
 ### Bind oviposition dates
 ```{r}
-lab <- wild_dates %>%
-  select(pond, ovip_date) %>%
-  distinct() %>%
+lab <- ovip_dates %>%
   right_join(dat3_nonas, by = "pond")
 ```
 ### Calculate
 ```{r}
 lab <- lab %>%
   mutate(devrate = (gs-1)/as.numeric((burst_date-ovip_date)))
-
-head(lab)
 ```
 
 Hypothesis: Developing faster correlates with reduced performance
@@ -74,7 +69,7 @@ ldev <- coef(mod)[1] + coef(mod)[2]
 wdev <- coef(mod)[1] + coef(mod)[3]
 ```
 YES, they differ by treatment.
-Average dev rate for high was 0.6679750 gs/d, for low was 0.3998591 gs/d, and for wild was 0.5012795 gs/d.
+Average dev rate for high was 0.668914 gs/d, for low was 0.668914-0.267409 = 0.401505 gs/d, and for wild was 0.668914-0.167634 = 0.50128 gs/d.
 
 ## Quantify: dev rate increase per degree celsius
 ### Lab
@@ -90,4 +85,98 @@ mod <- lm(devrate ~ avg_pond_temp, data = wild)
 summary(mod)
 ```
 0.019 gs/d increase in dev rate for a pond temperature increase of 1ºC.
+
+# Does performance vary with developmental rate?
+## LAB
+### Mixed model
+```{r}
+performance_mod_lab <- lmer(sline_speed_mm_s ~ mass_at_stage * devrate + gs + PC2 + T_initial + (1 | pond/clutch/tadpole), data = lab, REML = T)
+
+summary(performance_mod_lab)
+```
+YES, performance is negatively correlated with temperature treatment.
+
+### Partial regression plots
+#### Make data (mean-constant except for treatment and devrate)
+```{r}
+# make new data
+newlab.devrate <- lab %>%
+  select(mass_at_stage, devrate, gs, PC2, T_initial, pond, clutch, tadpole, treatment) %>%
+  mutate(mass_at_stage = mean(mass_at_stage),
+         gs = median(gs),
+         PC2 = mean(PC2),
+         T_initial = mean(T_initial))
+
+# Add predictions
+newlab.devrate <- newlab.devrate %>%
+  mutate(fit.re = predict(performance_mod_lab, newdata = newlab.devrate, re.form  = NULL),
+         resid = summary(performance_mod_lab)$resid,
+         fit = fit.re + resid) %>%
+  select(pond, clutch, tadpole, treatment, devrate, fit)
+```
+
+#### Tradeoff plot
+```{r}
+newlab.devrate %>%
+  group_by(treatment, pond, clutch, tadpole) %>%
+  summarize(devrate = mean(devrate), fit = mean(fit)) %>%
+  group_by(treatment, pond, clutch) %>%
+  summarize(devrate = mean(devrate), fit = mean(fit)) %>%
+  group_by(treatment, pond) %>%
+  summarize(devrate = mean(devrate), fit = mean(fit)) %>%
+  ggplot(aes(x = devrate, y = fit, col = treatment))+
+  geom_point(size = 3, alpha = 0.7)+
+  scale_color_manual(name = "Temperature treatment", 
+                     values = c("orange", "dodgerblue3"))+
+  theme_minimal()+
+  theme(legend.position = "bottom")+
+  geom_line(aes(group = pond), color = "black", lwd = 0.3, alpha = 0.7)+
+  xlab("Developmental rate (GS/d)")+
+  ylab("Predicted burst speed (mm/s)")
+  
+```
+
+#### Facetted by treatment
+```{r}
+newlab.devrate %>%
+  group_by(treatment, pond, clutch, tadpole) %>%
+  summarize(devrate = mean(devrate), fit = mean(fit)) %>%
+  ggplot(aes(x = devrate, y = fit, col = treatment))+
+  geom_point(alpha = 0.7)+
+  scale_color_manual(name = "Temperature treatment", 
+                     values = c("orange", "dodgerblue3"))+
+  theme_minimal()+
+  geom_smooth(method = "lm")+
+  facet_wrap(~treatment, scales = "free_x")+
+  theme(legend.position = "bottom")+
+  xlab("Developmental rate (GS/d)")+
+  ylab("Predicted burst speed (mm/s)")
+```
+
+#### Facetted by treatment
+```{r}
+newlab.devrate %>%
+  group_by(treatment, pond, clutch, tadpole) %>%
+  summarize(devrate = mean(devrate), fit = mean(fit)) %>%
+  ggplot(aes(x = devrate, y = fit))+
+  geom_smooth(method = "lm", se = F, col = "black", lty = "dashed")+
+  geom_point(alpha = 0.7, aes(col = treatment))+
+  scale_color_manual(name = "Temperature treatment", 
+                     values = c("orange", "dodgerblue3"))+
+  theme_minimal()+
+  geom_smooth(method = "lm", aes(col = treatment))+
+  theme(legend.position = "bottom")+
+  xlab("Developmental rate (GS/d)")+
+  ylab("Predicted burst speed (mm/s)")
+
+```
+
+
+
+YES, show partial regressions for each temperature treatment
+Plot: X = devrate, y = speed, averaged by pond*treatment, color by treatment
+Model table in supplement
+Do we see a tradeoff?
+Yes, developmental rates increase with temperature but performance decreases
+
 
