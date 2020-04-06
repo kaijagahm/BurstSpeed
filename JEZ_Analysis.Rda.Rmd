@@ -276,8 +276,21 @@ load("data/outputs/wild_nonas_std.Rda")
 
 performance_mod_wild_std <- lmer(sline_speed_mm_s ~ mass_at_stage * factor(pond) + gs * factor(pond) + PC2 + T_initial + (1|tadpole), data = wild_nonas_std)
 summary(performance_mod_wild_std)
-visreg(performance_mod_wild_std, xvar = "pond")
-visreg(performance_mod_wild_std, xvar = "gs", by = "pond")
+
+# Showing differences by pond
+visreg(performance_mod_wild_std, xvar = "pond", gg = T)+
+  theme_minimal()+
+  ylab("Predicted burst speed (mm/s)")+
+  xlab("Pond")
+
+# Showing different slopes by pond
+visreg(performance_mod_wild_std, xvar = "gs", by = "pond", 
+       gg = T, line = list(col = "black"), jitter = TRUE)+
+  facet_wrap(~pond)+
+  geom_point(alpha = 0.3)+
+  ylab("Predicted burst speed (mm/s)")+
+  xlab("Gosner stage")+
+  theme_minimal()
 ```
 
 ## Tradeoff? (Dev/performance, wild)
@@ -303,9 +316,10 @@ wild_tradeoff <- wild %>%
 
 ### Model
 ```{r}
-tradeoff_mod_wild <- lmer(fit ~ devrate + (1 | pond), data = wild_tradeoff)
-summary(tradeoff_mod_wild)
-visreg(tradeoff_mod_wild, by = "pond")
+# Linear model
+mod <- lm(fit ~ devrate, data = wild_tradeoff)
+visreg(mod)
+summary(mod)
 ```
 
 ### Plot
@@ -325,36 +339,38 @@ wild_tradeoff_plot
 
 ## Combined tradeoff plot (lab and wild)
 ```{r}
-wild_tradeoff %>%
-  group_by(pond, tadpole) %>%
+
+
+lab_tradeoff %>%
+  group_by(treatment, pond, clutch, tadpole) %>%
   summarize(devrate = mean(devrate), fit = mean(fit)) %>%
-  # group_by(pond) %>%
-  # summarize(devrate = mean(devrate), fit = mean(fit)) %>%
-  ggplot(aes(x = devrate, y = fit))+
-  geom_point(alpha = 0.6)+
-  geom_smooth(method = "lm", col = "black", se = F)+
-  geom_point(data = lab_tradeoff %>%
-               group_by(treatment, pond, clutch, tadpole) %>%
-               summarize(devrate = mean(devrate), fit = mean(fit)) %>%
-               group_by(treatment, pond, clutch) %>%
-               summarize(devrate = mean(devrate), fit = mean(fit)) %>%
-               group_by(treatment, pond) %>%
-               summarize(devrate = mean(devrate), fit = mean(fit)),
-             aes(x = devrate, y = fit, col = treatment),
-             size = 3, alpha = 0.7)+
-  geom_line(data = lab_tradeoff %>%
-               group_by(treatment, pond, clutch, tadpole) %>%
-               summarize(devrate = mean(devrate), fit = mean(fit)) %>%
-               group_by(treatment, pond, clutch) %>%
-               summarize(devrate = mean(devrate), fit = mean(fit)) %>%
-               group_by(treatment, pond) %>%
-               summarize(devrate = mean(devrate), fit = mean(fit)),
-            aes(group = pond), lty = "dashed", lwd = 0.5, col = "black")+
+  group_by(treatment, pond, clutch) %>%
+  summarize(devrate = mean(devrate), fit = mean(fit)) %>%
+  group_by(treatment, pond) %>%
+  summarize(devrate = mean(devrate), fit = mean(fit)) %>%
+  ggplot(aes(x = devrate, y = fit, col = treatment))+
+  geom_point(size = 3, alpha = 0.7)+
+  geom_line(aes(group = pond), lty = "dashed", lwd = 0.5, col = "black")+
   scale_color_manual(name = "Temperature treatment", values = c("orange", "dodgerblue3"))+
+  geom_point(data = wild_tradeoff %>% 
+               group_by(pond, tadpole) %>%
+               summarize(devrate = mean(devrate), fit = mean(fit)) %>%
+               group_by(pond) %>%
+               summarize(devrate = mean(devrate), fit = mean(fit)),
+             aes(x = devrate, y = fit),
+             col = "black", size = 2, alpha = 0.9)+
+  geom_smooth(data = wild_tradeoff %>%
+                group_by(pond, tadpole) %>%
+                summarize(devrate = mean(devrate), fit = mean(fit)),
+              method = "lm", se = F, col = "black")+
   theme_minimal()+
   theme(legend.position = "bottom")+
   ylab("Predicted burst speed (mm/s)")+
-  xlab("Developmental rate (GS/day)")
+  xlab("Developmental rate (GS/day)")+
+  guides(col = guide_legend(override.aes = list(alpha = 1)))
+# Do we want to change this so it shows the slope after accounting for the pond random effect for wild?
+
+# Wild: points are pond averages (avg dev rate, avg burst speed). Line is fit to individual points (not shown), not the averages. Line does not currently take into account the pond random effects.
 ```
 
 # Lab vs. Wild
@@ -380,12 +396,11 @@ plot.alloc
 Do developmental rates in the wild vary with pond temp? (mixed model: dev rates ~ 2019 pond temp + (1| pond)
 ```{r}
 # Does developmental rate vary with pond temperature?
-dev_temp_wild <- lmer(devrate ~ avg_pond_temp + (1 | pond), data = wild)
+dev_temp_wild <- lmer(devrate ~ avg_pond_temp + (1 | pond), data = wild %>% group_by(pond, tadpole) %>% summarize(devrate = mean(devrate), avg_pond_temp = mean(avg_pond_temp)))
 summary(dev_temp_wild)
-visreg(dev_temp_wild)
-
-# (Size at stage vs. pond temp?)
-ssmodtemp <- lmer(mass_at_stage ~ avg_pond_temp + (1 | pond), data = wild)
-summary(ssmodtemp)
-visreg(ssmodtemp)
+visreg(dev_temp_wild, gg = T, jitter = T, line = list(col = "black"))+
+  geom_point(size = 1.5, alpha = 0.5)+
+  theme_minimal()+
+  ylab("Predicted development rate (GS/d)")+
+  xlab("2019 mean daily pond temperature (ºC)")
 ```
