@@ -133,7 +133,6 @@ newlab.devrate %>%
   geom_line(aes(group = pond), color = "black", lwd = 0.3, alpha = 0.7)+
   xlab("Developmental rate (GS/d)")+
   ylab("Predicted burst speed (mm/s)")
-  
 ```
 
 #### Facetted by treatment
@@ -153,7 +152,7 @@ newlab.devrate %>%
   ylab("Predicted burst speed (mm/s)")
 ```
 
-#### Facetted by treatment
+#### Both treatments
 ```{r}
 newlab.devrate %>%
   group_by(treatment, pond, clutch, tadpole) %>%
@@ -168,15 +167,237 @@ newlab.devrate %>%
   theme(legend.position = "bottom")+
   xlab("Developmental rate (GS/d)")+
   ylab("Predicted burst speed (mm/s)")
+```
+YES, tradeoff between developmental rate and performance.
 
+## WILD
+### Mixed model
+```{r}
+performance_mod_wild <- lmer(sline_speed_mm_s ~ mass_at_stage * devrate + gs + PC2 + T_initial + (1 | pond/tadpole), data = wild, REML = T)
+
+summary(performance_mod_wild)
 ```
 
+### Partial regression plots
+#### Make data (mean-constant except for treatment and devrate)
+```{r}
+# make new data
+newwild.devrate <- wild %>%
+  select(mass_at_stage, devrate, gs, PC2, T_initial, pond, tadpole) %>%
+  mutate(mass_at_stage = mean(mass_at_stage),
+         gs = median(gs),
+         PC2 = mean(PC2),
+         T_initial = mean(T_initial))
 
+# Add predictions
+newwild.devrate <- newwild.devrate %>%
+  mutate(fit.re = predict(performance_mod_wild, newdata = newwild.devrate, re.form  = NULL),
+         resid = summary(performance_mod_wild)$resid,
+         fit = fit.re + resid) %>%
+  select(pond, tadpole, devrate, fit)
+```
 
-YES, show partial regressions for each temperature treatment
-Plot: X = devrate, y = speed, averaged by pond*treatment, color by treatment
-Model table in supplement
-Do we see a tradeoff?
-Yes, developmental rates increase with temperature but performance decreases
+#### Tradeoff plot
+```{r}
+newwild.devrate %>%
+  group_by(pond, tadpole) %>%
+  summarize(devrate = mean(devrate), fit = mean(fit)) %>%
+  group_by(pond) %>%
+  summarize(devrate = mean(devrate), fit = mean(fit)) %>%
+  ggplot(aes(x = devrate, y = fit))+
+  geom_point(size = 2, alpha = 0.9)+
+  theme_minimal()+
+  geom_smooth(data = newwild.devrate %>%
+                group_by(pond, tadpole) %>%
+                summarize(devrate = mean(devrate), fit = mean(fit)),
+              method = "lm", col = "black")+
+  xlab("Developmental rate (GS/d)")+
+  ylab("Predicted burst speed (mm/s)")
+```
+YES, tradeoff between developmental rate and performance.
 
+#### Facetted by pond
+```{r}
+newwild.devrate %>%
+  group_by(pond, tadpole) %>%
+  summarize(devrate = mean(devrate), fit = mean(fit)) %>%
+  ggplot(aes(x = devrate, y = fit))+
+  geom_point(size = 0.7, alpha = 0.7)+
+  theme_minimal()+
+  geom_smooth(method = "lm", col = "black", lwd = 0.7)+
+  xlab("Developmental rate (GS/d)")+
+  ylab("Predicted burst speed (mm/s)")+
+  facet_wrap(~pond)
+```
+
+# Allocation
+Allocation rates are different between lab and wild.
+```{r}
+load("data/outputs/dat3_nonas.Rda")
+load("data/outputs/wild_nonas.Rda")
+plot.alloc <- dat3_nonas %>% ggplot(aes(x = jitter(gs, amount = 0.1), y = mass, col = treatment))+ 
+  geom_point(alpha = 0.5)+
+  geom_smooth(method = "lm")+
+  geom_point(data = wild_nonas, color = "black", alpha = 0.5)+ # add points and line for wild tadpoles
+  geom_smooth(data = wild_nonas, method = "lm", col = "black")+
+  scale_color_manual(name = "Temperature treatment", values = c("orange", "dodgerblue3"))+
+  theme_minimal()+
+  theme(legend.position = "bottom")+
+  ylab("Mass (g)")+
+  xlab("Gosner stage")
+plot.alloc
+```
+
+# Plasticity
+## Create data
+```{r}
+pls.model <- lmer(sline_speed_mm_s ~ mass_at_stage * treatment + gs + PC2 + T_initial + (1 | pond/clutch/tadpole), data = lab)
+
+newlab.pls <- lab %>%
+  select(mass_at_stage, treatment, gs, PC2, T_initial, 
+         pond, clutch, tadpole) %>%
+  mutate(mass_at_stage = mean(mass_at_stage),
+         gs = median(gs),
+         PC2 = mean(PC2),
+         T_initial = mean(T_initial))
+
+# Add predictions
+newlab.pls <- newlab.pls %>%
+  mutate(fit.re = predict(pls.model, newdata = newlab.pls, re.form  = NULL),
+         resid = summary(pls.model)$resid,
+         fit = fit.re + resid) %>%
+  select(treatment, pond, clutch, tadpole, fit)
+```
+
+## Individual means
+```{r}
+indiv_means <- newlab.pls %>%
+  group_by(treatment, pond, clutch, tadpole) %>%
+  summarize(indiv_mean = mean(fit))
+```
+
+## Clutch means
+```{r}
+clutch_means <- indiv_means %>%
+  group_by(treatment, pond, clutch) %>%
+  summarize(clutch_mean = mean(indiv_mean))
+
+clutch_means %$% table(clutch)
+```
+
+#### Remove clutches not in both treatments
+```{r}
+clutch_means <- clutch_means %>% 
+  group_by(clutch) %>%
+  mutate(freq = n()) %>%
+  ungroup() %>%
+  filter(freq == 2) %>%
+  select(-freq)
+```
+
+### Treatment differences
+```{r}
+treatment_diffs <- clutch_means %>%
+  group_by(clutch) %>%
+  summarize(diff = clutch_mean[treatment == "Low"] - 
+              clutch_mean[treatment == "High"])
+
+treatment_diffs %>% ggplot(aes(x = diff))+
+  geom_histogram()
+```
+What I've calculated here is D, the "scope of plastic response" (Stearns 1992, cited in Valladares _et al._ 2006): mean at low resource availability - mean at high resource availability. (note low vs. high is switched from the paper because in this case high temp ~ slower speed.)
+
+## Individuals vs. means
+### Opposite treatment means
+```{r}
+clutch_means <- clutch_means %>%
+  group_by(clutch) %>%
+  mutate(opposite_clutch_mean = case_when(treatment == "High" ~ 
+                                            clutch_mean[treatment == "Low"],
+                                   treatment == "Low" ~ 
+                                     clutch_mean[treatment == "High"]))
+```
+
+### Join to indivs
+```{r}
+indiv_means <- indiv_means %>%
+  left_join(clutch_means, by = c("treatment", "clutch", "pond"))
+
+head(indiv_means)
+```
+
+### Calculate D
+If we always subtract individual - mean, or always mean - individual, the distribution will be centered around 0 because we'll be subtracting a mixture of high-low and low-high. Need to be consistent with temperatures, which means inconsistent with direction of subtraction.
+
+We're going to default to always subtracting low - high. 
+```{r}
+indiv_means <- indiv_means %>%
+  mutate(indiv_opp_clutch_diff = 
+           case_when(treatment == "High" ~ 
+                       opposite_clutch_mean - indiv_mean,
+                     treatment == "Low" ~ 
+                       indiv_mean - opposite_clutch_mean))
+```
+
+#### Clean data
+```{r}
+plasticity <- indiv_means %>% select(-c(clutch_mean)) %>% rename(D = indiv_opp_clutch_diff)
+
+# add a column for just the clutch
+plasticity <- plasticity %>% mutate(clutch_only = factor(str_extract(clutch, pattern = "(?<= )[[:digit:]](?=$)")))
+save(plasticity, file = "data/outputs/plasticity.Rda")
+```
+
+## Plot
+```{r}
+# Get order of ponds by mean plasticity
+mean_pond_order <- plasticity %>% 
+  group_by(pond) %>% 
+  summarize(mean = mean(D, na.rm = T)) %>%
+  arrange(-mean) %>%
+  pull(pond) %>%
+  as.character()
+
+# Make plot
+## Define helper functions
+reorder_within <- function(x, by, within, fun = mean, sep = "___", ...) {
+  new_x <- paste(x, within, sep = sep)
+  stats::reorder(new_x, by, FUN = fun)
+}
+
+scale_x_reordered <- function(..., sep = "___") {
+  reg <- paste0(sep, ".+$")
+  ggplot2::scale_x_discrete(labels = function(x) gsub(reg, "", x), ...)
+}
+
+## make the plot
+plasticity %>%
+  ungroup() %>%
+  mutate(pond = fct_relevel(pond, mean_pond_order)) %>%
+  filter(!is.na(clutch_only)) %>%
+  ggplot(aes(x = reorder_within(clutch_only, -D, pond, mean), y = D))+
+  geom_rect(aes(fill = pond),
+            xmin = -Inf, xmax = Inf,
+            ymin = -Inf, ymax = Inf, 
+            alpha = 0.3)+
+  scale_fill_manual(values = rep(c("grey95", "grey78"), 5))+
+  geom_boxplot()+
+  scale_x_reordered()+
+  facet_grid(cols = vars(pond), scales = "free_x")+
+  theme(
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank(),
+    legend.position = "none"
+  )+
+  ylab("Scope of plastic response (low temp - high temp)")+
+  xlab("Pond")
+```
+
+## Differences in plasticity by pond?
+```{r}
+# Linear model, assuming roughly equal sample sizes per pond, which we have
+table(plasticity$pond) # roughly equal sample sizes--this should be fine.
+pls.mod <- lm(D ~ pond, data = plasticity)
+summary(pls.mod) # A few are significantly different w/r/t plasticity: BO, GB, and (marginally) PB.
+```
 
