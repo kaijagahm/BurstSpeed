@@ -249,9 +249,11 @@ wild_info <- wild_info %>% mutate(resp_date = dates[wild_info$Resp.DOY])
 ovip_dates <- emb %>% 
   select(pond, coll.date) %>% 
   distinct() %>%
-  mutate(ovip.date = coll.date - 1) %>%
+  mutate(ovip_date = coll.date - 1) %>%
   select(-coll.date)
 ovip_dates
+
+save(ovip_dates, file = "data/outputs/ovip_dates.Rda")
 ```
 
 ## Join wild tadpole information
