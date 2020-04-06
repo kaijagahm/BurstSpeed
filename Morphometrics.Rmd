@@ -192,6 +192,12 @@ plotRefToTarget(M1 = ref, M2 = res$pc.shapes$PC2min, gridPars = parameters_PC2, 
 
 plotRefToTarget(M1 = ref, M2 = res$pc.shapes$PC2max, gridPars = parameters_PC2, method = "TPS") #shape change along PC1 in the positive direction
 
+load("data/outputs/wild_nonas.Rda")
+load("data/outputs/dat3_nonas.Rda")
+
+wild_nonas %>% ggplot(aes(x = PC2))+ geom_density()+
+  geom_density(data = dat3_nonas, aes(x = PC2, col = treatment))
+
 ```
  
 So it seems that PC1 is basically a measurement of relative head/tail lengths, and PC2 is basically a measurement of length/depth ratio. Cool! Much more informative than linear measurements would have been.
