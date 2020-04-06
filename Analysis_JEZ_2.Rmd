@@ -1,0 +1,93 @@
+---
+title: "JEZ_Analysis_2"
+author: "Kaija Gahm"
+date: "4/6/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Libraries
+```{r}
+source("libraries.R")
+```
+
+# Load data
+```{r}
+# Lab and wild
+load("data/outputs/dat3_nonas.Rda")
+load("data/outputs/wild_nonas.Rda")
+
+# Oviposition dates
+load("data/outputs/wild_dates.Rda")
+head(wild_dates)
+```
+
+# Calculate developmental rates (stages/day)
+## Wild
+### Calculate
+```{r}
+wild <- wild_nonas %>%
+  mutate(devrate = (gs-1)/as.numeric((burst_date-ovip_date)))
+```
+
+## Lab
+### Bind oviposition dates
+```{r}
+lab <- wild_dates %>%
+  select(pond, ovip_date) %>%
+  distinct() %>%
+  right_join(dat3_nonas, by = "pond")
+```
+### Calculate
+```{r}
+lab <- lab %>%
+  mutate(devrate = (gs-1)/as.numeric((burst_date-ovip_date)))
+
+head(lab)
+```
+
+Hypothesis: Developing faster correlates with reduced performance
+We did a development manipulation by varying temperature
+# Do dev rates differ by temperature treatment? (and wild)
+### Prepare data
+```{r}
+wilddev <- wild %>% 
+  select(devrate) %>%
+  mutate(treatment = "Wild")
+
+labdev <- lab %>%
+  select(devrate, treatment)
+
+dev <- bind_rows(wilddev, labdev)
+```
+
+### ANOVA
+```{r}
+mod <- lm(devrate ~ treatment, data = dev)
+summary(mod)
+
+hdev <- coef(mod)[1]
+ldev <- coef(mod)[1] + coef(mod)[2]
+wdev <- coef(mod)[1] + coef(mod)[3]
+```
+YES, they differ by treatment.
+Average dev rate for high was 0.6679750 gs/d, for low was 0.3998591 gs/d, and for wild was 0.5012795 gs/d.
+
+## Quantify: dev rate increase per degree celsius
+### Lab
+```{r}
+mod <- lm(devrate ~ avg_temp, data = lab)
+summary(mod)
+```
+We observed an 0.086 gs/d increase in development rate for an incubator temperature increase of 1ºC.
+
+### Wild
+```{r}
+mod <- lm(devrate ~ avg_pond_temp, data = wild)
+summary(mod)
+```
+0.019 gs/d increase in dev rate for a pond temperature increase of 1ºC.
+
