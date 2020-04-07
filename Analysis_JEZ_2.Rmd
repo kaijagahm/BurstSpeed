@@ -401,3 +401,51 @@ pls.mod <- lm(D ~ pond, data = plasticity)
 summary(pls.mod) # A few are significantly different w/r/t plasticity: BO, GB, and (marginally) PB.
 ```
 
+# Descriptive stats
+## Make data
+```{r}
+lab_covars <- lab %>% 
+  select(gs, PC2, T_initial, treatment)
+
+wild_covars <- wild %>%
+  select(gs, PC2, T_initial) %>%
+  mutate(treatment = "Wild")
+
+covars <- bind_rows(lab_covars, wild_covars)
+
+head(covars)
+```
+
+## Boxplots
+```{r}
+# Gosner stage
+covars %>%
+  ggplot(aes(x = treatment, y = gs, fill = treatment))+
+  geom_boxplot()+
+  theme_minimal()+
+  scale_fill_manual(values = c("orange", "dodgerblue3", "gray60"))+
+  theme(legend.position = "none")+
+  ylab("Gosner stage at burst assay")+
+  xlab("Temperature treatment")
+
+# PC2
+covars %>%
+  ggplot(aes(x = treatment, y = PC2, fill = treatment))+
+  geom_boxplot()+
+  theme_minimal()+
+  scale_fill_manual(values = c("orange", "dodgerblue3", "gray60"))+
+  theme(legend.position = "none")+
+  ylab("PC2 at burst assay")+
+  xlab("Temperature treatment")
+
+# T_initial
+covars %>%
+  ggplot(aes(x = treatment, y = T_initial, fill = treatment))+
+  geom_boxplot()+
+  theme_minimal()+
+  scale_fill_manual(values = c("orange", "dodgerblue3", "gray60"))+
+  theme(legend.position = "none")+
+  ylab("Tray temperature during burst assay")+
+  xlab("Temperature treatment")
+```
+
