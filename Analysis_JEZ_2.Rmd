@@ -117,7 +117,8 @@ newlab.devrate <- newlab.devrate %>%
 
 #### Tradeoff plot
 ```{r}
-newlab.devrate %>%
+# Main plot
+p <- newlab.devrate %>%
   group_by(treatment, pond, clutch, tadpole) %>%
   summarize(devrate = mean(devrate), fit = mean(fit)) %>%
   group_by(treatment, pond, clutch) %>%
@@ -125,7 +126,7 @@ newlab.devrate %>%
   group_by(treatment, pond) %>%
   summarize(devrate = mean(devrate), fit = mean(fit)) %>%
   ggplot(aes(x = devrate, y = fit, col = treatment))+
-  geom_point(size = 3, alpha = 0.7)+
+  geom_point(size = 3, alpha = 0.8)+
   scale_color_manual(name = "Temperature treatment", 
                      values = c("orange", "dodgerblue3"))+
   theme_minimal()+
@@ -133,9 +134,41 @@ newlab.devrate %>%
   geom_line(aes(group = pond), color = "black", lwd = 0.3, alpha = 0.7)+
   xlab("Developmental rate (GS/d)")+
   ylab("Predicted burst speed (mm/s)")
+
+# Marginal plots
+xdensity <- axis_canvas(p, axis = "x")+
+  geom_density(data = newlab.devrate %>%
+                 group_by(treatment, pond, clutch, tadpole) %>%
+                 summarize(devrate = mean(devrate), fit = mean(fit)),
+               aes(x = devrate, fill = treatment, col = treatment),
+               alpha = 0.3)+
+  scale_fill_manual(values = c("orange", "dodgerblue3"))+
+  scale_color_manual(values = c("orange", "dodgerblue3"))
+xdensity
+
+combined_x <- insert_xaxis_grob(p, xdensity, position = "top")
+ggdraw(combined_x)
+
+ydensity <- axis_canvas(p, axis = "y", coord_flip = TRUE) +
+  geom_density(data = newlab.devrate %>%
+                 group_by(treatment, pond, clutch, tadpole) %>%
+                 summarize(devrate = mean(devrate), fit = mean(fit)),
+               aes(x = fit, fill = treatment, col = treatment),
+               alpha = 0.3)+
+  scale_fill_manual(values = c("orange", "dodgerblue3"))+
+  scale_color_manual(values = c("orange", "dodgerblue3"))+
+  coord_flip()
+
+combined_y <- insert_yaxis_grob(p, ydensity, position = "right")
+ggdraw(combined_y)
+
+combined_plot <- combined_x %>%
+  insert_yaxis_grob(., ydensity, position = "right")
+ggdraw(combined_plot)
 ```
 
 #### Facetted by treatment
+THIS IS BAD BECAUSE THE SCALES ARE WRONG! Need to be able to have the limits shift but the scale stay the same. hmm...
 ```{r}
 newlab.devrate %>%
   group_by(treatment, pond, clutch, tadpole) %>%
@@ -162,8 +195,10 @@ newlab.devrate %>%
   geom_point(alpha = 0.7, aes(col = treatment))+
   scale_color_manual(name = "Temperature treatment", 
                      values = c("orange", "dodgerblue3"))+
+  scale_fill_manual(name = "Temperature treatment", 
+                     values = c("orange", "dodgerblue3"))+
   theme_minimal()+
-  geom_smooth(method = "lm", aes(col = treatment))+
+  geom_smooth(method = "lm", aes(col = treatment, fill = treatment))+
   theme(legend.position = "bottom")+
   xlab("Developmental rate (GS/d)")+
   ylab("Predicted burst speed (mm/s)")
@@ -199,7 +234,7 @@ newwild.devrate <- newwild.devrate %>%
 
 #### Tradeoff plot
 ```{r}
-newwild.devrate %>%
+w <- newwild.devrate %>%
   group_by(pond, tadpole) %>%
   summarize(devrate = mean(devrate), fit = mean(fit)) %>%
   group_by(pond) %>%
@@ -213,6 +248,36 @@ newwild.devrate %>%
               method = "lm", col = "black")+
   xlab("Developmental rate (GS/d)")+
   ylab("Predicted burst speed (mm/s)")
+w
+
+
+# Marginal plots
+xdensity <- axis_canvas(w, axis = "x")+
+  geom_density(data = newwild.devrate %>%
+                 group_by(pond, tadpole) %>%
+                 summarize(devrate = mean(devrate), fit = mean(fit)),
+               aes(x = devrate),
+               alpha = 0.3, fill = "black")
+xdensity
+
+combined_x <- insert_xaxis_grob(w, xdensity, position = "top")
+ggdraw(combined_x)
+
+ydensity <- axis_canvas(w, axis = "y", coord_flip = TRUE) +
+  geom_density(data = newwild.devrate %>%
+                 group_by(pond, tadpole) %>%
+                 summarize(devrate = mean(devrate), fit = mean(fit)),
+               aes(x = fit),
+               alpha = 0.3, fill = "black")+
+  coord_flip()
+
+
+combined_y <- insert_yaxis_grob(w, ydensity, position = "right")
+ggdraw(combined_y)
+
+combined_plot <- combined_x %>%
+  insert_yaxis_grob(., ydensity, position = "right")
+ggdraw(combined_plot)
 ```
 YES, tradeoff between developmental rate and performance.
 
@@ -235,12 +300,22 @@ Allocation rates are different between lab and wild.
 ```{r}
 load("data/outputs/dat3_nonas.Rda")
 load("data/outputs/wild_nonas.Rda")
-plot.alloc <- dat3_nonas %>% ggplot(aes(x = jitter(gs, amount = 0.1), y = mass, col = treatment))+ 
-  geom_point(alpha = 0.5)+
-  geom_smooth(method = "lm")+
-  geom_point(data = wild_nonas, color = "black", alpha = 0.5)+ # add points and line for wild tadpoles
-  geom_smooth(data = wild_nonas, method = "lm", col = "black")+
-  scale_color_manual(name = "Temperature treatment", values = c("orange", "dodgerblue3"))+
+lab_alloc <- dat3_nonas %>%
+  select(gs, mass, treatment, tadpole) %>%
+  distinct()
+
+wild_alloc <- wild_nonas %>%
+  select(gs, mass, tadpole) %>%
+  mutate(treatment = "Wild") %>%
+  distinct()
+
+alloc <- bind_rows(lab_alloc, wild_alloc)
+
+plot.alloc <- alloc %>% ggplot(aes(x = jitter(gs, amount = 0.15), y = mass, col = treatment))+ 
+  geom_point(alpha = 0.7)+
+  geom_smooth(method = "lm", aes(fill = treatment))+
+  scale_color_manual(name = "Temperature treatment", values = c("orange", "dodgerblue3", "black"))+
+  scale_fill_manual(name = "Temperature treatment", values = c("orange", "dodgerblue3", "black"))+
   theme_minimal()+
   theme(legend.position = "bottom")+
   ylab("Mass (g)")+
@@ -380,7 +455,7 @@ plasticity %>%
             xmin = -Inf, xmax = Inf,
             ymin = -Inf, ymax = Inf, 
             alpha = 0.3)+
-  scale_fill_manual(values = rep(c("grey95", "grey78"), 5))+
+  scale_fill_manual(values = rep(c("grey99", "grey78"), 5))+
   geom_boxplot()+
   scale_x_reordered()+
   facet_grid(cols = vars(pond), scales = "free_x")+
@@ -419,33 +494,51 @@ head(covars)
 ## Boxplots
 ```{r}
 # Gosner stage
-covars %>%
+gs.plot <- covars %>%
   ggplot(aes(x = treatment, y = gs, fill = treatment))+
   geom_boxplot()+
   theme_minimal()+
   scale_fill_manual(values = c("orange", "dodgerblue3", "gray60"))+
-  theme(legend.position = "none")+
-  ylab("Gosner stage at burst assay")+
-  xlab("Temperature treatment")
+  theme(legend.position = "none", axis.title.x = element_blank())+
+  ylab("Gosner stage")
+gs.plot
 
 # PC2
-covars %>%
+pc2.plot <- covars %>%
   ggplot(aes(x = treatment, y = PC2, fill = treatment))+
   geom_boxplot()+
   theme_minimal()+
   scale_fill_manual(values = c("orange", "dodgerblue3", "gray60"))+
-  theme(legend.position = "none")+
-  ylab("PC2 at burst assay")+
-  xlab("Temperature treatment")
+  theme(legend.position = "none", axis.title.x = element_blank())+
+  ylab("PC2")
+pc2.plot
 
 # T_initial
-covars %>%
+t.plot <- covars %>%
   ggplot(aes(x = treatment, y = T_initial, fill = treatment))+
   geom_boxplot()+
   theme_minimal()+
   scale_fill_manual(values = c("orange", "dodgerblue3", "gray60"))+
-  theme(legend.position = "none")+
-  ylab("Tray temperature during burst assay")+
-  xlab("Temperature treatment")
+  theme(legend.position = "none", axis.title.x = element_blank())+
+  ylab("Tray temperature")
+t.plot
+
+plot_grid(gs.plot, pc2.plot, t.plot)
+
+```
+
+# Morpho plot
+```{r}
+load("data/outputs/morpho_scores.Rda")
+head(morpho_scores)
+
+morpho_scores %>%
+  ggplot(aes(x = PC1, y = PC2, col = treatment))+
+  geom_point(alpha = 0.8)+
+  scale_color_manual(name = "Temperature treatment", values = c("orange", "dodgerblue3", "black"))+
+  theme_minimal()+
+  theme(legend.position = "bottom")+
+  ylim(c(-0.15, 0.15))+
+  xlim(c(-0.15, 0.25))
 ```
 
