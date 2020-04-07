@@ -339,7 +339,6 @@ templist <- lapply(templist, setNames, nm = namesvec)
 # parse dates and times
 templist <- map(templist, mutate, datetime = parse_date_time(datetime, orders = c("mdy HM", "mdy HMS")))
 lapply(templist, FUN = locate.nas)
-?parse_date_time
 ```
 
 ## Bind together
@@ -380,8 +379,6 @@ temps <- temps %>%
 temps <- temps %>% filter(!(pond == "PB" & datetime < "2019-03-31 16:00:00")) # fix PB deploy time
 temps <- temps %>% filter(!(pond == "GB" & datetime < "2019-03-25 10:30:00")) # fix GB deploy time
 ```
-
-
 
 ## Add aggregators
 ```{r}
@@ -444,7 +441,27 @@ mean_tad_collection_date <- wild_tads %>%
   summarize(mean = mean(coll.date)) %>%
   pull(mean)
 mean_tad_collection_date
+```
 
+## Add temps for CPS
+```{r}
+# Get imputed CPS temps
+cps_imputed <- read.csv("data/inputs/PTemps.imputed.01to19.csv", as.is = T) %>%
+  rename(pond = Pond) %>%
+  filter(pond == "CP") %>%
+  mutate(pond = "CPS")
+
+cps_2019 <- cps_imputed %>%
+  filter(Year == "2019") %>%
+  mutate(date = as.Date(DOY, origin = "2019-01-01")) %>%
+  filter(date > "2019-04-02" & date < "2019-04-30") %>%
+  select(pond, date, PTemp.all) %>%
+  rename(mean_daily_temp_c = PTemp.all)
+
+temps <- bind_rows(cps_2019, temps)
+```
+
+```{r}
 # Calculate pond average temperatures over the mean interval (oviposition to tadpole collection)
 pond_avg_temps <- temps %>%
   group_by(pond) %>%
@@ -491,7 +508,6 @@ temps_cropped %>%
   xlab("Pond")+
   ylab("Average daily temperature")
 ```
-
 
 # Incubator temperatures
 ## Prepare data
