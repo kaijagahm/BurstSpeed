@@ -121,6 +121,8 @@ str(pca, 1)
 
 # separate out the scores data
 scores <- pca$pc.scores %>% as.data.frame() %>% mutate(tadpole = tadpoles, treatment = treatments, pond = ponds)
+morpho_scores <- scores %>% select(PC1, PC2, tadpole, pond, treatment)
+save(morpho_scores, file = "data/outputs/morpho_scores.Rda")
 
 # separate out the importances data
 pca.importance <- pca$pc.summary$importance %>% t() %>% as.data.frame() %>% 
@@ -176,7 +178,9 @@ res <- plotTangentSpace(tadpole.gpa$coords, groups = treatments, verbose=TRUE)
 
 
 # Plot extremes of PC1
-parameters_PC1 <- gridPar(tar.pt.bg = "red", pt.size = 1, n.col.cell=50)
+parameters_PC1 <- gridPar(tar.pt.bg = "black", 
+                          pt.size = 1, 
+                          n.col.cell=20)
 
 plotRefToTarget(M1 = ref, M2 = res$pc.shapes$PC1min, gridPars = parameters_PC1, method = "TPS") #shape change along PC1 in the negative direction
 
