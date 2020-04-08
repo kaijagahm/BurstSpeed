@@ -93,6 +93,13 @@ summary(mod)
 performance_mod_lab <- lmer(sline_speed_mm_s ~ mass_at_stage * devrate + gs + PC2 + T_initial + (1 | pond/clutch/tadpole), data = lab, REML = T)
 
 summary(performance_mod_lab)
+
+# Get R-squared
+MuMIn::r.squaredGLMM(performance_mod_lab)
+
+# Confidence intervals for the coefficients
+ci_lab <- confint.merMod(performance_mod_lab, method = "boot", nsim = 1000, oldNames = FALSE)
+ci_lab
 ```
 YES, performance is negatively correlated with temperature treatment.
 
@@ -211,6 +218,13 @@ YES, tradeoff between developmental rate and performance.
 performance_mod_wild <- lmer(sline_speed_mm_s ~ mass_at_stage * devrate + gs + PC2 + T_initial + (1 | pond/tadpole), data = wild, REML = T)
 
 summary(performance_mod_wild)
+
+# Get R-squared
+MuMIn::r.squaredGLMM(performance_mod_wild)
+
+# Confidence intervals for the coefficients
+ci_wild <- confint.merMod(performance_mod_wild, method = "boot", nsim = 1000, oldNames = FALSE)
+ci_wild
 ```
 
 ### Partial regression plots
@@ -323,9 +337,10 @@ plot.alloc <- alloc %>% ggplot(aes(x = jitter(gs, amount = 0.15), y = mass, col 
 plot.alloc
 ```
 
-# Plasticity
+# Performance plasticity
 ## Create data
 ```{r}
+# new model including treatment instead of dev rate
 pls.model <- lmer(sline_speed_mm_s ~ mass_at_stage * treatment + gs + PC2 + T_initial + (1 | pond/clutch/tadpole), data = lab)
 
 newlab.pls <- lab %>%
@@ -455,6 +470,7 @@ plasticity %>%
             xmin = -Inf, xmax = Inf,
             ymin = -Inf, ymax = Inf, 
             alpha = 0.3)+
+  geom_hline(aes(yintercept = 0), color = "black")+
   scale_fill_manual(values = rep(c("grey99", "grey78"), 5))+
   geom_boxplot()+
   scale_x_reordered()+
@@ -474,6 +490,28 @@ plasticity %>%
 table(plasticity$pond) # roughly equal sample sizes--this should be fine.
 pls.mod <- lm(D ~ pond, data = plasticity)
 summary(pls.mod) # A few are significantly different w/r/t plasticity: BO, GB, and (marginally) PB.
+```
+
+# Dev rate plasticity
+## Create data
+```{r}
+dat <- lab %>% select(devrate, mass_at_stage, treatment, gs, PC2, T_initial, pond, clutch, tadpole)
+
+# WHEN TO STANDARDIZE VS. NOT?
+# Standardize
+standardize <- function(vector){
+  mu <- mean(vector)
+  sd <- sd(vector)
+  z_vector <- (vector-mu)/sd
+  return(z_vector)
+}
+
+dat <- dat %>% 
+  mutate_at(vars(mass_at_stage, gs, PC2, T_initial), funs(standardize))
+
+# new model including treatment instead of dev rate
+dp.mod <- lmer(devrate ~ mass_at_stage * treatment + gs + PC2 + T_initial + (1 | pond/clutch/tadpole), data = dat)
+summary(dp.mod) # PROBLEMS WITH MODEL CONVERGENCE
 ```
 
 # Descriptive stats
@@ -541,4 +579,41 @@ morpho_scores %>%
   ylim(c(-0.15, 0.15))+
   xlim(c(-0.15, 0.25))
 ```
+
+# Performance vs. pond temperature (wild)
+## Load temperatures
+```{r}
+load("data/outputs/pond_avg_temps.Rda")
+head(newwild.devrate)
+
+wild_temps <- left_join(newwild.devrate, pond_avg_temps, by = "pond")
+```
+
+## Plot
+```{r}
+wild_temps %>%
+  group_by(avg_pond_temp, tadpole) %>%
+  summarize(fit = mean(fit)) %>%
+  ggplot(aes(x = jitter(avg_pond_temp, amount = 0.03), y = fit))+
+  geom_point(alpha = 0.7)+
+  geom_smooth(method = "lm", col = "black")+
+  theme_minimal()+
+  ylab("Predicted burst speed (mm/s)")+
+  xlab("2019 mean daily pond temperature (ºC)")
+```
+
+# Dev rate vs. pond temperature
+## Plot
+```{r}
+wild_temps %>%
+  group_by(avg_pond_temp, tadpole) %>%
+  summarize(devrate = mean(devrate)) %>%
+  ggplot(aes(x = jitter(avg_pond_temp, amount = 0.03), y = devrate))+
+  geom_point(alpha = 0.7)+
+  geom_smooth(method = "lm", col = "black")+
+  theme_minimal()+
+  ylab("Developmental rate (GS/d)")+
+  xlab("2019 mean daily pond temperature (ºC)")
+```
+
 
