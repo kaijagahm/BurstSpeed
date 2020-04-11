@@ -50,13 +50,29 @@ We did a development manipulation by varying temperature
 ### Prepare data
 ```{r}
 wilddev <- wild %>% 
-  select(devrate) %>%
+  select(devrate, tadpole) %>%
   mutate(treatment = "Wild")
 
 labdev <- lab %>%
-  select(devrate, treatment)
+  select(devrate, tadpole, treatment)
 
 dev <- bind_rows(wilddev, labdev)
+```
+
+## Dev boxplot (lab)
+```{r}
+labdev %>%
+  group_by(treatment, tadpole) %>%
+  summarize(devrate = mean(devrate)) %>%
+  ungroup() %>%
+  mutate(treatment = fct_relevel(treatment, c("Low", "High"))) %>%
+  ggplot(aes(x = treatment, desc, y = devrate, fill = treatment))+
+  geom_boxplot()+
+  scale_fill_manual(values = c("dodgerblue3", "orange"))+
+  theme_minimal()+
+  theme(text = element_text(size = 22), legend.position = "none")+
+  ylab("Developmental rate (stages/day)")+
+  xlab("Temperature treatment")
 ```
 
 ### ANOVA
@@ -98,8 +114,8 @@ summary(performance_mod_lab)
 MuMIn::r.squaredGLMM(performance_mod_lab)
 
 # Confidence intervals for the coefficients
-ci_lab <- confint.merMod(performance_mod_lab, method = "boot", nsim = 1000, oldNames = FALSE)
-ci_lab
+#ci_lab <- confint.merMod(performance_mod_lab, method = "boot", nsim = 1000, oldNames = FALSE)
+#ci_lab
 ```
 YES, performance is negatively correlated with temperature treatment.
 
@@ -133,14 +149,15 @@ p <- newlab.devrate %>%
   group_by(treatment, pond) %>%
   summarize(devrate = mean(devrate), fit = mean(fit)) %>%
   ggplot(aes(x = devrate, y = fit, col = treatment))+
-  geom_point(size = 3, alpha = 0.8)+
+  geom_line(aes(group = pond), color = "black", lwd = 0.8, alpha = 0.7)+
+  geom_point(size = 3, alpha = 0.7)+
   scale_color_manual(name = "Temperature treatment", 
                      values = c("orange", "dodgerblue3"))+
   theme_minimal()+
   theme(legend.position = "bottom")+
-  geom_line(aes(group = pond), color = "black", lwd = 0.3, alpha = 0.7)+
   xlab("Developmental rate (GS/d)")+
   ylab("Predicted burst speed (mm/s)")
+p
 
 # Marginal plots
 xdensity <- axis_canvas(p, axis = "x")+
@@ -223,8 +240,8 @@ summary(performance_mod_wild)
 MuMIn::r.squaredGLMM(performance_mod_wild)
 
 # Confidence intervals for the coefficients
-ci_wild <- confint.merMod(performance_mod_wild, method = "boot", nsim = 1000, oldNames = FALSE)
-ci_wild
+#ci_wild <- confint.merMod(performance_mod_wild, method = "boot", nsim = 1000, oldNames = FALSE)
+#ci_wild
 ```
 
 ### Partial regression plots
@@ -264,6 +281,16 @@ w <- newwild.devrate %>%
   ylab("Predicted burst speed (mm/s)")
 w
 
+newwild.devrate %>%
+  group_by(pond, tadpole) %>%
+  summarize(devrate = mean(devrate), fit = mean(fit)) %>%
+  ggplot(aes(x = devrate, y = fit))+
+  geom_point(size = 3, alpha = 0.7)+
+  theme_minimal()+
+  geom_smooth(method = "lm", col = "black")+
+  xlab("Developmental rate (stages/day)")+
+  ylab("Burst speed (mm/sec)")+
+  theme(text = element_text(size = 22))
 
 # Marginal plots
 xdensity <- axis_canvas(w, axis = "x")+
@@ -297,17 +324,61 @@ YES, tradeoff between developmental rate and performance.
 
 #### Facetted by pond
 ```{r}
+# model by pond
+bypond <- lm(fit ~ devrate * pond, data = newwild.devrate %>% 
+               group_by(pond, tadpole) %>% 
+               summarize(devrate = mean(devrate), fit = mean(fit)))
+summary(bypond)
+visreg(bypond)
+
 newwild.devrate %>%
   group_by(pond, tadpole) %>%
   summarize(devrate = mean(devrate), fit = mean(fit)) %>%
   ggplot(aes(x = devrate, y = fit))+
-  geom_point(size = 0.7, alpha = 0.7)+
+  geom_point(size = 1.5, alpha = 0.7)+
   theme_minimal()+
   geom_smooth(method = "lm", col = "black", lwd = 0.7)+
   xlab("Developmental rate (GS/d)")+
   ylab("Predicted burst speed (mm/s)")+
-  facet_wrap(~pond)
+  facet_wrap(~pond)+
+  theme(text = element_text(size = 22))
 ```
+
+# Compare wild and lab: burst speeds
+```{r}
+partialreg_data <- bind_rows(newwild.devrate %>% mutate(treatment = "Wild"), newlab.devrate) %>%
+  group_by(treatment, tadpole) %>%
+  summarize(devrate = mean(devrate),
+            fit = mean(fit))
+
+pc2_data <- dat3_nonas %>%
+  select(tadpole, treatment, PC2) %>%
+  distinct() %>%
+  bind_rows(wild_nonas %>%
+              select(tadpole, PC2) %>%
+              mutate(treatment = "Wild") %>%
+              distinct())
+
+head(pc2_data)
+head(partialreg_data)
+
+partialreg_data %>%
+  ggplot(aes(x = devrate, y = fit, col = treatment))+
+  geom_point(alpha = 0.8)+
+  geom_smooth(method = "lm")+
+  theme_minimal()+
+  scale_color_manual(name = "Temperature treatment", values = c("orange", "dodgerblue3", "black"))+
+  theme(legend.position = "bottom")+
+  ylab("Burst speed (mm/sec)")+
+  xlab("Developmental rate (stages/day)")
+
+partialreg_data %>%
+  ggplot(aes(x = treatment, y = fit))+
+  geom_boxplot()
+```
+
+
+
 
 # Allocation
 Allocation rates are different between lab and wild.
@@ -318,10 +389,16 @@ lab_alloc <- dat3_nonas %>%
   select(gs, mass, treatment, tadpole) %>%
   distinct()
 
+alloc_mod_lab <- lm(mass ~ gs + treatment, data = lab_alloc)
+summary(alloc_mod_lab)
+
 wild_alloc <- wild_nonas %>%
   select(gs, mass, tadpole) %>%
   mutate(treatment = "Wild") %>%
   distinct()
+
+alloc_mod_wild <- lm(mass ~ gs, data = wild_alloc)
+summary(alloc_mod_wild)
 
 alloc <- bind_rows(lab_alloc, wild_alloc)
 
@@ -440,11 +517,12 @@ save(plasticity, file = "data/outputs/plasticity.Rda")
 
 ## Plot
 ```{r}
-# Get order of ponds by mean plasticity
-mean_pond_order <- plasticity %>% 
-  group_by(pond) %>% 
-  summarize(mean = mean(D, na.rm = T)) %>%
-  arrange(-mean) %>%
+# Get order of ponds by pond temperature
+load("data/outputs/pond_avg_temps.Rda")
+
+# Get order of ponds by avg temp
+temp_pond_order <- pond_avg_temps %>%
+  arrange(-avg_pond_temp) %>%
   pull(pond) %>%
   as.character()
 
@@ -463,7 +541,7 @@ scale_x_reordered <- function(..., sep = "___") {
 ## make the plot
 plasticity %>%
   ungroup() %>%
-  mutate(pond = fct_relevel(pond, mean_pond_order)) %>%
+  mutate(pond = fct_relevel(pond, temp_pond_order)) %>%
   filter(!is.na(clutch_only)) %>%
   ggplot(aes(x = reorder_within(clutch_only, -D, pond, mean), y = D))+
   geom_rect(aes(fill = pond),
@@ -480,7 +558,7 @@ plasticity %>%
     axis.ticks.x = element_blank(),
     legend.position = "none"
   )+
-  ylab("Scope of plastic response (low temp - high temp)")+
+  ylab("Plasticity in performance: low - high temp (mm/s)")+
   xlab("Pond")
 ```
 
@@ -493,26 +571,142 @@ summary(pls.mod) # A few are significantly different w/r/t plasticity: BO, GB, a
 ```
 
 # Dev rate plasticity
-## Create data
+## Data
 ```{r}
-dat <- lab %>% select(devrate, mass_at_stage, treatment, gs, PC2, T_initial, pond, clutch, tadpole)
-
-# WHEN TO STANDARDIZE VS. NOT?
-# Standardize
-standardize <- function(vector){
-  mu <- mean(vector)
-  sd <- sd(vector)
-  z_vector <- (vector-mu)/sd
-  return(z_vector)
-}
-
-dat <- dat %>% 
-  mutate_at(vars(mass_at_stage, gs, PC2, T_initial), funs(standardize))
-
-# new model including treatment instead of dev rate
-dp.mod <- lmer(devrate ~ mass_at_stage * treatment + gs + PC2 + T_initial + (1 | pond/clutch/tadpole), data = dat)
-summary(dp.mod) # PROBLEMS WITH MODEL CONVERGENCE
+head(lab)
 ```
+
+## Individual means
+```{r}
+indiv_means_dev <- lab %>%
+  group_by(treatment, pond, clutch, tadpole) %>%
+  summarize(indiv_mean_dev = mean(devrate))
+```
+
+## Clutch means
+```{r}
+clutch_means_dev <- indiv_means_dev %>%
+  group_by(treatment, pond, clutch) %>%
+  summarize(clutch_mean_dev = mean(indiv_mean_dev))
+
+clutch_means_dev %$% table(clutch)
+```
+
+#### Remove clutches not in both treatments
+```{r}
+clutch_means_dev <- clutch_means_dev %>% 
+  group_by(clutch) %>%
+  mutate(freq = n()) %>%
+  ungroup() %>%
+  filter(freq == 2) %>%
+  select(-freq)
+```
+
+### Treatment differences
+```{r}
+treatment_diffs_dev <- clutch_means_dev %>%
+  group_by(clutch) %>%
+  summarize(diff = clutch_mean_dev[treatment == "Low"] - 
+              clutch_mean_dev[treatment == "High"])
+
+treatment_diffs_dev %>% ggplot(aes(x = diff))+
+  geom_histogram()
+```
+This is plasticity in _developmental rates_, GS/day.
+
+## Individuals vs. means
+### Opposite treatment means
+```{r}
+clutch_means_dev <- clutch_means_dev %>%
+  group_by(clutch) %>%
+  mutate(opposite_clutch_mean_dev = case_when(treatment == "High" ~ 
+                                            clutch_mean_dev[treatment == "Low"],
+                                   treatment == "Low" ~ 
+                                     clutch_mean_dev[treatment == "High"]))
+```
+
+### Join to indivs
+```{r}
+indiv_means_dev <- indiv_means_dev %>%
+  left_join(clutch_means_dev, by = c("treatment", "clutch", "pond"))
+
+head(indiv_means_dev)
+```
+
+### Calculate D
+If we always subtract individual - mean, or always mean - individual, the distribution will be centered around 0 because we'll be subtracting a mixture of high-low and low-high. Need to be consistent with temperatures, which means inconsistent with direction of subtraction.
+
+We're going to default to always subtracting low - high. 
+```{r}
+indiv_means_dev <- indiv_means_dev %>%
+  mutate(indiv_opp_clutch_diff_dev = 
+           case_when(treatment == "High" ~ 
+                       opposite_clutch_mean_dev - indiv_mean_dev,
+                     treatment == "Low" ~ 
+                       indiv_mean_dev - opposite_clutch_mean_dev))
+```
+
+#### Clean data
+```{r}
+pls_dev <- indiv_means_dev %>% select(-c(clutch_mean_dev)) %>% rename(D = indiv_opp_clutch_diff_dev)
+
+# add a column for just the clutch
+pls_dev <- pls_dev %>% mutate(clutch_only = factor(str_extract(clutch, pattern = "(?<= )[[:digit:]](?=$)")))
+save(pls_dev, file = "data/outputs/pls_dev.Rda")
+```
+
+## Plot
+```{r}
+## make the plot
+pls_dev %>%
+  ungroup() %>%
+  mutate(pond = fct_relevel(pond, temp_pond_order)) %>%
+  filter(!is.na(clutch_only)) %>%
+  ggplot(aes(x = reorder_within(clutch_only, -D, pond, mean), y = D))+
+  geom_rect(aes(fill = pond),
+            xmin = -Inf, xmax = Inf,
+            ymin = -Inf, ymax = Inf, 
+            alpha = 0.3)+
+  # geom_hline(aes(yintercept = 0), color = "black")+
+  scale_fill_manual(values = rep(c("grey99", "grey78"), 5))+
+  geom_boxplot()+
+  scale_x_reordered()+
+  facet_grid(cols = vars(pond), scales = "free_x")+
+  theme(
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank(),
+    legend.position = "none"
+  )+
+  ylab("Plasticity in development rate: low - high temp (GS/d)")+
+  xlab("Pond")
+```
+
+# Dev rate plasticity vs. performance plasticity
+```{r}
+head(plasticity)
+head(pls_dev)
+
+plss <- plasticity %>% 
+  select(treatment, pond, clutch, D) %>%
+  rename(D_perf = D) %>%
+  left_join(pls_dev %>% 
+              select(treatment, pond, clutch, D)) %>%
+  mutate(D_dev = D) %>%
+  select(-D)
+
+head(plss)
+
+plss %>%
+  # group_by(pond, clutch) %>%
+  # summarize(D_dev = mean(D_dev),
+  #           D_perf = mean(D_perf)) %>%
+  ggplot(aes(x = D_dev, y = D_perf))+
+  geom_point(aes(col = pond))+
+  theme_minimal()+
+  xlab("Developmental plasticity")+
+  ylab("Performance plasticity")
+```
+
 
 # Descriptive stats
 ## Make data
@@ -578,6 +772,16 @@ morpho_scores %>%
   theme(legend.position = "bottom")+
   ylim(c(-0.15, 0.15))+
   xlim(c(-0.15, 0.25))
+
+morpho_scores %>%
+  ggplot(aes(x = PC2, col = treatment, fill = treatment))+
+  geom_density(alpha = 0.6)+
+  scale_fill_manual(name = "Temperature treatment", values = c("orange", "dodgerblue3", "black")) +
+  scale_color_manual(name = "Temperature treatment", values = c("orange", "dodgerblue3", "black"))+
+  theme_minimal()+
+  theme(legend.position = "bottom", text = element_text(size = 22))+
+  ylab("")
+  
 ```
 
 # Performance vs. pond temperature (wild)
@@ -587,6 +791,11 @@ load("data/outputs/pond_avg_temps.Rda")
 head(newwild.devrate)
 
 wild_temps <- left_join(newwild.devrate, pond_avg_temps, by = "pond")
+
+wild_temps
+
+wild_temps %>%
+  ggplot(aes(x = avg_pond_temp))
 ```
 
 ## Plot
