@@ -277,8 +277,8 @@ wild_final_tojoin <- wild %>% select(treatment, pond, indiv, tadpole, photo.date
 dev3 <- bind_rows(dev2, wild_final_tojoin)
 
 wild_initial_tojoin <- wild %>% 
-  select(treatment, pond, indiv, tadpole, ovip.date, stage) %>%
-  rename(photo.date = ovip.date) %>% # call the oviposition date the "photo date" for purposes of joining
+  select(treatment, pond, indiv, tadpole, ovip_date, stage) %>%
+  rename(photo.date = ovip_date) %>% # call the oviposition date the "photo date" for purposes of joining
   mutate(stage = 1) # set stage to 1 on the oviposition date
 
 dev4 <- bind_rows(dev3, wild_initial_tojoin)
@@ -487,21 +487,19 @@ save(pond_avg_temps, file = "data/outputs/pond_avg_temps.Rda")
 # Boxplots of daily temperatures during the dev. period
 ```{r}
 # Crop to the dev period
-temps_cropped <- temps %>%
+temps %>%
   group_by(pond) %>%
   filter(date >= mean_ovip_date & date <= mean_tad_collection_date) %>%
-  ungroup()
-
-temps_cropped %>%
+  ungroup() %>%
   ggplot(aes(date, mean_daily_temp_c))+
   geom_line()+
   facet_wrap(~pond)
 
-save(temps_cropped, file = "data/outputs/temps_cropped.Rda")
-
 # Make boxplots
-temps_cropped %>%
-  filter(!is.na(mean_daily_temp_c)) %>%
+temps %>%
+  group_by(pond) %>%
+  filter(!is.na(mean_daily_temp_c), date >= mean_ovip_date & date <= mean_tad_collection_date) %>%
+  ungroup() %>%
   ggplot(aes(x = fct_reorder(pond, -mean_daily_temp_c), 
              y = mean_daily_temp_c))+
   geom_boxplot()+
@@ -565,26 +563,32 @@ incs_long %>% ggplot(aes(x = date, y = temp_c, col = pond))+
 ```
 
 # Incubator and temp logger together
-## Join
+## Save temp data
 ```{r}
-loggers_cropped <- temps_cropped %>%
-  select(pond, date, mean_daily_temp_c)
-head(loggers_cropped)
-
-save(loggers_cropped, file = "data/outputs/loggers_cropped.Rda")
+save(temps, file = "data/outputs/temps.Rda")
 ```
 
 ## Visualize
 ```{r}
-load("data/outputs/loggers_cropped.Rda")
+load("data/outputs/temps.Rda")
 load("data/outputs/incs_long.Rda")
-loggers_cropped %>% ggplot(aes(x = date, y = mean_daily_temp_c, group = pond))+
+load("data/outputs/wild_nonas.Rda")
+load("data/outputs/dat3_nonas.Rda")
+
+maxburst <- max(c(wild_nonas$burst_date, dat3_nonas$burst_date))
+
+temps %>% 
+  filter(!is.na(mean_daily_temp_c), 
+         date >= mean_ovip_date & date <= maxburst) %>%
+  ggplot(aes(x = date, y = mean_daily_temp_c, group = pond))+
   geom_line(alpha = 0.4)+
   geom_line(data = incs_long %>% filter(pond %in% c("high", "low")), 
             aes(x = date, y = temp_c, col = pond), lwd = 1.5)+
   scale_color_manual(values = c("red", "blue"))+
   xlab("Date")+
   ylab("Temperature (ºC)")
+
+temps %>% filter(pond == "CPS")
 ```
 
 ## Crop to developmental intervals
