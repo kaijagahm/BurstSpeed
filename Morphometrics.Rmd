@@ -190,7 +190,10 @@ plotRefToTarget(M1 = ref, M2 = res$pc.shapes$PC1max, gridPars = parameters_PC1, 
 # Plot extremes of PC2
 parameters_PC2 <- gridPar(tar.pt.bg = "black", 
                           pt.size = 1, 
-                          n.col.cell = 20)
+                          n.col.cell = 20,
+                          tar.out.col = "black"
+                          )
+?gridPar
 
 plotRefToTarget(M1 = ref, M2 = res$pc.shapes$PC2min, gridPars = parameters_PC2, method = "TPS") #shape change along PC1 in the negative direction
 
