@@ -1,0 +1,67 @@
+---
+title: "figures_for_cowplot_20200410"
+author: "Kaija Gahm"
+date: "4/10/2020"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# Load data
+```{r}
+load("data/outputs/temps.Rda")
+load("data/outputs/incs_long.Rda")
+load("data/outputs/dat3_nonas.Rda")
+load("data/outputs/wild_nonas.Rda")
+load("data/outputs/ovip_dates.Rda")
+```
+
+# Temperature plot
+```{r}
+meanovip <- mean(ovip_dates$ovip_date)
+maxburst <- max(c(wild_nonas$burst_date, dat3_nonas$burst_date))
+
+# Color
+temps %>% 
+  filter(!is.na(mean_daily_temp_c)) %>%
+  filter(date >= meanovip & date <= maxburst) %>%
+  ggplot(aes(x = date, y = mean_daily_temp_c, group = pond))+
+  geom_line(alpha = 0.7)+
+  geom_line(data = incs_long_cropped, 
+            aes(x = date, y = temp_c, col = pond), lwd = 3)+
+  theme_minimal()+
+  xlab("Date (2019)")+
+  ylab("Temperature (ºC)")+
+  scale_color_manual(name = "Temperature treatment", values = c("orange", "dodgerblue3"), labels = c("High", "Low"))+
+  theme(legend.position = "bottom")
+```
+
+# Dev rates
+```{r}
+load("data/outputs/dev4.Rda")
+# Color with points for all
+finalpoints <- dev4 %>% # only the final photos for the high and low tadpoles.
+  filter(!is.na(pond), !is.na(stage), treatment != "Wild") %>% 
+  group_by(tadpole) %>%
+  slice(n())
+
+dev4 %>% filter(!is.na(pond), !is.na(stage)) %>%
+  filter(treatment != "Wild") %>%
+  ggplot(aes(x = photo.date, y = stage, col = treatment, group = tadpole))+
+  geom_smooth(se = F, method = "lm", lwd = 0.05)+
+  geom_point(data = dev4 %>% filter(!is.na(pond), !is.na(stage), treatment == "Wild", photo.date > "2019-05-01"), 
+             aes(x = photo.date, y = stage),
+             alpha = 0.3)+
+  geom_point(data = finalpoints %>% filter(photo.date > "2019-05-01"),
+             aes(x = photo.date, y = stage, col = treatment, group = tadpole),
+             alpha = 0.3)+
+  theme_minimal()+
+  scale_color_manual(values = col_hilowi, name = "Temperature treatment")+
+  guides(color = guide_legend(override.aes = list(size = 5)))+
+  xlab("Date")+
+  ylab("Gosner stage")+
+  theme(legend.position = "bottom")
+```
+
