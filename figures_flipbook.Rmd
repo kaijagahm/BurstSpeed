@@ -25,21 +25,29 @@ linetype_hilowi <- c(linetype_hilo, "dotted")
 
 # Incubators and pond temp loggers
 ```{r}
-load("data/outputs/loggers_cropped.Rda")
-load("data/outputs/incs_long_cropped.Rda")
+load("data/outputs/temps.Rda")
+load("data/outputs/incs_long.Rda")
+load("data/outputs/dat3_nonas.Rda")
+load("data/outputs/wild_nonas.Rda")
+load("data/outputs/ovip_dates.Rda")
 
-loggers_cropped %>% filter(pond == "CPS")
+meanovip <- mean(ovip_dates$ovip_date)
+maxburst <- max(c(wild_nonas$burst_date, dat3_nonas$burst_date))
+maxburst
 
 # Color
-loggers_cropped %>% ggplot(aes(x = date, y = mean_daily_temp_c, group = pond))+
-  geom_line(alpha = 0.2)+
+temps %>% 
+  filter(!is.na(mean_daily_temp_c)) %>%
+  filter(date >= meanovip & date <= maxburst) %>%
+  ggplot(aes(x = date, y = mean_daily_temp_c, group = pond))+
+  geom_line(alpha = 0.7)+
   geom_line(data = incs_long_cropped, 
-            aes(x = date, y = temp_c, col = pond), lwd = 1.5)+
+            aes(x = date, y = temp_c, col = pond), lwd = 3)+
   theme_minimal()+
   xlab("Date (2019)")+
   ylab("Temperature (ºC)")+
   scale_color_manual(name = "Temperature treatment incubator", values = col_hilo, labels = c("High", "Low"))+
-  theme(legend.position = "bottom")
+  theme(legend.position = "bottom", text = element_text(size = 22))
 
 # Black and white
 loggers_cropped %>% ggplot(aes(x = date, y = mean_daily_temp_c, group = pond))+
