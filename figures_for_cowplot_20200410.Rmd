@@ -9,28 +9,33 @@ output: html_document
 knitr::opts_chunk$set(echo = TRUE)
 ```
 
+# Libraries
+```{r}
+source("libraries.R")
+```
+
 # Load data
 ```{r}
 load("data/outputs/temps.Rda")
 load("data/outputs/incs_long.Rda")
-load("data/outputs/dat3_nonas.Rda")
-load("data/outputs/wild_nonas.Rda")
+load("data/outputs/lab.Rda")
+load("data/outputs/wild.Rda")
 load("data/outputs/ovip_dates.Rda")
 ```
 
-# Temperature plot
+# Panel A: Temperature plot
 ```{r}
 meanovip <- mean(ovip_dates$ovip_date)
-maxburst <- max(c(wild_nonas$burst_date, dat3_nonas$burst_date))
+maxburst <- max(c(wild$burst_date, lab$burst_date))
 
 # Color
 temps %>% 
   filter(!is.na(mean_daily_temp_c)) %>%
   filter(date >= meanovip & date <= maxburst) %>%
   ggplot(aes(x = date, y = mean_daily_temp_c, group = pond))+
-  geom_line(alpha = 0.7)+
-  geom_line(data = incs_long_cropped, 
-            aes(x = date, y = temp_c, col = pond), lwd = 3)+
+  geom_line(alpha = 0.5)+
+  geom_line(data = incs_long %>% filter(pond %in% c("high", "low")), 
+            aes(x = date, y = temp_c, col = pond), lwd = 1.5)+
   theme_minimal()+
   xlab("Date (2019)")+
   ylab("Temperature (ºC)")+
@@ -38,9 +43,44 @@ temps %>%
   theme(legend.position = "bottom")
 ```
 
-# Dev rates
+# Panel B: temp boxplots
+```{r}
+# Wild
+load("data/outputs/temps_cropped.Rda")
+
+temps_cropped %>%
+  filter(!is.na(mean_daily_temp_c)) %>%
+  ggplot(aes(x = fct_reorder(pond, -mean_daily_temp_c), 
+             y = mean_daily_temp_c))+
+  geom_boxplot()+
+  xlab("Pond")+
+  ylab("Average daily temperature")
+
+# Incubators
+# Get final burst dates for each treatment
+final_high <- lab %>% filter(treatment == "High") %$% max(burst_date)
+final_low <- lab %>% filter(treatment == "Low") %$% max(burst_date)
+
+
+incs_long %>% 
+  filter(pond %in% c("high", "low")) %>%
+  mutate(temp_c = case_when(pond == "high" & date > final_high ~ -10, #set temperatures after the final burst date to a negative number
+                            pond == "low" & date > final_low ~ -10,
+                            TRUE ~ temp_c)) %>%
+  filter(temp_c != -10) %>% # remove temperatures after the final burst date for each treatment
+  ggplot(aes(x = pond, y = temp_c, col = pond))+
+  geom_boxplot(size = 1.5)+
+  theme_minimal()+
+  scale_color_manual(name = "Temperature treatment", values = c("orange", "dodgerblue3"))
+```
+
+
+# Panel C: Dev rates plot
 ```{r}
 load("data/outputs/dev4.Rda")
+
+dev4 <- dev4 %>% filter(tadpole %in% c(lab$tadpole, wild$tadpole)) # including only the ones we did burst trials on
+
 # Color with points for all
 finalpoints <- dev4 %>% # only the final photos for the high and low tadpoles.
   filter(!is.na(pond), !is.na(stage), treatment != "Wild") %>% 
@@ -58,10 +98,28 @@ dev4 %>% filter(!is.na(pond), !is.na(stage)) %>%
              aes(x = photo.date, y = stage, col = treatment, group = tadpole),
              alpha = 0.3)+
   theme_minimal()+
-  scale_color_manual(values = col_hilowi, name = "Temperature treatment")+
+  scale_color_manual(values = c("orange", "dodgerblue3", "black"), name = "Temperature treatment")+
   guides(color = guide_legend(override.aes = list(size = 5)))+
   xlab("Date")+
   ylab("Gosner stage")+
   theme(legend.position = "bottom")
+```
+
+# Panel D: Dev rates boxplot
+```{r}
+lab_dev <- lab %>%
+  select(tadpole, treatment, devrate) %>% distinct()
+
+wild_dev <- wild %>%
+  select(tadpole, devrate) %>% distinct() %>%
+  mutate(treatment = "Wild")
+
+dev <- bind_rows(lab_dev, wild_dev)
+
+dev %>% 
+  ggplot(aes(x = treatment, y = devrate, col = treatment))+
+  geom_boxplot(size = 1.5)+
+  theme_minimal()+
+  scale_color_manual(name = "Temperature treatment", values = c("orange", "dodgerblue3", "black"))
 ```
 
