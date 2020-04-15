@@ -90,14 +90,14 @@ Average dev rate for high was 0.668914 gs/d, for low was 0.668914-0.267409 = 0.4
 ## Quantify: dev rate increase per degree celsius
 ### Lab
 ```{r}
-mod <- lm(devrate ~ avg_temp, data = lab)
+mod <- lm(devrate ~ avg_temp, data = lab %>% select(tadpole, devrate, avg_temp) %>% distinct())
 summary(mod)
 ```
 We observed an 0.086 gs/d increase in development rate for an incubator temperature increase of 1ºC.
 
 ### Wild
 ```{r}
-mod <- lm(devrate ~ avg_pond_temp, data = wild)
+mod <- lm(devrate ~ avg_pond_temp, data = wild %>% select(tadpole, devrate, avg_pond_temp) %>% distinct())
 summary(mod)
 ```
 0.019 gs/d increase in dev rate for a pond temperature increase of 1ºC.
@@ -110,12 +110,17 @@ performance_mod_lab <- lmer(sline_speed_mm_s ~ mass_at_stage * devrate + gs + PC
 
 summary(performance_mod_lab)
 
+performance_mod_lab_ci <- model_parameters(performance_mod_lab, ci = 0.95, bootstrap = TRUE, iterations = 1000, details = TRUE)
+performance_mod_lab_ci$CI_low
+performance_mod_lab_ci$CI_high
+
 # Get R-squared
 MuMIn::r.squaredGLMM(performance_mod_lab)
 
 # Confidence intervals for the coefficients
 #ci_lab <- confint.merMod(performance_mod_lab, method = "boot", nsim = 1000, oldNames = FALSE)
 #ci_lab
+?confint.merMod
 ```
 YES, performance is negatively correlated with temperature treatment.
 
@@ -149,14 +154,15 @@ p <- newlab.devrate %>%
   group_by(treatment, pond) %>%
   summarize(devrate = mean(devrate), fit = mean(fit)) %>%
   ggplot(aes(x = devrate, y = fit, col = treatment))+
-  geom_line(aes(group = pond), color = "black", lwd = 0.8, alpha = 0.7)+
-  geom_point(size = 3, alpha = 0.7)+
+  # geom_line(aes(group = pond), color = "black", lwd = 0.5, alpha = 0.7)+
+  # geom_point(size = 3, alpha = 0.7)+
   scale_color_manual(name = "Temperature treatment", 
                      values = c("orange", "dodgerblue3"))+
   theme_minimal()+
-  theme(legend.position = "bottom")+
+  theme(legend.position = "none")+
   xlab("Developmental rate (GS/d)")+
-  ylab("Predicted burst speed (mm/s)")
+  ylab("Predicted burst speed (mm/s)")+
+  ylim(c(45, 75))
 p
 
 # Marginal plots
@@ -191,24 +197,22 @@ combined_plot <- combined_x %>%
 ggdraw(combined_plot)
 ```
 
-#### Facetted by treatment
-THIS IS BAD BECAUSE THE SCALES ARE WRONG! Need to be able to have the limits shift but the scale stay the same. hmm...
+#### By pond
 ```{r}
 newlab.devrate %>%
-  group_by(treatment, pond, clutch, tadpole) %>%
+  group_by(pond, tadpole, treatment) %>%
   summarize(devrate = mean(devrate), fit = mean(fit)) %>%
   ggplot(aes(x = devrate, y = fit, col = treatment))+
-  geom_point(alpha = 0.7)+
-  scale_color_manual(name = "Temperature treatment", 
-                     values = c("orange", "dodgerblue3"))+
+  geom_point(size = 1.5, alpha = 0.9)+
+  scale_color_manual(name = "Temperature treatment", values = c("orange", "dodgerblue3"))+
   theme_minimal()+
-  geom_smooth(method = "lm")+
-  facet_wrap(~treatment, scales = "free_x")+
-  theme(legend.position = "bottom")+
-  xlab("Developmental rate (GS/d)")+
-  ylab("Predicted burst speed (mm/s)")
+  geom_smooth(method = "lm", col = "black", lwd = 0.7)+
+  xlab("Developmental rate (stages/day)")+
+  ylab("Burst speed (mm/s)")+
+  facet_wrap(~pond)+
+  theme(text = element_text(size = 22), legend.position = "bottom")+
+  guides(color = guide_legend(override.aes = list(size = 5, alpha = 1)))
 ```
-
 #### Both treatments
 ```{r}
 newlab.devrate %>%
@@ -238,6 +242,11 @@ summary(performance_mod_wild)
 
 # Get R-squared
 MuMIn::r.squaredGLMM(performance_mod_wild)
+
+performance_mod_wild_ci <- model_parameters(performance_mod_wild, ci = 0.95, bootstrap = TRUE, iterations = 1000, details = TRUE)
+performance_mod_wild_ci$CI_low
+performance_mod_wild_ci$CI_high
+performance_mod_wild_ci
 
 # Confidence intervals for the coefficients
 #ci_wild <- confint.merMod(performance_mod_wild, method = "boot", nsim = 1000, oldNames = FALSE)
@@ -271,14 +280,15 @@ w <- newwild.devrate %>%
   group_by(pond) %>%
   summarize(devrate = mean(devrate), fit = mean(fit)) %>%
   ggplot(aes(x = devrate, y = fit))+
-  geom_point(size = 2, alpha = 0.9)+
-  theme_minimal()+
   geom_smooth(data = newwild.devrate %>%
                 group_by(pond, tadpole) %>%
                 summarize(devrate = mean(devrate), fit = mean(fit)),
               method = "lm", col = "black")+
+  geom_point(size = 2, alpha = 0.9)+
+  theme_minimal()+
   xlab("Developmental rate (GS/d)")+
-  ylab("Predicted burst speed (mm/s)")
+  ylab("Predicted burst speed (mm/s)")+
+  ylim(c(45, 75))
 w
 
 newwild.devrate %>%
@@ -316,7 +326,7 @@ ydensity <- axis_canvas(w, axis = "y", coord_flip = TRUE) +
 combined_y <- insert_yaxis_grob(w, ydensity, position = "right")
 ggdraw(combined_y)
 
-combined_plot <- combined_x %>%
+combined_plot_wild <- combined_x %>%
   insert_yaxis_grob(., ydensity, position = "right")
 ggdraw(combined_plot)
 ```
@@ -324,13 +334,6 @@ YES, tradeoff between developmental rate and performance.
 
 #### Facetted by pond
 ```{r}
-# model by pond
-bypond <- lm(fit ~ devrate * pond, data = newwild.devrate %>% 
-               group_by(pond, tadpole) %>% 
-               summarize(devrate = mean(devrate), fit = mean(fit)))
-summary(bypond)
-visreg(bypond)
-
 newwild.devrate %>%
   group_by(pond, tadpole) %>%
   summarize(devrate = mean(devrate), fit = mean(fit)) %>%
@@ -338,11 +341,19 @@ newwild.devrate %>%
   geom_point(size = 1.5, alpha = 0.7)+
   theme_minimal()+
   geom_smooth(method = "lm", col = "black", lwd = 0.7)+
-  xlab("Developmental rate (GS/d)")+
-  ylab("Predicted burst speed (mm/s)")+
+  xlab("Developmental rate (stages/day)")+
+  ylab("Burst speed (mm/s)")+
   facet_wrap(~pond)+
   theme(text = element_text(size = 22))
 ```
+
+# Combined tradeoff figure
+```{r}
+both <- plot_grid(ggdraw(combined_plot), ggdraw(combined_plot_wild), align = "v")
+ggsave(plot = both, filename = "~/Desktop/both.pdf", width = 8, height = 3.5)
+```
+
+
 
 # Compare wild and lab: burst speeds
 ```{r}
@@ -773,15 +784,18 @@ morpho_scores %>%
   ylim(c(-0.15, 0.15))+
   xlim(c(-0.15, 0.25))
 
-morpho_scores %>%
+mp <- morpho_scores %>%
   ggplot(aes(x = PC2, col = treatment, fill = treatment))+
-  geom_density(alpha = 0.6)+
+  geom_density(alpha = 0.5)+
   scale_fill_manual(name = "Temperature treatment", values = c("orange", "dodgerblue3", "black")) +
   scale_color_manual(name = "Temperature treatment", values = c("orange", "dodgerblue3", "black"))+
   theme_minimal()+
-  theme(legend.position = "bottom", text = element_text(size = 22))+
-  ylab("")
+  ylab("Frequency")+
+  theme(legend.position = "bottom")
+mp
   
+
+ggsave(file = "~/Desktop/morpho_plot.pdf", width = 9, height = 4, plot = mp)
 ```
 
 # Performance vs. pond temperature (wild)
@@ -794,8 +808,9 @@ wild_temps <- left_join(newwild.devrate, pond_avg_temps, by = "pond")
 
 wild_temps
 
-wild_temps %>%
-  ggplot(aes(x = avg_pond_temp))
+
+mod <- lm(fit ~ avg_pond_temp, data = wild_temps %>% group_by(pond, tadpole) %>% summarize(devrate = mean(devrate), fit = mean(fit), avg_pond_temp = mean(avg_pond_temp)))
+summary(mod)
 ```
 
 ## Plot
