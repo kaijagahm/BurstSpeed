@@ -86,5 +86,5 @@ The following is a tree diagram of this project's folders, with brief explanatio
 ```
 
 # Contributors
-Kaija Gahm (kaija.gahm@yale.edu)
+Kaija Gahm (kaija.gahm@aya.yale.edu)
 
